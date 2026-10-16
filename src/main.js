@@ -101,7 +101,7 @@ async function init(){if(db){let recovery=false;db.auth.onAuthStateChange((event
   sessionStorage.removeItem('pa-demo');await render();if(state.user&&!state.demo)repairLibrary().catch(fail);}
 async function repairLibrary(){
   if(state.batchBusy||state.isAdmin)return;
-  const broken=activePapers().filter(p=>p.status==='error'&&/unsupported Unicode escape sequence/.test(p.analysis_error||''));
+  const broken=activePapers().filter(p=>p.status==='error'&&/^(unsupported Unicode escape sequence|请先登录|登录已失效，请退出后重新登录)$/.test(p.analysis_error||''));
   if(broken.length)await batchAnalyze(broken,false,true);
   const legacy=activePapers().filter(p=>p.status==='ready'&&!p.keyword_pairs?.length);
   if(legacy.length)await batchAnalyze(legacy,true,true);
