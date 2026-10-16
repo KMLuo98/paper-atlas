@@ -40,7 +40,7 @@ export function createLibraryActions({state, modal, icon, busy, toast, refresh, 
     } finally {state.batchBusy = false; document.querySelector('#batch-status')?.remove();}
   }
   function showFailures(title, savedCount, failures) {
-    modal(title, `<p>${savedCount} 篇处理成功，${failures.length} 项未完成；已上传的原文件仍在云端。</p><div class="import-errors">${failures.map(f => `<div class="notice warn"><strong>${e(f.name)}</strong><br>${e(f.message)}</div>`).join('')}</div><p>可在文献详情重试，或使用“分析待处理”。</p>`);
+    modal(title, `<p>${savedCount} 篇处理成功，${failures.length} 项未完成；已上传的原文件仍在云端。</p><div class="import-errors">${failures.map(f => `<div class="notice warn"><strong>${e(f.name)}</strong><br>${e(f.message)}</div>`).join('')}</div><p>可在文献详情点击“重试解析”，或选中文献后点击“分析所选”。</p>`);
   }
   function uploadDialog() {
     if (state.demo) {toast('请登录后上传到私人云端文献库'); return;}
@@ -82,7 +82,7 @@ export function createLibraryActions({state, modal, icon, busy, toast, refresh, 
         await refresh(); d.close(); await render();
         const failures = [...skipped.map(message => ({name: '跳过项目', message})), ...result.failures];
         if (failures.length) showFailures('导入队列已完成', result.saved.length, failures);
-        else toast(`${result.saved.length} 篇已保存${autoAnalyze ? '，分析已完成' : '，可点击“分析待处理”继续'}`);
+        else toast(`${result.saved.length} 篇已保存${autoAnalyze ? '，分析已完成' : '，可选中文献后点击“分析所选”继续'}`);
       } finally {await Promise.allSettled(packs.map(pack => pack.close())); state.batchBusy = false; document.querySelector('#batch-status')?.remove();}
     });
   }

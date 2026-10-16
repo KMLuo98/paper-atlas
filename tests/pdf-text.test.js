@@ -49,3 +49,18 @@ test('Chinese glyph spacing is normalized without joining English words', async 
   const text = await extractDocumentText(task);
   assert(text.includes('复杂网络同步')); assert(text.includes('Spectral analysis'));
 });
+
+test('PDF glyph NULs and broken surrogate sequences cannot reach the database', async () => {
+  const task = fixture([('复杂\u0000网络同步 ∂ρ/∂t 𠀀 \ud800 Steady States\udc00\n').repeat(12)]);
+  const text = await extractDocumentText(task);
+  assert(!text.includes('\u0000'));
+  assert.equal(text.isWellFormed(), true);
+  assert(text.includes('复杂网络同步 ∂ρ/∂t 𠀀'));
+  assert(text.includes('Steady States'));
+  assert.equal(task.destroyed, true);
+});
+
+test('NUL-only PDF glyphs do not count as extracted content', async () => {
+  const task = fixture(['\u0000'.repeat(500)]);
+  await assert.rejects(extractDocumentText(task), /OCR/);
+});
