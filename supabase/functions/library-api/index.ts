@@ -1,7 +1,7 @@
 import {adminAction} from '../_shared/admin.js';
 import {analysisPrompt as system, keywordPrompt, validateAnalysis} from '../_shared/analysis.js';
 import {normalizeKeywordPairs, validKeywordHierarchy, keywordFields} from '../_shared/paper-details.js';
-import {databaseJSON} from '../_shared/text.js';
+import {requestModelJSON} from '../_shared/model-json.js';
 import {removeUserFiles} from '../_shared/account.js';
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
 import { authorNetwork, citationNetwork, exportCitations, filename, normalize, searchPapers } from '../_shared/core.js';
@@ -26,10 +26,13 @@ async function limit(bucket:string,max:number,seconds=60){const {data,error}=awa
 async function model(system:string,input:unknown,json=false){
   const key=env('LLM_API_KEY')||env('DEEPSEEK_API_KEY'),name=env('LLM_MODEL')||'deepseek-flash';if(!key)throw new HTTPError(503,'尚未配置服务端 LLM_API_KEY（或 DEEPSEEK_API_KEY）');
   const base=env('LLM_BASE_URL')||'https://api.deepseek.com';if(!base.startsWith('https://'))throw new HTTPError(503,'模型服务必须使用 HTTPS');
-  const response=await fetch(base.replace(/\/$/,'')+'/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model:name,...(new URL(base).hostname==='api.deepseek.com'?{thinking:{type:'disabled'}}:{}),messages:[{role:'system',content:system},{role:'user',content:JSON.stringify(input)}],...(json?{response_format:{type:'json_object'}}:{}),max_tokens:6000}),signal:AbortSignal.timeout(100000)});
-  if(!response.ok){await response.body?.cancel();throw new HTTPError(502,`模型服务请求失败（${response.status}），请检查密钥、余额与模型名称`);}
-  const result=await response.json();const content=result.choices?.[0]?.message?.content;if(!content)throw new HTTPError(502,'模型没有返回可用结果');
-  if(!json)return content;try{return databaseJSON(JSON.parse(content.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'')));}catch{throw new HTTPError(502,'模型返回的 JSON 无效，请重试');}
+  const request=async(prompt:string)=>{
+    const response=await fetch(base.replace(/\/$/,'')+'/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model:name,...(new URL(base).hostname==='api.deepseek.com'?{thinking:{type:'disabled'}}:{}),messages:[{role:'system',content:prompt},{role:'user',content:JSON.stringify(input)}],...(json?{response_format:{type:'json_object'}}:{}),max_tokens:8192}),signal:AbortSignal.timeout(100000)});
+    if(!response.ok){await response.body?.cancel();throw new HTTPError(502,`模型服务请求失败（${response.status}），请检查密钥、余额与模型名称`);}
+    return response.json();
+  };
+  if(json){try{return await requestModelJSON(request,system);}catch(error){if(error instanceof Error&&error.name==='AbortError')throw error;throw new HTTPError(502,error instanceof Error?error.message:'模型返回的 JSON 无效，请重试');}}
+  const result=await request(system),content=result.choices?.[0]?.message?.content;if(!content)throw new HTTPError(502,'模型没有返回可用结果');return content;
 }
 Deno.serve(async(req:Request)=>{
   const origin=req.headers.get('Origin')||'';
