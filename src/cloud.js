@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
+import { projectConfig } from './project-config.js';
 const saved = (()=>{try{return JSON.parse(localStorage.getItem('pa-cloud')||'{}');}catch{return {};}})();
-export const cloudConfig={url:import.meta.env.VITE_SUPABASE_URL||saved.url||'',key:import.meta.env.VITE_SUPABASE_ANON_KEY||saved.key||''};
+export const cloudConfig={url:import.meta.env.VITE_SUPABASE_URL||saved.url||projectConfig.url,key:import.meta.env.VITE_SUPABASE_ANON_KEY||saved.key||projectConfig.key};
 export const configured=Boolean(cloudConfig.url&&cloudConfig.key);
 const sessionStore={
   getItem:key=>(localStorage.getItem('pa-remember')==='false'?sessionStorage:localStorage).getItem(key),

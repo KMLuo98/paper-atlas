@@ -2,6 +2,10 @@
 
 为 KMLuo98 创建的个人学术文献管理系统。GitHub Pages 提供网页，Supabase Auth、Postgres、私人 Storage 与 Edge Function 提供后端。AI 服务支持 DeepSeek 等 OpenAI 兼容服务。
 
+在线网页：**https://kmluo98.github.io/paper-atlas/**。
+
+已连接专用项目 `fubuikclgsgcxviymshr`，数据库、RLS、私人 PDF 桶和 `library-api` 已部署。浏览器公钥位于 `src/project-config.js`，可以公开；私密 DeepSeek 密钥仅保存在 Supabase Secrets。网页能否真实发出验证邮件，仍取决于 Auth URL 和 SMTP 配置。
+
 **项目源码不等于已启用云服务。** 没有连接后端时，网站提供登录界面及明确标注的虚构演示库。演示记录不会写进真实账户；正式论文仅写入云端，不使用浏览器本地存储充当数据库。
 
 ## 功能
@@ -53,7 +57,7 @@ supabase db push
 supabase functions deploy library-api
 ```
 
-`verify_jwt = false` 是为了兼容外部 API 令牌与匿名用户名登录。**函数内部仍验证 JWT、已验证邮箱、令牌散列和用户所有权**；只有登录 action 可匿名调用。不要删除函数内部鉴权。
+`verify_jwt = false` 是为了兼容外部 API 令牌与匿名用户名登录。**函数内部仍验证 JWT、已验证邮箱、令牌散列和用户所有权**；只有登录与不包含用户数据的健康状态 action 可匿名调用。不要删除函数内部鉴权。
 
 ## 3. DeepSeek 密钥（仅后端）
 
@@ -62,10 +66,12 @@ Supabase Dashboard → **Edge Functions → Secrets** 添加：
 | 名称 | 值 |
 | --- | --- |
 | `LLM_BASE_URL` | `https://api.deepseek.com` |
-| `LLM_MODEL` | 选择当前 DeepSeek 控制台可用的非推理聊天模型名称 |
+| `LLM_MODEL` | 默认 `deepseek-flash`，可选填写其他支持 JSON 输出的模型 |
 | `LLM_API_KEY` | 你自己的 DeepSeek API Key |
 | `ALLOWED_ORIGINS` | `https://kmluo98.github.io` |
 | `OPENALEX_API_KEY` | 可选，用于作者公开资料检索 |
+
+默认模型服务地址已设为 DeepSeek，因此只设置 `LLM_API_KEY` 即可开始调用；也兼容 Secret 名称 `DEEPSEEK_API_KEY`。DeepSeek 请求使用非推理模式以控制解析耗时。当前模型名称已根据 2026-10-16 的官方文档核对。
 
 DeepSeek 的模型名称会变化，应使用账户当前支持的名称。参考 [DeepSeek 官方首次调用文档](https://api-docs.deepseek.com/zh-cn/) 和 [JSON 输出文档](https://api-docs.deepseek.com/guides/json_mode)。模型须支持 JSON object 输出；系统提示和服务端校验会检查结构及关键词数量。
 
@@ -119,6 +125,8 @@ pnpm build
 ```
 
 复制 `.env.example` 为 `.env.local` 并填写前端公钥；也可使用网站配置界面。依赖锁定在 `pnpm-lock.yaml`。`scripts/smoke-cloud.mjs` 可验证独立测试账号的跨用户隔离与持久化，测试凭据仅通过环境变量提供。
+
+`Verify cloud connection` 工作流使用公共项目配置验证后端可达、邮箱确认要求、未登录访问拦截与 CORS；不包含私密凭据，不调用付费模型。数据库真实 RLS 隔离已通过事务内两用户测试，测试数据全部回滚。
 
 ## 数据与已知边界
 

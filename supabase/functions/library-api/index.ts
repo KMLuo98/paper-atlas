@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.117.3';
-import { authorNetwork, citationNetwork, exportCitations, filename, normalize, searchPapers } from '../../../src/core.js';
+import { authorNetwork, citationNetwork, exportCitations, filename, normalize, searchPapers } from '../_shared/core.js';
 
 const env=(name:string)=>Deno.env.get(name)||'';
 const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false,autoRefreshToken:false}});
@@ -9,9 +9,9 @@ const str=(v:unknown,max=1000)=>typeof v==='string'?v.slice(0,max).trim():'';
 const sha=async(s:string)=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
 async function limit(bucket:string,max:number,seconds=60){const {data,error}=await service.rpc('consume_rate_limit',{bucket_key:bucket,maximum:max,window_seconds:seconds});if(error)throw new HTTPError(503,'限流服务暂不可用');if(!data)throw new HTTPError(429,'请求过于频繁，请稍后重试');}
 async function model(system:string,input:unknown,json=false){
-  const key=env('LLM_API_KEY'),name=env('LLM_MODEL');if(!key||!name)throw new HTTPError(503,'尚未配置服务端 LLM_API_KEY 和 LLM_MODEL');
-  const base=env('LLM_BASE_URL')||'https://api.openai.com/v1';if(!base.startsWith('https://'))throw new HTTPError(503,'模型服务必须使用 HTTPS');
-  const response=await fetch(base.replace(/\/$/,'')+'/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model:name,messages:[{role:'system',content:system},{role:'user',content:JSON.stringify(input)}],...(json?{response_format:{type:'json_object'}}:{}),max_tokens:6000}),signal:AbortSignal.timeout(100000)});
+  const key=env('LLM_API_KEY')||env('DEEPSEEK_API_KEY'),name=env('LLM_MODEL')||'deepseek-flash';if(!key)throw new HTTPError(503,'尚未配置服务端 LLM_API_KEY（或 DEEPSEEK_API_KEY）');
+  const base=env('LLM_BASE_URL')||'https://api.deepseek.com';if(!base.startsWith('https://'))throw new HTTPError(503,'模型服务必须使用 HTTPS');
+  const response=await fetch(base.replace(/\/$/,'')+'/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model:name,...(new URL(base).hostname==='api.deepseek.com'?{thinking:{type:'disabled'}}:{}),messages:[{role:'system',content:system},{role:'user',content:JSON.stringify(input)}],...(json?{response_format:{type:'json_object'}}:{}),max_tokens:6000}),signal:AbortSignal.timeout(100000)});
   if(!response.ok){await response.body?.cancel();throw new HTTPError(502,`模型服务请求失败（${response.status}），请检查密钥、余额与模型名称`);}
   const result=await response.json();const content=result.choices?.[0]?.message?.content;if(!content)throw new HTTPError(502,'模型没有返回可用结果');
   if(!json)return content;try{return JSON.parse(content.replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,''));}catch{throw new HTTPError(502,'模型返回的 JSON 无效，请重试');}
@@ -41,6 +41,7 @@ Deno.serve(async(req:Request)=>{
     const bodyText=await req.text();if(bodyText.length>100000)throw new HTTPError(413,'请求正文过大');
     let body;try{body=JSON.parse(bodyText);}catch{throw new HTTPError(400,'请求必须为 JSON');}if(!body||typeof body!=='object'||Array.isArray(body))throw new HTTPError(400,'无效请求');
     const action=str(body.action,40),token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');
+    if(action==='health')return json({ok:true,version:'1.0.0',ai_configured:Boolean(env('LLM_API_KEY')||env('DEEPSEEK_API_KEY')),model:env('LLM_MODEL')||'deepseek-flash'});
     if(action==='login'){
       const ip=(req.headers.get('x-forwarded-for')||'unknown').split(',')[0].trim();await limit('login-ip:'+await sha(ip),10);const username=str(body.username,24);await limit('login-name:'+await sha(username.toLowerCase()),8,300);
       if(!/^[A-Za-z0-9_]{3,24}$/.test(username)||typeof body.password!=='string'||body.password.length>1024)throw new HTTPError(400,'用户名或密码不正确');
