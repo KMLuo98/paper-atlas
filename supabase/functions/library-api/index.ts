@@ -7,6 +7,16 @@ const metadataColumns='id,title,journal,journal_abbr,published_at,doi,volume,iss
 class HTTPError extends Error { constructor(public status:number,message:string){super(message);} }
 const str=(v:unknown,max=1000)=>typeof v==='string'?v.slice(0,max).trim():'';
 const sha=async(s:string)=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+let probeCache:{at:number;result:{reachable:boolean;model_available:boolean;status:number}}|null=null;
+async function probeModel(){
+  if(probeCache&&Date.now()-probeCache.at<300000)return probeCache.result;
+  const base=env('LLM_BASE_URL')||'https://api.deepseek.com';
+  if(!base.startsWith('https://'))throw new HTTPError(503,'模型服务必须使用 HTTPS');
+  const response=await fetch(base.replace(/\/$/,'')+'/models',{headers:{Authorization:`Bearer ${env('LLM_API_KEY')||env('DEEPSEEK_API_KEY')}`},signal:AbortSignal.timeout(15000)});
+  const status=response.status;let available=false;
+  if(response.ok){const data=await response.json();available=Array.isArray(data.data)&&data.data.some((m:any)=>m.id===(env('LLM_MODEL')||'deepseek-flash'));}else await response.body?.cancel();
+  const result={reachable:response.ok,model_available:available,status};probeCache={at:Date.now(),result};return result;
+}
 async function limit(bucket:string,max:number,seconds=60){const {data,error}=await service.rpc('consume_rate_limit',{bucket_key:bucket,maximum:max,window_seconds:seconds});if(error)throw new HTTPError(503,'限流服务暂不可用');if(!data)throw new HTTPError(429,'请求过于频繁，请稍后重试');}
 async function model(system:string,input:unknown,json=false){
   const key=env('LLM_API_KEY')||env('DEEPSEEK_API_KEY'),name=env('LLM_MODEL')||'deepseek-flash';if(!key)throw new HTTPError(503,'尚未配置服务端 LLM_API_KEY（或 DEEPSEEK_API_KEY）');
@@ -41,7 +51,11 @@ Deno.serve(async(req:Request)=>{
     const bodyText=await req.text();if(bodyText.length>100000)throw new HTTPError(413,'请求正文过大');
     let body;try{body=JSON.parse(bodyText);}catch{throw new HTTPError(400,'请求必须为 JSON');}if(!body||typeof body!=='object'||Array.isArray(body))throw new HTTPError(400,'无效请求');
     const action=str(body.action,40),token=(req.headers.get('Authorization')||'').replace(/^Bearer\s+/i,'');
-    if(action==='health')return json({ok:true,version:'1.0.0',ai_configured:Boolean(env('LLM_API_KEY')||env('DEEPSEEK_API_KEY')),model:env('LLM_MODEL')||'deepseek-flash'});
+    if(action==='health'){
+      const status={ok:true,version:'1.0.0',ai_configured:Boolean(env('LLM_API_KEY')||env('DEEPSEEK_API_KEY')),model:env('LLM_MODEL')||'deepseek-flash'};
+      if(body.probe_model===true){const ip=(req.headers.get('x-forwarded-for')||'unknown').split(',')[0];await limit('model-probe:'+await sha(ip),6,300);return json({...status,model_probe:status.ai_configured?await probeModel():null});}
+      return json(status);
+    }
     if(action==='login'){
       const ip=(req.headers.get('x-forwarded-for')||'unknown').split(',')[0].trim();await limit('login-ip:'+await sha(ip),10);const username=str(body.username,24);await limit('login-name:'+await sha(username.toLowerCase()),8,300);
       if(!/^[A-Za-z0-9_]{3,24}$/.test(username)||typeof body.password!=='string'||body.password.length>1024)throw new HTTPError(400,'用户名或密码不正确');
