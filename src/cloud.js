@@ -16,6 +16,6 @@ export async function api(action,payload={}) {
   if(data?.error)throw new Error(data.error);
   return data;
 }
-export async function loadPapers(){const papers=[];for(let offset=0;;offset+=250){const {data,error}=await db.from('papers').select('id,title,journal,journal_abbr,published_at,doi,volume,issue,pages,authors,keywords,tags,search_terms,references,summary,file_path,file_size,original_filename,favorite,status,analysis_error,analysis_coverage,analyzed_at,deleted_at,created_at,updated_at').order('created_at',{ascending:false}).order('id').range(offset,offset+249);if(error)throw error;papers.push(...data);if(data.length<250)return papers;}}
+export async function loadPapers(){const papers=[];for(let offset=0;;offset+=250){const {data,error}=await db.from('papers').select('id,title,journal,journal_abbr,published_at,doi,volume,issue,pages,authors,keywords,keyword_pairs,publication_status,tags,search_terms,references,summary,file_path,file_size,original_filename,favorite,status,analysis_error,analysis_coverage,analyzed_at,deleted_at,created_at,updated_at').order('created_at',{ascending:false}).order('id').range(offset,offset+249);if(error)throw error;papers.push(...data);if(data.length<250)return papers;}}
 export async function updatePaper(id,patch){const {data,error}=await db.from('papers').update(patch).eq('id',id).select().single();if(error)throw error;return data;}
 export async function signedPDF(path){const {data,error}=await db.storage.from('papers').createSignedUrl(path,3600);if(error)throw error;return data.signedUrl;}

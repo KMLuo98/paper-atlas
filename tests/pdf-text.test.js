@@ -37,3 +37,15 @@ test('failed PDF loading releases the task and preserves the loading error', asy
   await assert.rejects(extractDocumentText(task), /Invalid PDF structure/);
   assert.equal(task.destroyed, true);
 });
+
+test('many blank pages cannot bypass the minimum text check through page markers', async () => {
+  const task = fixture(Array(30).fill(''));
+  await assert.rejects(extractDocumentText(task), /OCR/);
+  assert.equal(task.destroyed, true);
+});
+
+test('Chinese glyph spacing is normalized without joining English words', async () => {
+  const task = fixture(['复 杂 网 络 同 步 '.repeat(20) + 'Spectral analysis']);
+  const text = await extractDocumentText(task);
+  assert(text.includes('复杂网络同步')); assert(text.includes('Spectral analysis'));
+});

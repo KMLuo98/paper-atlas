@@ -1,5 +1,8 @@
+import {journalShort} from './paper-details.js';
+export {journalShort, normalizeKeywordPairs, keywordFields} from './paper-details.js';
 export const escapeHTML = (value = '') => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function filename(p) {
+  if(p.publication_status==='unpublished')return `[未发表] ${p.title||'未命名论文'}`.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_').trim().slice(0,210)+'.pdf';
   const date = p.published_at || '';
   const stamp = date ? `${date.slice(0,4)}.${Number(date.slice(5,7)) || 1}` : '日期待补充';
   return `[${p.journal_abbr || p.journal || '期刊待补充'} ${stamp}] ${p.title || '未命名论文'}`.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim().slice(0,210)+'.pdf';
@@ -8,9 +11,9 @@ const bibEscape = s => String(s || '').replace(/[\\{}%&#_$]/g, c => `\\${c}`);
 const year = p => p.published_at?.slice(0,4) || 'n.d.';
 const names = p => (p.authors || []).map(a => a.name);
 export function exportCitations(papers, format) {
-  if (format === 'bibtex') return papers.map((p,i) => `@article{paper${p.id.replace(/[^a-z0-9]/gi,'') || i},\n  title = {${bibEscape(p.title)}},\n  author = {${names(p).map(bibEscape).join(' and ')}},\n  journal = {${bibEscape(p.journal)}},\n  year = {${year(p)}},\n  month = {${Number(p.published_at?.slice(5,7)) || ''}},\n  volume = {${bibEscape(p.volume)}},\n  number = {${bibEscape(p.issue)}},\n  pages = {${bibEscape(p.pages)}},\n  doi = {${bibEscape(p.doi)}}\n}`).join('\n\n');
-  if (format === 'ris') return papers.map(p => ['TY  - JOUR',`TI  - ${p.title}`,...names(p).map(n => `AU  - ${n}`),`JO  - ${p.journal || ''}`,`PY  - ${year(p)}`,`DA  - ${p.published_at || ''}`,`VL  - ${p.volume || ''}`,`IS  - ${p.issue || ''}`,`SP  - ${p.pages || ''}`,`DO  - ${p.doi || ''}`,'ER  - '].join('\r\n')).join('\r\n\r\n');
-  if (format === 'csl') return JSON.stringify(papers.map(p => ({id:p.id,type:'article-journal',title:p.title,author:(p.authors||[]).map(a=>({literal:a.name})),'container-title':p.journal,issued:p.published_at?{'date-parts':[p.published_at.split('-').map(Number)]}:undefined,DOI:p.doi,volume:p.volume,issue:p.issue,page:p.pages})),null,2);
+  if (format === 'bibtex') return papers.map((p,i) => `@${p.publication_status==='unpublished'?'unpublished':'article'}{paper${p.id.replace(/[^a-z0-9]/gi,'') || i},\n  title = {${bibEscape(p.title)}},\n  author = {${names(p).map(bibEscape).join(' and ')}},\n  journal = {${bibEscape(p.journal)}},\n  year = {${year(p)}},\n  month = {${Number(p.published_at?.slice(5,7)) || ''}},\n  volume = {${bibEscape(p.volume)}},\n  number = {${bibEscape(p.issue)}},\n  pages = {${bibEscape(p.pages)}},\n  doi = {${bibEscape(p.doi)}}\n}`).join('\n\n');
+  if (format === 'ris') return papers.map(p => [p.publication_status==='unpublished'?'TY  - UNPB':'TY  - JOUR',`TI  - ${p.title}`,...names(p).map(n => `AU  - ${n}`),`JO  - ${p.journal || ''}`,`PY  - ${year(p)}`,`DA  - ${p.published_at || ''}`,`VL  - ${p.volume || ''}`,`IS  - ${p.issue || ''}`,`SP  - ${p.pages || ''}`,`DO  - ${p.doi || ''}`,'ER  - '].join('\r\n')).join('\r\n\r\n');
+  if (format === 'csl') return JSON.stringify(papers.map(p => ({id:p.id,type:p.publication_status==='unpublished'?'manuscript':'article-journal',title:p.title,author:(p.authors||[]).map(a=>({literal:a.name})),'container-title':p.journal,issued:p.published_at?{'date-parts':[p.published_at.split('-').map(Number)]}:undefined,DOI:p.doi,volume:p.volume,issue:p.issue,page:p.pages})),null,2);
   return papers.map((p,i) => format === 'gbt' ? `[${i+1}] ${names(p).join(', ')}. ${p.title}[J]. ${p.journal || ''}, ${year(p)}${p.volume ? `, ${p.volume}` : ''}${p.issue ? `(${p.issue})` : ''}${p.pages ? `: ${p.pages}` : ''}.${p.doi ? ` DOI: ${p.doi}.` : ''}` : `${names(p).join(', ')} (${year(p)}). ${p.title}. ${p.journal || ''}${p.volume ? `, ${p.volume}` : ''}${p.issue ? `(${p.issue})` : ''}${p.pages ? `, ${p.pages}` : ''}.${p.doi ? ` https://doi.org/${p.doi}` : ''}`).join('\n\n');
 }
 export function normalize(s='') { return String(s).normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim(); }
@@ -30,7 +33,7 @@ export function searchPapers(papers, query) {
   if (!query.trim()) return papers;
   const original=normalize(query), terms=queryTerms(query);
   return papers.map(p=>{
-    const content=normalize([p.title,p.journal,p.doi,p.summary,...(p.keywords||[]),...(p.tags||[]),...(p.search_terms||[]),...(p.authors||[]).flatMap(a=>[a.name,a.institution])].join(' '));
+    const content=normalize([p.title,p.journal,p.doi,p.summary,...(p.keywords||[]),...(p.keyword_pairs||[]).flatMap(k=>[k.zh,k.en]),...(p.tags||[]),...(p.search_terms||[]),...(p.authors||[]).flatMap(a=>[a.name,a.institution])].join(' '));
     let score=content.includes(original)?100:0;
     if(!score){ const tokens=original.split(' ');if(tokens.length>1&&tokens.every(t=>content.includes(t)))score=80; }
     terms.forEach(t=>{if(content.includes(t)) score+=3;});
@@ -45,7 +48,7 @@ export function citationNetwork(papers) {
     const target=papers.find(q=>q.id!==p.id&&((ref.doi&&q.doi&&normDoi(ref.doi)===normDoi(q.doi))||(ref.title&&normalize(ref.title)===normalize(q.title))));
     if(target&&!edges.some(e=>e.source===p.id&&e.target===target.id))edges.push({source:p.id,target:target.id,weight:1});
   }
-  return {nodes:papers.map(p=>({id:p.id,label:p.title,paper:p})),edges};
+  return {nodes:papers.map(p=>({id:p.id,label:p.title,short_label:journalShort(p),paper:p})),edges};
 }
 export function authorNetwork(papers) {
   const authors=new Map(),pairs=new Map();
