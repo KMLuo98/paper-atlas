@@ -1,0 +1,31 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "Paper Atlas Library API", "version": "1.0.0", "description": "Personal library read API. All operations require an expiring, revocable read-only token. Login and AI actions are reserved for the web application's authenticated users."},
+  "servers": [{"url": "https://YOUR_PROJECT.supabase.co/functions/v1"}],
+  "security": [{"bearerAuth": []}],
+  "paths": {
+    "/library-api": {
+      "post": {
+        "summary": "Read a personal library",
+        "operationId": "libraryRead",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"oneOf": [
+          {"type":"object","required":["action"],"properties":{"action":{"const":"list"},"query":{"type":"string","maxLength":200},"limit":{"type":"integer","minimum":1,"maximum":200,"default":50},"offset":{"type":"integer","minimum":0,"default":0}}},
+          {"type":"object","required":["action","paper_id"],"properties":{"action":{"enum":["get","download"]},"paper_id":{"type":"string","format":"uuid"}}},
+          {"type":"object","required":["action"],"properties":{"action":{"const":"citations"},"paper_ids":{"type":"array","items":{"type":"string","format":"uuid"}},"format":{"enum":["bibtex","ris","csl","gbt","apa"],"default":"bibtex"}}},
+          {"type":"object","required":["action"],"properties":{"action":{"const":"network"},"paper_ids":{"type":"array","items":{"type":"string","format":"uuid"}},"kind":{"enum":["citations","authors"],"default":"citations"}}}
+        ]}}}},
+        "responses": {
+          "200": {"description":"Success. list: {papers,total,limit,offset}; get: {paper}; download: {url,expires_in,filename}; citations: {format,count,content}; network: {nodes,edges}.","content":{"application/json":{"schema":{"type":"object"}}}},
+          "400": {"description":"Invalid request or unsupported action"},
+          "401": {"description":"Invalid, expired or revoked token"},
+          "403": {"description":"Disallowed origin or read-only token used for a write/AI action"},
+          "404": {"description":"Paper not found or owned by another user"},
+          "413": {"description":"Request or analysis scope too large"},
+          "429": {"description":"Rate limit exceeded"},
+          "503": {"description":"Service unavailable"}
+        }
+      }
+    }
+  },
+  "components": {"securitySchemes":{"bearerAuth":{"type":"http","scheme":"bearer","description":"pa_ followed by 64 hex characters. Create in the web app. Only the SHA-256 hash is stored server-side; the secret is displayed once."}}}
+}

@@ -1,0 +1,21 @@
+{
+  "name": "paper-atlas",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.117.3",
+    "d3-force": "3.0.0",
+    "lucide": "1.57.0",
+    "pdfjs-dist": "6.4.299"
+  },
+  "devDependencies": {
+    "vite": "8.3.4"
+  }
+}

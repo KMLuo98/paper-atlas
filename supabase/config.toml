@@ -1,0 +1,5 @@
+project_id = "paper-atlas"
+
+[functions.library-api]
+# JWT and API tokens are verified inside the handler; login is the only anonymous action.
+verify_jwt = false
