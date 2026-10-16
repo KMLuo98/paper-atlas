@@ -17,7 +17,7 @@
 - 多选导出 BibTeX、RIS、CSL JSON、GB/T 与 APA 常用文本；正式排版建议使用 BibTeX / CSL 配合目标期刊样式。
 - 本地模糊检索与中英词表匹配；AI 生成中英等价检索词；可主动调用 AI 做任意查询的跨语言扩展。
 - 独立页面的引文网络、作者网络，默认全选、可选子集，支持拖动、缩放和导出 SVG。
-- 作者两两合作次数排名、悬停机构与邮箱、基于库内共同署名和可选 OpenAlex 检索的关系分析。
+- 作者两两合作次数排名、悬停机构与邮箱、关系分析；默认只分析库内记录，可勾选 Crossref 公开检索。
 - 只读外部 API、SHA-256 散列存储令牌、90 天有效期、撤销与请求限流。
 - 软删除与回收站恢复。原始文件不因移入回收站被删除。
 
@@ -69,13 +69,12 @@ Supabase Dashboard → **Edge Functions → Secrets** 添加：
 | `LLM_MODEL` | 默认 `deepseek-flash`，可选填写其他支持 JSON 输出的模型 |
 | `LLM_API_KEY` | 你自己的 DeepSeek API Key |
 | `ALLOWED_ORIGINS` | `https://kmluo98.github.io` |
-| `OPENALEX_API_KEY` | 可选，用于作者公开资料检索 |
 
 默认模型服务地址已设为 DeepSeek，因此只设置 `LLM_API_KEY` 即可开始调用；也兼容 Secret 名称 `DEEPSEEK_API_KEY`。DeepSeek 请求使用非推理模式以控制解析耗时。当前模型名称已根据 2026-10-16 的官方文档核对。
 
 DeepSeek 的模型名称会变化，应使用账户当前支持的名称。参考 [DeepSeek 官方首次调用文档](https://api-docs.deepseek.com/zh-cn/) 和 [JSON 输出文档](https://api-docs.deepseek.com/guides/json_mode)。模型须支持 JSON object 输出；系统提示和服务端校验会检查结构及关键词数量。
 
-没有 OpenAlex Key 时，作者关系按钮会明确说明仅使用库内资料，不会假装已做外部搜索。OpenAlex 的同名候选无法自动确认为同一作者，优先补充 ORCID。
+作者关系默认只根据库内文献分析，不发送姓名到公开检索服务。每次可勾选「同时检索公开论文（Crossref）」；仅在用户勾选时向 Crossref 发送两位作者姓名，无需额外密钥，不发送 PDF、摘要、邮箱或账户数据。公开检索失败时明确说明只使用库内资料。同名候选无法自动确认为同一作者，优先补充 ORCID。
 
 不要将服务端密钥填入前端、GitHub Variables、README 或代码。部署函数所需的 `SUPABASE_URL`、`SUPABASE_ANON_KEY` 和 `SUPABASE_SERVICE_ROLE_KEY` 由 Supabase 运行时提供。
 
@@ -139,7 +138,7 @@ pnpm build
 - 模型返回结构或关键词数不合要求时保留 PDF 并显示解析失败，支持重试。
 - 前端首次加载以来的元数据缓存在内存中；真实来源是云端。跨浏览器修改后可刷新同步。自动登录保存会话令牌，不保存明文密码。
 - Supabase 免费项目的休眠、容量、邮件和备份策略取决于账户计划。需要长期可靠服务时，请配置适合的计划与备份。源码不能替代运营层面的备份保障。
-- 后端未连接前，云端、发信与 AI 的端到端测试尚不能完成。不要把演示成功视为生产验收。
+- 后端已部署并通过真实数据库隔离测试与 HTTP 鉴权检查；真实收件箱的邮件投递、实际论文的 AI 解析及完整跨会话上传流程，仍需使用验证过的账号验收。不要把演示成功视为生产验收。
 
 ## 生产验收
 
