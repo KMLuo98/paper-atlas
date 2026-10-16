@@ -1,4 +1,6 @@
 import {journalShort} from './paper-details.js';
+import {resolveAuthorRecords} from './author-identity.js';
+export {journalFull,normalizePaperJournal} from './journals.js';
 export {journalShort, normalizeKeywordPairs, keywordFields} from './paper-details.js';
 export const escapeHTML = (value = '') => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function filename(p) {
@@ -51,10 +53,15 @@ export function citationNetwork(papers) {
   return {nodes:papers.map(p=>({id:p.id,label:p.title,short_label:journalShort(p),paper:p})),edges};
 }
 export function authorNetwork(papers) {
-  const authors=new Map(),pairs=new Map();
-  for(const p of papers){
-    const seen=new Set();
-    for(const a of p.authors||[]){const id=normalize(a.orcid||a.name);if(!id)continue;seen.add(id);const prior=authors.get(id);authors.set(id,{...prior,...a,id,label:a.name,institution:a.institution||prior?.institution,email:a.email||prior?.email,papers:[...new Set([...(prior?.papers||[]),p.id])]});}
+  const authors=new Map(),pairs=new Map(),unique=[...new Map(papers.map(p=>[p.id,p])).values()],paperAuthors=new Map();
+  for(const {id,orcid,members} of resolveAuthorRecords(unique)){
+    const aliases=[...new Set(members.flatMap(r=>[r.author.name,...(Array.isArray(r.author.aliases)?r.author.aliases:[])]).filter(Boolean))];
+    const a=members[0].author;
+    authors.set(id,{...a,id,orcid,aliases,label:a.name,institution:members.find(r=>r.author.institution)?.author.institution||'',email:members.find(r=>r.author.email)?.author.email||'',papers:[...new Set(members.map(r=>r.paperId))]});
+    members.forEach(r=>{const ids=paperAuthors.get(r.paperId)||new Set();ids.add(id);paperAuthors.set(r.paperId,ids);});
+  }
+  for(const p of unique){
+    const seen=paperAuthors.get(p.id)||new Set();
     const ids=[...seen].sort();
     for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++){
       const key=JSON.stringify([ids[i],ids[j]]); const pair=pairs.get(key)||{source:ids[i],target:ids[j],weight:0,papers:[]};pair.weight++;pair.papers.push(p.id);pairs.set(key,pair);

@@ -1,3 +1,4 @@
+import {journalRecord} from './journals.js';
 const clean = (value, max = 200) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 const levels = {domain: 0, topic: 1, problem: 1, method: 2, phenomenon: 3, conclusion: 3};
 export function normalizeKeywordPairs(input) {
@@ -27,6 +28,7 @@ const journals = new Map([
 ]);
 export function journalShort(p) {
   if (p.publication_status === 'unpublished') return '未发表';
+  const canonical=journalRecord(p);if(canonical)return canonical.abbr;
   const normalize = s => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
   const known = journals.get(normalize(p.journal)) || journals.get(normalize(p.journal_abbr));
   if (known) return known;

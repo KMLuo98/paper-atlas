@@ -1,4 +1,5 @@
 import {databaseText} from '../supabase/functions/_shared/text.js';
+import {openPDFTask} from './pdf-engine.js';
 
 export async function extractDocumentText(loadingTask) {
   try {
@@ -22,12 +23,6 @@ export async function extractDocumentText(loadingTask) {
 }
 
 export async function extractPDF(file) {
-  const pdfjs = await import('pdfjs-dist');
-  pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
   const data = new Uint8Array(await file.arrayBuffer());
-  const root = new URL('pdf-assets/', new URL(import.meta.env?.BASE_URL || './', document.baseURI));
-  return extractDocumentText(pdfjs.getDocument({data, isEvalSupported: false,
-    cMapUrl: new URL('cmaps/', root).href, cMapPacked: true,
-    standardFontDataUrl: new URL('standard_fonts/', root).href,
-    wasmUrl: new URL('wasm/', root).href, useSystemFonts: true}));
+  return extractDocumentText(await openPDFTask(data));
 }
