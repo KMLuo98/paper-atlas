@@ -12,6 +12,9 @@ const entries = [
   ['Nature Neuroscience','Nat Neurosci',['Nat. Neurosci.']],
   ['Nature Physics','Nat Phys',['Nat. Phys.']],
   ['Nature','Nature',[]],['Science','Science',[]],
+  ['Linear Algebra and its Applications','LAA',['Linear Algebra and Its Applications','Linear Algebra Appl.']],
+  ['Physica A: Statistical Mechanics and its Applications','Physica A',['Physica A','Physica A: Statistical Mechanics and Its Applications']],
+  ['PLOS Biology','PLOS Biol',['PLoS Biology','PLoS Biol.']],
   ['物理学报','物理学报',['Acta Physica Sinica','Acta Phys. Sin.','Acta Phys Sin','物 理 学 报']],
   ['Nonlinear Dynamics','Nonlinear Dyn',['Nonlinear Dyn.']],
   ['Proceedings of the National Academy of Sciences','PNAS',['Proc Natl Acad Sci U S A','Proceedings of the National Academy of Sciences of the United States of America']]
@@ -23,9 +26,9 @@ export function journalRecord(p) {
   return aliases.get(key(p.journal)) || (!p.journal ? aliases.get(key(p.journal_abbr)) : null);
 }
 export function journalFull(p) {
-  if(p.publication_status==='unpublished')return '';
+  if(p.publication_status==='unpublished')return p.arxiv_id||/^arxiv$/i.test(p.journal||'')?'arXiv':'';
   return journalRecord(p)?.title || String(p.journal||p.journal_abbr||'').trim().replace(/\s+/g,' ');
 }
 export function normalizePaperJournal(p) {
-  return {...p,journal:journalFull(p),journal_abbr:p.publication_status==='unpublished'?'':journalRecord(p)?.abbr||p.journal_abbr||''};
+  return {...p,journal:journalFull(p),journal_abbr:p.publication_status==='unpublished'?(journalFull(p)==='arXiv'?'arXiv':''):journalRecord(p)?.abbr||p.journal_abbr||''};
 }

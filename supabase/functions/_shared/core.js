@@ -4,7 +4,7 @@ export {journalFull,normalizePaperJournal} from './journals.js';
 export {journalShort, normalizeKeywordPairs, keywordFields} from './paper-details.js';
 export const escapeHTML = (value = '') => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function filename(p) {
-  if(p.publication_status==='unpublished')return `[未发表] ${p.title||'未命名论文'}`.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_').trim().slice(0,210)+'.pdf';
+  if(p.publication_status==='unpublished'&&!p.arxiv_id&&!/^arxiv$/i.test(p.journal||''))return `[未发表] ${p.title||'未命名论文'}`.replace(/[<>:"/\\|?*\x00-\x1f]/g,'_').trim().slice(0,210)+'.pdf';
   const date = p.published_at || '';
   const stamp = date ? `${date.slice(0,4)}.${Number(date.slice(5,7)) || 1}` : '日期待补充';
   return `[${p.journal_abbr || p.journal || '期刊待补充'} ${stamp}] ${p.title || '未命名论文'}`.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').trim().slice(0,210)+'.pdf';

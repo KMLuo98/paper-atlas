@@ -1,0 +1,1 @@
+export function passwordError(current,next,confirmation){if(typeof current!=='string'||!current||current.length>1024)return '请输入当前密码';if(typeof next!=='string'||next.length<8||next.length>128||!/[A-Za-z]/.test(next)||!/[0-9]/.test(next))return '新密码需为 8–128 位，包含字母和数字';if(current===next)return '新密码不能与当前密码相同';if(next!==confirmation)return '两次输入的新密码不一致';return '';}

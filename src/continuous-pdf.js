@@ -1,0 +1,28 @@
+import {openPDFTask} from './pdf-engine.js';
+import {fitPDFPage} from './pdf-navigation.js';
+import {escapeHTML as e} from './core.js';
+export function mountResponsivePDF(container,url,title){
+ container.className='pdf-content';container.setAttribute('aria-label',title);
+ container.innerHTML=`<div class="paged-pdf-reader continuous-pdf"><div class="pdf-pager"><button data-step="-1" disabled>上一页</button><form class="pdf-page-form"><label>页码<input type="number" min="1" value="1" inputmode="numeric" aria-label="页码" disabled></label><span class="pdf-page-total">/ …</span><button type="submit" disabled>跳转</button></form><button data-step="1" disabled>下一页</button><a href="${e(url)}" target="_blank" rel="noopener noreferrer">打开原始 PDF ↗</a></div><div class="pdf-page-status" role="status">正在加载原文…</div><div class="pdf-canvas-host"></div></div>`;
+ const host=container.querySelector('.pdf-canvas-host'),status=container.querySelector('[role=status]'),input=container.querySelector('input');
+ let disposed=false,task,pdf,current=1,width=0,timer,generation=0,running=false,queued=false;const visibility=new Map(),near=new Set(),pages=[],renderTasks=new Set();
+ const controls=()=>{input.value=current;container.querySelectorAll('[data-step]').forEach(b=>b.disabled=!pdf||(+b.dataset.step<0?current===1:current===pdf.numPages));};
+ const go=number=>{if(!pdf)return;current=Math.max(1,Math.min(pdf.numPages,Math.round(+number)||1));pages[current-1].scrollIntoView({block:'start',behavior:'instant'});near.add(current);controls();pump();};
+ container.querySelector('form').onsubmit=event=>{event.preventDefault();go(input.value);};container.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>go(current+ +b.dataset.step));
+ async function pump(){if(disposed||!pdf)return;if(running){queued=true;return;}running=true;const epoch=generation;
+  try{for(const number of [...near].sort((a,b)=>Math.abs(a-current)-Math.abs(b-current))){if(disposed||epoch!==generation)break;const slot=pages[number-1];if(slot.querySelector('canvas'))continue;
+   let page;try{page=await pdf.getPage(number);if(disposed||epoch!==generation)break;const v=page.getViewport({scale:1}),g=fitPDFPage(v.width,v.height,Math.max(1,host.clientWidth-24),window.devicePixelRatio||1),canvas=document.createElement('canvas');canvas.width=g.width;canvas.height=g.height;canvas.style.width=g.cssWidth+'px';canvas.style.height=g.cssHeight+'px';canvas.setAttribute('role','img');canvas.setAttribute('aria-label',`第 ${number} 页`);
+    const render=page.render({canvas,viewport:page.getViewport({scale:g.scale}),transform:[g.ratio,0,0,g.ratio,0,0]});renderTasks.add(render);try{await render.promise;}finally{renderTasks.delete(render);}if(!disposed&&epoch===generation){slot.dataset.aspect=String(v.height/v.width);slot.style.minHeight=g.cssHeight+'px';slot.replaceChildren(canvas);slot.dataset.rendered='true';}
+   }catch(error){if(!disposed&&error.name!=='RenderingCancelledException'){slot.textContent=`第 ${number} 页加载失败，点击重试`;slot.onclick=()=>{slot.onclick=null;near.add(number);pump();};}}finally{page?.cleanup();}}
+  }finally{running=false;if(!disposed&&(queued||epoch!==generation)){queued=false;pump();}}
+ }
+ const observer=new IntersectionObserver(entries=>{for(const entry of entries){const number=+entry.target.dataset.page;if(entry.isIntersecting)near.add(number);else near.delete(number);}for(const slot of pages){if(Math.abs(+slot.dataset.page-current)>5&&!near.has(+slot.dataset.page)){const canvas=slot.querySelector('canvas');if(canvas){canvas.width=1;canvas.height=1;slot.replaceChildren();}}}pump();},{rootMargin:'900px 0px'});
+ const track=new IntersectionObserver(entries=>{for(const entry of entries)entry.isIntersecting?visibility.set(+entry.target.dataset.page,entry.intersectionRatio):visibility.delete(+entry.target.dataset.page);const visible=[...visibility].sort((a,b)=>b[1]-a[1]);if(visible.length){current=visible[0][0];controls();}},{threshold:[0,.2,.5,.8]});
+ const resize=new ResizeObserver(()=>{const next=host.clientWidth;if(Math.abs(next-width)<2)return;width=next;clearTimeout(timer);timer=setTimeout(()=>{generation++;for(const render of renderTasks)render.cancel();pages.forEach(slot=>{const canvas=slot.querySelector('canvas');if(canvas){canvas.width=1;canvas.height=1;}slot.replaceChildren();slot.style.minHeight=Math.max(250,(host.clientWidth-24)*(+slot.dataset.aspect||1.414))+'px';});pump();},180);});resize.observe(host);
+ (async()=>{task=await openPDFTask(url);if(disposed){await task.destroy();return;}pdf=await task.promise;if(disposed)return;
+  const first=await pdf.getPage(1),v=first.getViewport({scale:1});first.cleanup();
+  for(let i=1;i<=pdf.numPages;i++){const slot=document.createElement('div');slot.className='pdf-page-slot';slot.dataset.page=i;slot.dataset.aspect=String(v.height/v.width);slot.style.minHeight=Math.max(1,(host.clientWidth-24)*v.height/v.width)+'px';slot.setAttribute('aria-label',`第 ${i} 页`);host.append(slot);pages.push(slot);observer.observe(slot);track.observe(slot);}
+  input.max=pdf.numPages;input.disabled=false;container.querySelector('form button').disabled=false;container.querySelector('.pdf-page-total').textContent='/ '+pdf.numPages;status.textContent='';controls();near.add(1);await pump();
+ })().catch(error=>{if(!disposed)status.textContent=error.message+' · 可打开原始 PDF 阅读';});
+ return()=>{disposed=true;generation++;clearTimeout(timer);observer.disconnect();track.disconnect();resize.disconnect();for(const render of renderTasks)render.cancel();task?.destroy().catch(()=>{});};
+}

@@ -27,7 +27,7 @@ const journals = new Map([
   ['natureneuroscience', 'Nat Neurosci'], ['naturephysics', 'Nat Phys'], ['nature', 'Nature'], ['science', 'Science']
 ]);
 export function journalShort(p) {
-  if (p.publication_status === 'unpublished') return '未发表';
+  if (p.publication_status === 'unpublished') return p.arxiv_id||/^arxiv$/i.test(p.journal||'')?'arXiv':'未发表';
   const canonical=journalRecord(p);if(canonical)return canonical.abbr;
   const normalize = s => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
   const known = journals.get(normalize(p.journal)) || journals.get(normalize(p.journal_abbr));

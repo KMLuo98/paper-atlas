@@ -1,6 +1,6 @@
 export async function removeUserFiles(service, userId) {
   // Only these app-owned private folders are eligible for deletion.
-  for (const bucket of ['papers', 'avatars']) {
+  for (const bucket of ['papers', 'avatars', 'chat-files']) {
     for (;;) {
       const {data, error} = await service.storage.from(bucket).list(userId, {limit: 100, offset: 0});
       if (error) throw new Error('无法读取账户文件，请稍后重试注销');

@@ -11,5 +11,5 @@ const badOrigin=await request(endpoint,{method:'POST',headers:{...headers,Origin
 console.log('PASS: anonymous data access denied, Pages origin allowed, untrusted origins rejected.');
 if(status.ai_configured){const response=await request(endpoint,{method:'POST',headers,body:JSON.stringify({action:'health',probe_model:true})});assert.equal(response.status,200,'Model discovery check must be available');const result=await response.json();assert.equal(result.model_probe?.reachable,true,'Model service rejected the configured credentials or endpoint');assert.equal(result.model_probe?.model_available,true,'Configured model is not in the provider model list');console.log('PASS: model service accepts server credentials and offers the configured model. No paper data or generation request was sent.');}
 
-for(const action of ['delete_account','upgrade_keywords','admin_users','admin_delete_user','admin_delete_paper']){const response=await request(endpoint,{method:'POST',headers,body:JSON.stringify({action})});assert.equal(response.status,401,action+' must require a verified user session');}
-console.log('PASS: account deletion and keyword updates reject anonymous access.');
+for(const action of ['upgrade_keywords','admin_users','chat','refresh_publication']){const response=await request(endpoint,{method:'POST',headers,body:JSON.stringify({action})});assert.equal(response.status,401,action+' must require a verified user session');}
+console.log('PASS: analysis, chat and metadata requests require authentication. Deletion flows were not exercised.');

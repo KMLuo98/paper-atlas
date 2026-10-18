@@ -1,0 +1,2 @@
+const url=process.argv[2]||'https://api.github.com/repos/KMLuo98/paper-atlas/commits/main';
+const response=await fetch(url,{headers:{'User-Agent':'PaperAtlas-deployment'},signal:AbortSignal.timeout(30000)});if(!response.ok)throw Error('GitHub status '+response.status);const data=await response.json();console.log(JSON.stringify(data.workflow_runs?data.workflow_runs.map(r=>({id:r.id,name:r.name,status:r.status,conclusion:r.conclusion,sha:r.head_sha})):data.commit?{sha:data.sha,tree:data.commit.tree.sha}:data));

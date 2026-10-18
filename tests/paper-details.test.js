@@ -32,7 +32,7 @@ test('citation nodes use the shortest established journal abbreviation', () => {
   assert.equal(journalShort({journal_abbr:'Nat. Commun.'}),'NC'); assert.equal(journalShort({publication_status:'unpublished'}),'未发表');
 });
 test('account file cleanup paginates and only deletes objects under the authenticated user folder', async () => {
-  const buckets = {papers:Array.from({length:205},(_,i)=>({id:String(i),name:`${i}.pdf`})),avatars:[{id:'a',name:'a.webp'}]}, removed=[];
+  const buckets = {papers:Array.from({length:205},(_,i)=>({id:String(i),name:`${i}.pdf`})),avatars:[{id:'a',name:'a.webp'}],'chat-files':[]}, removed=[];
   const service={storage:{from(bucket){return {async list(prefix,{limit}){assert.equal(prefix,'user-a');return {data:buckets[bucket].slice(0,limit)};},async remove(paths){assert(paths.every(p=>p.startsWith('user-a/')));removed.push(...paths);buckets[bucket].splice(0,paths.length);return {error:null};}};}}};
   await removeUserFiles(service,'user-a'); assert.equal(removed.length,206); assert.equal(buckets.papers.length,0);
 });

@@ -1,4 +1,50 @@
 const entries = `
+AI 助手|AI assistant
+AI 对话分析|AI chat analysis
+文献检索|Literature search
+搜索引擎|Search engine
+检索词|Search terms
+输入标题、作者或关键词|Enter a title, author, or keywords
+搜索|Search
+期刊|Journal
+时间跨度|Year range
+全部|All
+不限时间|Any time
+起始年份|Start year
+结束年份|End year
+调整原文与信息比例|Resize PDF and details
+检索发表信息与引用|Find publication & citation data
+发表信息与引用已更新|Publication and citation data updated
+排名|Rankings
+恢复全选|Select all papers
+修改密码|Change password
+当前密码|Current password
+新密码|New password
+确认新密码|Confirm new password
+8–128 位，包含字母和数字；修改后需重新登录。|8–128 characters with letters and numbers. Sign in again after changing it.
+新密码需为 8–128 位，包含字母和数字|Use 8–128 characters with letters and numbers
+新密码不能与当前密码相同|New password must differ from current password
+两次输入的新密码不一致|New passwords do not match
+打开 API 与集成|Open API & integrations
+打开云端设置|Open cloud settings
+管理文献库的只读访问令牌与外部接口。|Manage read-only library tokens and external APIs.
+配置云端连接、查看模型与账号服务说明。|Configure cloud access and view model and account settings.
+永久清空回收站|Empty trash permanently
+永久清除|Delete permanently
+永久删除选中的回收站论文与 PDF，无法恢复。请输入 DELETE 确认。|Permanently delete the selected trashed papers and PDFs. Type DELETE to confirm.
+回收站已清除|Trash cleared
+箭头由引用方指向被引用方。|Arrows point from citing papers to cited papers.
+从共同署名发现合作脉络。|Explore collaboration through shared authorship.
+优先按 ORCID 识别身份，合作次数按不同论文计数。|Authors are identified by ORCID first. Collaborations count distinct papers.
+库内引用依据 DOI 或完整标题匹配。|In-library citations match DOIs or complete titles.
+暂时没有合作记录。|No collaboration records yet.
+当前没有可确认的关联，已显示独立节点。|No verified connections; independent nodes are shown.
+作者组合较多，当前显示已计算结果；请缩小选文范围查看完整排名。|Too many author combinations. Narrow the selection for complete rankings.
+机构未提供|Institution unavailable
+邮箱未提供|Email unavailable
+日期未知|Date unknown
+管理你的头像、个人资料与账户。|Manage your avatar, profile and account.
+
 全部文献|All papers
 我的收藏|Favorites
 引文网络|Citation network

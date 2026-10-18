@@ -34,13 +34,16 @@ async function enrich(item,fetcher) {
 }
 export async function collectPublicEvidence(authors,fetcher=fetch) {
   const [a,b]=authors,searchName=person=>(Array.isArray(person.aliases)?person.aliases:[]).find(name=>/[A-Za-z]/.test(name))||person.name;
-  const queries=[`"${a.name}" "${b.name}"`,...authors.map(person=>`"${searchName(person)}" ${person.institution||''} laboratory biography 新闻`)],evidence=[],notices=[];
+  const queries=[`"${a.name}" "${b.name}"`,...authors.map(person=>`"${searchName(person)}" ${person.institution||''} laboratory biography employment ResearchGate 新闻`)],evidence=[],notices=[];
   const searches=await Promise.allSettled(queries.map(async query=>{const url=new URL('https://www.bing.com/search');url.searchParams.set('format','rss');url.searchParams.set('q',query.slice(0,500));return parseSearchRSS(await boundedText(await fetcher(url,{signal:AbortSignal.timeout(8000)})));}));
   searches.forEach(result=>{if(result.status==='fulfilled')evidence.push(...result.value.filter(item=>authors.some(person=>mentions(item,person))));else notices.push('部分公开网页检索不可用');});
   const orcidResults=await Promise.allSettled(authors.map(async person=>{
     const id=normalizeORCID(person.orcid);if(!/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(id))return [];
     const response=await fetcher(`https://pub.orcid.org/v3.0/${id}/person`,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(7000)});
-    const profile=JSON.parse(await boundedText(response));const items=[{url:`https://orcid.org/${id}`,title:`ORCID · ${person.name}`,excerpt:String(profile.biography?.content||'公开 ORCID 身份记录'),kind:'ORCID 身份资料',full_page:true}];
+    const profile=JSON.parse(await boundedText(response));const jobs=[];
+    const activities=await Promise.allSettled(['employments','educations'].map(async kind=>{const r=await fetcher(`https://pub.orcid.org/v3.0/${id}/${kind}`,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(7000)});return JSON.parse(await boundedText(r));}));
+    for(const activity of activities){if(activity.status!=='fulfilled')continue;for(const group of activity.value['affiliation-group']||[])for(const summaries of group.summaries||[]){const row=summaries['employment-summary']||summaries['education-summary'];if(!row)continue;const date=d=>d?[d.year?.value,d.month?.value,d.day?.value].filter(Boolean).join('-'):null;jobs.push({institution:row.organization?.name,department:row['department-name'],role:row['role-title'],start:date(row['start-date']),end:date(row['end-date'])});}}
+    const items=[{url:`https://orcid.org/${id}`,title:`ORCID · ${person.name}`,excerpt:JSON.stringify({biography:profile.biography?.content||'公开 ORCID 身份记录',affiliations:jobs}),kind:'ORCID 身份资料',full_page:true}];
     for(const item of profile['researcher-urls']?.['researcher-url']||[]){const url=publicURL(item.url?.value);if(url)items.push({url,title:item['url-name']||person.name,excerpt:'该链接由作者在其 ORCID 个人资料中列出。',kind:'ORCID 关联主页',full_page:false});}return items;
   }));
   orcidResults.forEach(result=>{if(result.status==='fulfilled')evidence.push(...result.value);});
