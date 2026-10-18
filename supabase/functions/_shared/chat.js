@@ -31,8 +31,8 @@ export async function chatAction({service,userId,body,allPapers,complete,HTTPErr
     else parts.push({type:'text',text:`历史图片附件：${a.name}（本轮未重新发送图片，参考前次分析）`});}
    messages.push({role:'user',content:parts});
   }
-  const answer=databaseText(await complete(messages));if(!answer)throw new HTTPError(502,'模型没有返回回答');
+  const rawAnswer=await complete(messages);if(typeof rawAnswer!=='string'||!rawAnswer)throw new HTTPError(502,'模型没有返回回答');const answer=databaseText(rawAnswer);
   const result=await service.from('chat_messages').insert({user_id:userId,conversation_id:id,role:'assistant',content:answer.slice(0,60000),request_id:body.request_id}).select('id,content').single();if(result.error)throw new HTTPError(503,'回答保存失败，请稍后检查对话');
-  await service.from('conversations').update({updated_at:new Date().toISOString(),...(conversation.title==='新对话'?{title:(text||attachments[0]?.name||'新对话').slice(0,60)}:{})}).eq('id',id).eq('user_id',userId);return {message:result.data};
+  await service.from('conversations').update({updated_at:new Date().toISOString(),...(['新对话','New chat'].includes(conversation.title)?{title:(text||attachments[0]?.name||'新对话').slice(0,60)}:{})}).eq('id',id).eq('user_id',userId);return {message:result.data};
  }finally{await service.from('conversations').update({inflight_until:null}).eq('id',id).eq('user_id',userId);}
 }

@@ -18,6 +18,13 @@ const work={type:'journal-article',title:[paper.title],author:[{given:'Alice',fa
 test('arXiv matching requires exact normalized title and matching author identity',()=>{
  assert.equal(arxivID(paper),'2401.01234');assert(exactPublishedMatch(paper,work));assert(!exactPublishedMatch(paper,{...work,title:['Related synchronization of complex networks']}));assert(!exactPublishedMatch(paper,{...work,author:[{given:'Alice',family:'Example',ORCID:'0000-0001-0000-0001'}]}));assert(!exactPublishedMatch(paper,{...work,type:'posted-content'}));
 });
+test('arXiv IDs support saved IDs and official URLs while ignoring late references',()=>{assert.equal(arxivID({arxiv_id:'2401.01234v3'}),'2401.01234');assert.equal(arxivID({preprint_url:'https://arxiv.org/abs/2401.01234'}),'2401.01234');assert.equal(arxivID({full_text:'x'.repeat(5000)+' arXiv:2401.01234'}),'');});
+test('an arXiv-linked title revision requires author evidence and an exact published title',async()=>{
+ const old={...paper,title:'Master stability functions for multiplex networks'},title='Master stability functions for complete intra-layer and inter-layer synchronization in multiplex networks',formalTitle=title+' of coupled Rössler oscillators',published={...work,title:[formalTitle]};
+ const xml=`<entry><title>${title}</title><author><name>Alice Example</name></author><published>2024-01-04T00:00:00Z</published><arxiv:doi>10.1234/paper</arxiv:doi></entry>`;
+ const result=await lookupPublication(old,async url=>String(url).includes('arxiv.org')?new Response(xml):Response.json({message:published}));assert.equal(result.title,formalTitle);assert.equal(result.publication_status,'published');assert.equal(result.doi,published.DOI);
+ const preserved=await lookupPublication({...paper,publication_status:'published',journal:'Physical Review E',published_at:'2025-01-01'},async()=>{throw Error('offline');});assert.equal(preserved.journal,'Physical Review E');assert.equal(preserved.publication_status,'published');assert.equal(preserved.published_at,'2025-01-01');
+});
 test('verified arXiv publication adopts official journal/date and indexed citation count',async()=>{
  const result=await lookupPublication(paper,async url=>String(url).includes('arxiv.org')?new Response('<feed><entry><published>2024-01-04T00:00:00Z</published></entry></feed>'):Response.json({message:{items:[work]}}));assert.equal(result.journal,'Physical Review E');assert.equal(result.published_at,'2025-06-03');assert.equal(result.arxiv_date,'2024-01-04');assert.equal(result.citation_count,7);assert.equal(result.publication_status,'published');
 });
