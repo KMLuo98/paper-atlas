@@ -6,11 +6,18 @@ export function validChatAttachment(a,userId){return a&&typeof a.path==='string'
 export async function chatAction({service,userId,body,allPapers,complete,HTTPError}){
  const id=body.conversation_id;if(!uuid(id))throw new HTTPError(400,'请选择有效对话');
  const {data:conversation,error}=await service.from('conversations').select('*').eq('id',id).eq('user_id',userId).maybeSingle();if(error)throw new HTTPError(503,'对话读取失败');if(!conversation)throw new HTTPError(404,'对话不存在或无权访问');
- if(body.action==='clear_chat'){
+ if(body.action==='clear_chat'||body.action==='delete_chat'){
+  const lock=await service.from('conversations').update({inflight_until:new Date(Date.now()+300000).toISOString()}).eq('id',id).eq('user_id',userId).or(`inflight_until.is.null,inflight_until.lt.${new Date().toISOString()}`).select('id');
+  if(lock.error)throw new HTTPError(503,'对话状态读取失败，请重试');if(!lock.data?.length)throw new HTTPError(409,'当前对话正在处理，请稍后再试');
+  try{
   const {data:messages,error:readError}=await service.from('chat_messages').select('attachments').eq('conversation_id',id).eq('user_id',userId);if(readError)throw new HTTPError(503,'读取附件失败');
   const paths=[...new Set((messages||[]).flatMap(m=>m.attachments||[]).filter(a=>validChatAttachment(a,userId)).map(a=>a.path))];
   for(let i=0;i<paths.length;i+=100){const {error}=await service.storage.from('chat-files').remove(paths.slice(i,i+100));if(error)throw new HTTPError(503,'附件清理失败，请重试');}
+  if(body.action==='delete_chat'){
+   const {error:deleteError}=await service.from('conversations').delete().eq('id',id).eq('user_id',userId);if(deleteError)throw new HTTPError(503,'删除对话失败，请重试');return {ok:true};
+  }
   const {error:clearError}=await service.from('chat_messages').delete().eq('conversation_id',id).eq('user_id',userId);if(clearError)throw new HTTPError(503,'清理对话失败');return {ok:true};
+  }finally{await service.from('conversations').update({inflight_until:null}).eq('id',id).eq('user_id',userId);}
  }
  const text=typeof body.message==='string'?databaseText(body.message).trim():'';const attachments=databaseJSON(body.attachments||[]);
  if(text.length>20000||(!text&&!attachments.length)||!Array.isArray(attachments)||attachments.length>8||attachments.some(a=>!validChatAttachment(a,userId))||attachments.reduce((n,a)=>n+(a.text?.length||0),0)>120000||!uuid(body.request_id))throw new HTTPError(400,'消息或附件无效（文字最多 20,000 字符，每次最多 8 个附件）');

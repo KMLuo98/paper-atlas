@@ -105,7 +105,7 @@ Deno.serve(async(req:Request)=>{
       try{return json(await literatureSearch({engine:body.engine||'crossref',query:body.query,offset:body.offset??0}));}
       catch(error){throw new HTTPError(400,error instanceof Error?error.message:'文献检索失败，请重试');}
     }
-    if(action==='chat'||action==='clear_chat'){
+    if(action==='chat'||action==='clear_chat'||action==='delete_chat'){
       await limit('chat:'+userId,20,3600);
       const complete=async(messages:unknown[])=>{const key=env('LLM_API_KEY')||env('DEEPSEEK_API_KEY');if(!key)throw new HTTPError(503,'尚未配置模型密钥');const base=env('LLM_BASE_URL')||'https://api.deepseek.com';if(!base.startsWith('https://'))throw new HTTPError(503,'模型服务必须使用 HTTPS');const response=await fetch(base.replace(/\/$/,'')+'/chat/completions',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/json'},body:JSON.stringify({model:env('LLM_MODEL')||'deepseek-flash',messages,max_tokens:8192,...(new URL(base).hostname==='api.deepseek.com'?{thinking:{type:'disabled'}}:{})}),signal:AbortSignal.timeout(100000)});if(!response.ok){await response.body?.cancel();throw new HTTPError(502,`模型请求失败（${response.status}）`);}return (await response.json()).choices?.[0]?.message?.content;};
       return json(await chatAction({service,userId,body,allPapers,complete,HTTPError}));
