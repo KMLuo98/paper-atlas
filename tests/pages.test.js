@@ -45,6 +45,13 @@ test('cooperation counts open all shared-paper links and author clicks locate a 
 test('citation-count explanation appears only in the ranking help tooltip',()=>{
  const f=fixture();f.qa.renderNetwork('citations');const d=f.document;assert(!d.querySelector('.page-head .subtitle'));assert.match(d.querySelector('.ranking-title [role=tooltip]').textContent,/Crossref/);assert(!d.querySelector('.network-side>.form-hint'));
 });
+
+test('citation rankings highlight on first click and open only when the selected paper is clicked again',()=>{
+ const f=fixture();f.qa.renderNetwork('citations');const d=f.document,initial=f.context.location.hash;
+ d.querySelector('[data-paper=one]').onclick();assert.equal(f.context.location.hash,initial);assert.equal(f.context.highlights.at(-1),'one');assert.equal(d.querySelector('[data-paper=one]').getAttribute('aria-pressed'),'true');assert(d.querySelector('.incoming-key')&&d.querySelector('.outgoing-key'));
+ d.querySelector('[data-paper=two]').onclick();assert.equal(f.context.location.hash,initial);assert.equal(f.context.highlights.at(-1),'two');assert.equal(d.querySelector('[data-paper=one]').getAttribute('aria-pressed'),'false');
+ d.querySelector('[data-citation-tab=local]').onclick();assert.equal(d.querySelector('[data-paper=two]').getAttribute('aria-pressed'),'true');d.querySelector('[data-paper=two]').onclick();assert.match(f.context.location.hash,/paper\/two$/);
+});
 test('literature search renders escaped results and paginates in place instead of opening a new tab',async()=>{
  const f=fixture(),calls=[];f.context.api=async(action,payload)=>{calls.push({action,payload});return {engine:'crossref',query:payload.query,source:'Crossref',offset:payload.offset,page_size:10,total:12,has_more:payload.offset===0,results:[{title:'<img src=x onerror=bad()> Paper',url:'https://doi.org/10.1234/paper',authors:['Alice'],journal:'Physical Review E',date:'2020-01-01',citation_count:3,source:'Crossref'}]};};f.window.open=()=>{throw Error('must not open a window');};f.qa.renderLiteratureSearch();const d=f.document,input=d.querySelector('[name=query]');input.value='networks';input.oninput();await d.querySelector('#literature-search-form').onsubmit({preventDefault(){}});assert.equal(calls[0].action,'literature_search');assert.equal(d.querySelectorAll('.literature-result').length,1);assert.match(d.querySelector('.literature-result h2').textContent,/<img/);assert.equal(d.querySelectorAll('.literature-result img').length,0);d.querySelector('[data-search-page=next]').click();await new Promise(r=>setImmediate(r));assert.equal(calls[1].payload.offset,10);assert(d.querySelector('[data-search-original=google]').href.includes('networks'));
 });
