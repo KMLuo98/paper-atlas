@@ -20,3 +20,10 @@ test('citation highlighting gives incoming and outgoing links matching colored a
  const target=svg.querySelector('[data-node-id="a"]'),position=target.getAttribute('transform').match(/translate\(([^,]+),([^\)]+)\)/).slice(1).map(Number),radius=Number(target.querySelector('circle:not(.selection-ring)').getAttribute('r'));assert(Math.hypot(+incoming.getAttribute('x2')-position[0],+incoming.getAttribute('y2')-position[1])>=radius);
  graph.reset();assert.equal(svg.querySelectorAll('.incoming-edge,.outgoing-edge,.selected-edge').length,0);graph.destroy();delete globalThis.document;
 });
+
+test('the rendered graph handles pinches starting on a node without opening its paper',()=>{
+ const {document,window}=parseHTML('<html><body><svg></svg></body></html>');globalThis.document=document;window.PointerEvent=function(){};const svg=document.querySelector('svg');svg.getBoundingClientRect=()=>({left:0,top:0,width:400,height:500});Object.defineProperty(svg,'clientWidth',{value:400});Object.defineProperty(svg,'clientHeight',{value:500});svg.setPointerCapture=()=>{};let clicked=0;
+ const graph=drawNetwork(svg,{nodes:[{id:'a',label:'Paper A',short_label:'PRE'}],edges:[]},{onClick:()=>clicked++}),viewport=svg.querySelector('[data-network-viewport]'),before=Number(viewport.getAttribute('transform').match(/scale\(([^)]+)\)/)[1]);
+ const event=(type,id,x,target=svg)=>{const e=new window.Event(type,{bubbles:true,cancelable:true});Object.assign(e,{pointerId:id,pointerType:'touch',clientX:x,clientY:100,button:0});target.dispatchEvent(e);};
+ event('pointerdown',1,100,svg.querySelector('.node circle'));event('pointerdown',2,200);event('pointermove',2,300);const after=Number(viewport.getAttribute('transform').match(/scale\(([^)]+)\)/)[1]);assert.equal(after,before*2);event('pointerup',2,300);event('pointerup',1,100);assert.equal(clicked,0);graph.destroy();delete globalThis.document;
+});
