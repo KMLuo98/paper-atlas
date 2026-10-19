@@ -33,7 +33,14 @@ export function parseModelJSON(choice) {
     try {value = JSON.parse(text);} catch {value = JSON.parse(repairSyntax(text));}
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new ModelJSONError(false, 'shape');
     return databaseJSON(value);
-  } catch (error) {if (error instanceof ModelJSONError) throw error; throw new ModelJSONError();}
+  } catch (error) {
+    if (error instanceof ModelJSONError) throw error;
+    const failure = new ModelJSONError();
+    const position = /position (\d+)/.exec(error.message || '');
+    failure.syntax = error.message?.startsWith('Expected ') ? error.message.split(' in JSON')[0] : 'Invalid JSON token';
+    failure.position = position ? Number(position[1]) : null;
+    throw failure;
+  }
 }
 export const conciseJSONInstruction = '\n输出必须为完整且有效的 JSON 对象，不使用 Markdown。保持核心元数据、全部实际作者、8–10个双语关键词和完整总结，总结不超过1200汉字。references 最多保留20条已知引用（每个标题不超过180字符），search_terms 最多12项。用文字表述公式，避免未转义的反斜杠和控制字符。必须闭合所有字符串、数组和对象，不得编造信息。';
 
@@ -45,7 +52,7 @@ export async function requestModelJSON(request, system, {onInvalid = () => {}} =
     catch (error) {
       if (!(error instanceof ModelJSONError)) throw error;
       const choice = response.choices?.[0];
-      onInvalid({attempt: attempt + 1, reason: error.reason, finish_reason: choice?.finish_reason || 'missing', content_chars: typeof choice?.message?.content === 'string' ? choice.message.content.length : 0, completion_tokens: response.usage?.completion_tokens ?? null});
+      onInvalid({attempt: attempt + 1, reason: error.reason, syntax: error.syntax, position: error.position, finish_reason: choice?.finish_reason || 'missing', content_chars: typeof choice?.message?.content === 'string' ? choice.message.content.length : 0, completion_tokens: response.usage?.completion_tokens ?? null});
       if (attempt) throw error;
     }
   }
