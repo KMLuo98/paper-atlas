@@ -8,3 +8,12 @@ export async function invokeWithSessionRetry(client, options) {
   // Only replay an authentication rejection; never repeat paid AI work on timeouts.
   return client.functions.invoke('library-api', options);
 }
+
+export async function apiFailure(error) {
+  let message = error.message;
+  try {const body = await error.context.json(); message = body.error || message;} catch {}
+  return Object.assign(new Error(message), {
+    status: error.context?.status,
+    retryAfter: Number(error.context?.headers?.get('Retry-After')) || 61
+  });
+}

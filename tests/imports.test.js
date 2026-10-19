@@ -70,3 +70,17 @@ test('mobile layouts use three workers and desktop layouts use ten workers', asy
     assert.equal(peak, limit); assert.equal(active, 0);
   }
 });
+
+test('a rate-limited paper waits and succeeds without failing or abandoning later papers', async () => {
+  const calls=[],events=[];let clock=0;
+  const papers=[{title:'first'},{title:'second'}];
+  const failures=await runAnalysisQueue(papers,async p=>{calls.push(p.title);if(calls.length===1)throw Object.assign(new Error('limited'),{status:429,retryAfter:2});}, {concurrency:1,now:()=>clock,sleep:async ms=>{assert.equal(ms,2000);clock+=ms;},onProgress:p=>events.push(p)});
+  assert.deepEqual(calls,['first','first','second']);assert.deepEqual(failures,[]);
+  assert(events.some(p=>p.phase==='waiting'));assert.equal(events.at(-1).index,2);
+});
+test('persistent rate limits are bounded while ambiguous timeout errors are never retried', async () => {
+  let clock=0,attempts=0;
+  const failures=await runAnalysisQueue([{title:'paper'}],async()=>{attempts++;throw Object.assign(Error('limited'),{status:429,retryAfter:1});},{now:()=>clock,sleep:async ms=>{clock+=ms;}});
+  assert.equal(attempts,4);assert.equal(failures.length,1);
+  attempts=0;await runAnalysisQueue([{title:'paper'}],async()=>{attempts++;throw Object.assign(Error('timeout'),{status:504});});assert.equal(attempts,1);
+});

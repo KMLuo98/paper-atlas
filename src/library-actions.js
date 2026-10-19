@@ -7,7 +7,7 @@ export function createLibraryActions({state, modal, icon, busy, toast, refresh, 
   function progress(info) {
     let banner = document.querySelector('#batch-status');
     if (!banner) {banner = document.createElement('div'); banner.id = 'batch-status'; banner.setAttribute('role', 'status'); document.body.append(banner);}
-    banner.innerHTML = `<strong>${info.phase === 'upload' ? '先上传全部文件' : info.phase === 'keywords' ? '整理双语关键词' : '并行 AI 分析'} · ${info.index}/${info.total}</strong><span>${e(info.name || '')}</span><small>单篇失败不会中止队列，请保持本页打开。</small>`;
+    banner.innerHTML = `<strong>${info.phase === 'upload' ? '先上传全部文件' : info.phase === 'keywords' ? '整理双语关键词' : info.phase === 'waiting' ? '请求限流，等待后自动继续' : '并行 AI 分析'} · ${info.index}/${info.total}</strong><span>${e(info.name || '')}</span><small>单篇失败不会中止队列，请保持本页打开。</small>`;
   }
   async function analyzePaper(p) {
     try {
@@ -20,6 +20,7 @@ export function createLibraryActions({state, modal, icon, busy, toast, refresh, 
       p.full_text = text;
       const result = await api('analyze', {paper_id: p.id}); Object.assign(p, result.paper); return p;
     } catch (error) {
+      if (error.status === 429) throw error;
       p.status = 'error'; p.analysis_error = error.message;
       await updatePaper(p.id, {status: 'error', analysis_error: error.message}).catch(() => {}); throw error;
     }
@@ -33,7 +34,7 @@ export function createLibraryActions({state, modal, icon, busy, toast, refresh, 
       failures.push(...await runAnalysisQueue(papers, async p => {
         if (keywordsOnly) Object.assign(p, (await api('upgrade_keywords', {paper_id: p.id})).paper);
         else await analyzePaper(p);
-      }, {onProgress: info => progress({...info, phase: keywordsOnly ? 'keywords' : 'analyze'})}));
+      }, {onProgress: info => progress({...info, phase: info.phase === 'waiting' ? 'waiting' : keywordsOnly ? 'keywords' : 'analyze'})}));
       await refresh(); if (!document.querySelector('.dialog-backdrop')) await render();
       if (failures.length && !silent) showFailures('处理已完成', papers.length - failures.length, failures);
       else if (!silent) toast(`已完成 ${papers.length} 篇论文的${keywordsOnly ? '双语关键词整理' : '分析'}`);

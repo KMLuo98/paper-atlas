@@ -62,15 +62,25 @@ export async function runImportBatch(items, {upload, analyze, onProgress = () =>
 export function analysisConcurrency(matchMedia = globalThis.matchMedia?.bind(globalThis)) {
   return matchMedia?.('(max-width: 850px)')?.matches ? 3 : 10;
 }
-export async function runAnalysisQueue(papers, analyze, {onProgress = () => {}, concurrency = analysisConcurrency()} = {}) {
+export async function runAnalysisQueue(papers, analyze, {onProgress = () => {}, concurrency = analysisConcurrency(), sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), now = () => Date.now()} = {}) {
   const limit = Math.max(1, Math.min(10, Math.floor(Number(concurrency)) || 3));
   const failures = [];
-  let next = 0, completed = 0;
+  let next = 0, completed = 0, resumeAt = 0;
   onProgress({phase: 'analyze', index: 0, total: papers.length});
   async function worker() {
     while (next < papers.length) {
       const paper = papers[next++];
-      try {await analyze(paper);} catch (error) {failures.push({phase: 'analyze', name: paper.title, message: error.message});}
+      for (let attempt = 0; ; attempt++) {
+        while (resumeAt > now()) await sleep(resumeAt - now());
+        try {await analyze(paper); break;}
+        catch (error) {
+          // Only an explicit 429 is safe to replay; timeouts may have already done paid work.
+          if (error.status !== 429 || attempt >= 3) {failures.push({phase: 'analyze', name: paper.title, message: error.message}); break;}
+          const seconds = Math.max(1, Math.min(180, Number(error.retryAfter) || 61));
+          resumeAt = Math.max(resumeAt, now() + seconds * 1000);
+          onProgress({phase: 'waiting', index: completed, total: papers.length, name: paper.title});
+        }
+      }
       completed++;
       onProgress({phase: 'analyze', index: completed, total: papers.length, name: paper.title});
     }

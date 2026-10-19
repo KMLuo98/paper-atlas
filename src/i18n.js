@@ -202,6 +202,7 @@ ZIP 中只读取 PDF，逐个解压上传。中文和未发表稿件也可分析
 单篇失败不会中止队列，请保持本页打开。|A failed paper will not stop the queue. Keep this page open.
 先上传全部文件|Upload all files first
 并行 AI 分析|Analyze papers in parallel
+请求限流，等待后自动继续|Rate limit reached; the queue will resume automatically
 整理双语关键词|Organize bilingual keywords
 导入队列已完成|Import complete
 处理已完成|Processing complete
@@ -386,7 +387,7 @@ export function translateText(value, lang = language) {
     [/^已合并 (\d+) 页(.*)$/, (_, n, rest) => `Combined ${n} pages${rest ? '; some papers could not be merged' : ''}`]
   ];
   for (const [pattern, replacement] of patterns) if (pattern.test(trimmed)) return trimmed.replace(pattern, replacement);
-  const fragments = {'文献已保存':'Papers saved','先上传全部文件':'Upload all files first','并行 AI 分析':'Analyze papers in parallel','整理双语关键词':'Organize bilingual keywords','已使用 · 配额见后端':'used · project quota applies','篇共同论文':'shared papers','篇论文':'papers','已选文献':'selected papers','当前筛选结果':'current results','已选':'selected','选择 ':'Select ','收藏 ':'Favorite ','构建网络':'Build network','查看全部':'Show all','导出网络':'Export network','重置布局':'Reset layout','隐藏标签':'Hide labels','显示标签':'Show labels','成员':'members','个节点':'nodes','条连线':'edges','到期':'expires','恢复':'Restore','未识别':'Unknown','未发表':'Unpublished','双语扩展：':'Bilingual expansion: ','处理中':'Processing'};
+  const fragments = {'文献已保存':'Papers saved','先上传全部文件':'Upload all files first','并行 AI 分析':'Analyze papers in parallel','请求限流，等待后自动继续':'Rate limit reached; the queue will resume automatically','整理双语关键词':'Organize bilingual keywords','已使用 · 配额见后端':'used · project quota applies','篇共同论文':'shared papers','篇论文':'papers','已选文献':'selected papers','当前筛选结果':'current results','已选':'selected','选择 ':'Select ','收藏 ':'Favorite ','构建网络':'Build network','查看全部':'Show all','导出网络':'Export network','重置布局':'Reset layout','隐藏标签':'Hide labels','显示标签':'Show labels','成员':'members','个节点':'nodes','条连线':'edges','到期':'expires','恢复':'Restore','未识别':'Unknown','未发表':'Unpublished','双语扩展：':'Bilingual expansion: ','处理中':'Processing'};
   let translated = value;
   for (const [from, to] of Object.entries(fragments)) translated = translated.replaceAll(from, to);
   return translated;
