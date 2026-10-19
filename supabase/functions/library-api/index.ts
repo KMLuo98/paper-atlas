@@ -16,7 +16,7 @@ import { authorNetwork, citationNetwork, exportCitations, filename, normalize, s
 
 const env=(name:string)=>Deno.env.get(name)||'';
 const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false,autoRefreshToken:false}});
-const metadataColumns='id,title,journal,journal_abbr,published_at,doi,volume,issue,pages,authors,keywords,keyword_pairs,publication_status,tags,search_terms,references,summary,favorite,status,analysis_error,analysis_coverage,analyzed_at,created_at,updated_at,citation_count,citation_source,citation_url,citation_checked_at,arxiv_id,arxiv_date,preprint_url,publication_lookup_at,publication_lookup_status';
+const metadataColumns='id,title,journal,journal_abbr,published_at,doi,volume,issue,pages,authors,keywords,keyword_pairs,keywords_edited_at,publication_status,tags,search_terms,references,summary,favorite,status,analysis_error,analysis_coverage,analyzed_at,created_at,updated_at,citation_count,citation_source,citation_url,citation_checked_at,arxiv_id,arxiv_date,preprint_url,publication_lookup_at,publication_lookup_status';
 class HTTPError extends Error { constructor(public status:number,message:string){super(message);} }
 const str=(v:unknown,max=1000)=>typeof v==='string'?v.slice(0,max).trim():'';
 const sha=async(s:string)=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -152,7 +152,7 @@ Deno.serve(async(req:Request)=>{
     if(action==='upgrade_keywords'){
       await limit('ai:'+userId,30,60);const p=await ownPaper(body.paper_id,'*');
       const raw=await model(keywordPrompt,{title:p.title,summary:p.summary,keywords:p.keywords,text:p.full_text?.slice(0,16000)},true);
-      const pairs=normalizeKeywordPairs(raw.keyword_pairs);if(!validKeywordHierarchy(pairs))throw new HTTPError(502,'双语关键词尚不完整，请重试；原论文信息保持可用');
+      const pairs=normalizeKeywordPairs(raw.keyword_pairs).slice(0,10);if(!validKeywordHierarchy(pairs))throw new HTTPError(502,'双语关键词尚不完整，请重试；原论文信息保持可用');
       const {data,error}=await service.from('papers').update({...keywordFields(pairs,p.search_terms||[]),analysis_error:null}).eq('id',p.id).eq('user_id',userId).select(metadataColumns).single();
       if(error)throw new HTTPError(503,'关键词保存失败，请重试');return json({paper:data});
     }

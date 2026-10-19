@@ -11,7 +11,7 @@ export function normalizeKeywordPairs(input) {
     const kind = Object.hasOwn(levels, item.kind) ? item.kind : 'topic';
     const importance = Math.max(1, Math.min(100, Number(item.importance) || 100 - index));
     return [{zh, en, kind, importance}];
-  }).sort((a, b) => levels[a.kind] - levels[b.kind] || b.importance - a.importance).slice(0, 10);
+  }).sort((a, b) => levels[a.kind] - levels[b.kind] || b.importance - a.importance);
 }
 export function validKeywordHierarchy(pairs) {
   return pairs.length >= 8 && pairs.length <= 10 && pairs.some(k => k.kind === 'domain') && pairs.some(k => k.kind === 'topic' || k.kind === 'problem') && pairs.some(k => k.kind === 'method') && pairs.some(k => k.kind === 'phenomenon' || k.kind === 'conclusion');

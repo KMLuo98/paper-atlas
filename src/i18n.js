@@ -1,4 +1,9 @@
 const entries = `
+隐藏标签|Hide labels
+显示标签|Show labels
+编辑关键词|Edit keywords
+研究关键词已保存|Research keywords saved
+
 被引用|Citation count
 升序或降序|Ascending or descending
 ↑ 升序|↑ Ascending
