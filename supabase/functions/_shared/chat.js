@@ -1,4 +1,5 @@
 import {buildLibraryContext} from './library-context.js';
+import {withQuestionAllowance} from './question-allowance.js';
 import {databaseText,databaseJSON} from './text.js';
 const uuid=value=>typeof value==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 export function validChatAttachment(a,userId){return a&&typeof a.path==='string'&&new RegExp('^'+userId+'/[0-9a-f-]{36}\\.[a-z0-9]{1,6}$','i').test(a.path)&&typeof a.name==='string'&&a.name.length<=300&&['text','image'].includes(a.kind)&&(!a.text||typeof a.text==='string'&&a.text.length<=60000)&&(!a.kind||a.kind!=='image'||['image/jpeg','image/png','image/webp'].includes(a.type));}
@@ -13,9 +14,10 @@ export async function chatAction({service,userId,body,allPapers,complete,HTTPErr
  }
  const text=typeof body.message==='string'?databaseText(body.message).trim():'';const attachments=databaseJSON(body.attachments||[]);
  if(text.length>20000||(!text&&!attachments.length)||!Array.isArray(attachments)||attachments.length>8||attachments.some(a=>!validChatAttachment(a,userId))||attachments.reduce((n,a)=>n+(a.text?.length||0),0)>120000||!uuid(body.request_id))throw new HTTPError(400,'消息或附件无效（文字最多 20,000 字符，每次最多 8 个附件）');
- const prior=await service.from('chat_messages').select('id,content').eq('conversation_id',id).eq('user_id',userId).eq('request_id',body.request_id).eq('role','assistant').maybeSingle();if(prior.data)return {message:prior.data};
+ const prior=await service.from('chat_messages').select('id,content').eq('conversation_id',id).eq('user_id',userId).eq('request_id',body.request_id).eq('role','assistant').maybeSingle();if(prior.error)throw new HTTPError(503,'提问状态读取失败，请重试');if(prior.data)return {message:prior.data};
  const now=new Date().toISOString();const locked=await service.from('conversations').update({inflight_until:new Date(Date.now()+300000).toISOString()}).eq('id',id).eq('user_id',userId).or(`inflight_until.is.null,inflight_until.lt.${now}`).select('id');if(locked.error||!locked.data?.length)throw new HTTPError(409,'当前对话正在生成回答，请稍候');
  try{
+  return await withQuestionAllowance({service,userId,requestId:body.request_id,conversationId:id,HTTPError},async markSaved=>{
   const userMessage={user_id:userId,conversation_id:id,role:'user',content:text,attachments,request_id:body.request_id};
   const saved=await service.from('chat_messages').upsert(userMessage,{onConflict:'conversation_id,request_id,role',ignoreDuplicates:true});if(saved.error)throw new HTTPError(503,'消息保存失败');
   const history=await service.from('chat_messages').select('id,role,content,attachments').eq('conversation_id',id).eq('user_id',userId).order('created_at',{ascending:false}).limit(20);if(history.error)throw new HTTPError(503,'历史对话读取失败');
@@ -33,6 +35,8 @@ export async function chatAction({service,userId,body,allPapers,complete,HTTPErr
   }
   const rawAnswer=await complete(messages);if(typeof rawAnswer!=='string'||!rawAnswer)throw new HTTPError(502,'模型没有返回回答');const answer=databaseText(rawAnswer);
   const result=await service.from('chat_messages').insert({user_id:userId,conversation_id:id,role:'assistant',content:answer.slice(0,60000),request_id:body.request_id}).select('id,content').single();if(result.error)throw new HTTPError(503,'回答保存失败，请稍后检查对话');
+  markSaved();
   await service.from('conversations').update({updated_at:new Date().toISOString(),...(['新对话','New chat'].includes(conversation.title)?{title:(text||attachments[0]?.name||'新对话').slice(0,60)}:{})}).eq('id',id).eq('user_id',userId);return {message:result.data};
+  });
  }finally{await service.from('conversations').update({inflight_until:null}).eq('id',id).eq('user_id',userId);}
 }

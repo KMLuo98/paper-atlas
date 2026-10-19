@@ -20,11 +20,26 @@ export async function adminAction({service,userId,action,body,limit,createAuth,H
         return ({ok:true});
       }
       if(admin.must_change_password)throw new HTTPError(403,'请先修改管理员初始密码');
+      if(action==='admin_get_defaults'){
+        const result=await service.from('signup_allowance_defaults').select('storage_quota_bytes,ai_question_limit').eq('singleton',true).single();if(result.error)throw new HTTPError(503,'默认额度读取失败');return result.data;
+      }
+      if(action==='admin_set_defaults'){
+        const quota=body.quota_bytes,questions=body.questions;
+        if(!Number.isSafeInteger(quota)||quota<0||quota>10995116277760||!Number.isSafeInteger(questions)||questions<0||questions>1000000)throw new HTTPError(400,'请填写有效的存储空间与提问次数');
+        const result=await service.from('signup_allowance_defaults').update({storage_quota_bytes:quota,ai_question_limit:questions}).eq('singleton',true);if(result.error)throw new HTTPError(503,'默认额度保存失败');return {ok:true};
+      }
       const page=Math.max(0,Math.floor(Number(body.page)||0));
       if(action==='admin_users'){
         const {data,error}=await service.from('profiles').select('id,username,email,display_name,created_at').order('created_at',{ascending:false}).range(page*100,page*100+99);if(error)throw new HTTPError(503,'用户列表读取失败');
         const usage=await service.rpc('account_storage_stats',{target_ids:data.map(user=>user.id)});if(usage.error)throw new HTTPError(503,'空间用量读取失败');
-        return ({users:data.map(user=>({...user,...usage.data?.find(row=>row.user_id===user.id)})),page,has_more:data.length===100});
+        const ai=await service.rpc('account_ai_stats',{target_ids:data.map(user=>user.id)});if(ai.error)throw new HTTPError(503,'AI 额度读取失败');
+        return ({users:data.map(user=>({...user,...usage.data?.find(row=>row.user_id===user.id),...ai.data?.find(row=>row.user_id===user.id)})),page,has_more:data.length===100});
+      }
+      if(action==='admin_set_ai_quota'){
+        const target=str(body.user_id,36),remaining=body.remaining;
+        if(!/^[0-9a-f-]{36}$/i.test(target)||!Number.isSafeInteger(remaining)||remaining<0||remaining>1000000)throw new HTTPError(400,'剩余提问次数需为 0–1,000,000 的整数');
+        const profile=await service.from('profiles').select('id').eq('id',target).maybeSingle();if(profile.error)throw new HTTPError(503,'用户读取失败');if(!profile.data)throw new HTTPError(404,'用户不存在');
+        const saved=await service.rpc('set_ai_question_remaining',{target_user:target,remaining});if(saved.error||!saved.data)throw new HTTPError(503,'AI 额度保存失败');return {ok:true,remaining};
       }
       if(action==='admin_set_quota'){
         const target=str(body.user_id,36),quota=body.quota_bytes;

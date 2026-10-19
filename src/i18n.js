@@ -1,4 +1,10 @@
 const entries = `
+新用户默认额度|New user defaults
+AI 提问|AI questions
+调整提问次数|Adjust questions
+剩余|Remaining
+已用|Used
+
 隐藏标签|Hide labels
 显示标签|Show labels
 编辑关键词|Edit keywords
