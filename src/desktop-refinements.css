@@ -13,3 +13,5 @@
 .network-touch-help{display:none}.graph-wrap svg.network{overscroll-behavior:contain;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}@media(max-width:850px),(pointer:coarse){.network-pointer-help{display:none}.network-touch-help{display:inline}}
 .graph-wrap{touch-action:none}@media(max-width:850px),(pointer:coarse){.citation-edge-legend{pointer-events:none}}
 .chat-allowance{font-size:11px;color:#6c835d;white-space:nowrap}.chat-options{flex-wrap:wrap}.admin-table .api-key-row>span{min-width:170px}
+
+.import-analysis-option{display:flex;align-items:center;gap:8px;margin:14px 0}.import-analysis-option .import-option{margin:0}.import-analysis-option .help-tooltip>span{right:auto;left:0;width:min(340px,calc(100vw - 90px))}@media(max-width:600px){.import-analysis-option .help-tooltip>span{left:auto;right:0}}
