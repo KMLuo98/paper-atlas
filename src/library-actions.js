@@ -1,5 +1,5 @@
 import {collectImports, filesFromDrop, MAX_PDF_BYTES, runImportBatch} from './imports.js';
-import {db, api, signedPDF, updatePaper} from './cloud.js';
+import {db, api, signedPDF, updatePaper,ensureStorageSpace} from './cloud.js';
 import {extractPDF} from './pdf-text.js';
 import {escapeHTML as e} from './core.js';
 
@@ -74,7 +74,7 @@ export function createLibraryActions({state, modal, icon, busy, toast, refresh, 
           const file = await item.getFile(); if (!file.size || file.size > MAX_PDF_BYTES) throw new Error('PDF 文件为空或超过 30 MB');
           if (!new TextDecoder().decode(await file.slice(0, 1024).arrayBuffer()).includes('%PDF-')) throw new Error('文件不是有效 PDF');
           const id = crypto.randomUUID(), path = `${state.user.id}/${id}.pdf`;
-          const {error} = await db.storage.from('papers').upload(path, file, {contentType: 'application/pdf', upsert: false}); if (error) throw error;
+          await ensureStorageSpace(file.size);const {error} = await db.storage.from('papers').upload(path, file, {contentType: 'application/pdf', upsert: false}); if (error) throw error;
           const saved = await db.from('papers').insert({id, user_id: state.user.id, title: file.name.replace(/\.pdf$/i, '').slice(0, 500), file_path: path, file_size: file.size, original_filename: item.name, status: 'pending'}).select().single();
           if (saved.error) {await db.storage.from('papers').remove([path]); throw saved.error;}
           state.papers.unshift(saved.data); return saved.data;

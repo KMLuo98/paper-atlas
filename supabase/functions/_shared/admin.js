@@ -23,7 +23,14 @@ export async function adminAction({service,userId,action,body,limit,createAuth,H
       const page=Math.max(0,Math.floor(Number(body.page)||0));
       if(action==='admin_users'){
         const {data,error}=await service.from('profiles').select('id,username,email,display_name,created_at').order('created_at',{ascending:false}).range(page*100,page*100+99);if(error)throw new HTTPError(503,'用户列表读取失败');
-        return ({users:data,page,has_more:data.length===100});
+        const usage=await service.rpc('account_storage_stats',{target_ids:data.map(user=>user.id)});if(usage.error)throw new HTTPError(503,'空间用量读取失败');
+        return ({users:data.map(user=>({...user,...usage.data?.find(row=>row.user_id===user.id)})),page,has_more:data.length===100});
+      }
+      if(action==='admin_set_quota'){
+        const target=str(body.user_id,36),quota=body.quota_bytes;
+        if(!/^[0-9a-f-]{36}$/i.test(target)||!Number.isSafeInteger(quota)||quota<0||quota>10995116277760)throw new HTTPError(400,'配额必须是 0–10240 GB 范围内的有效值');
+        const profile=await service.from('profiles').select('id').eq('id',target).maybeSingle();if(profile.error)throw new HTTPError(503,'用户读取失败');if(!profile.data)throw new HTTPError(404,'用户不存在');
+        const saved=await service.from('account_storage_quotas').upsert({user_id:target,quota_bytes:quota,updated_at:new Date().toISOString()},{onConflict:'user_id'});if(saved.error)throw new HTTPError(503,'配额保存失败');return {ok:true,quota_bytes:quota};
       }
       if(action==='admin_papers'){
         const target=str(body.user_id,36);if(!/^[0-9a-f-]{36}$/i.test(target))throw new HTTPError(400,'无效用户ID');

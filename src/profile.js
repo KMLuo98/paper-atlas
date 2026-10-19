@@ -1,4 +1,4 @@
-import {db, api} from './cloud.js';
+import {db, api,ensureStorageSpace} from './cloud.js';
 import {escapeHTML as e} from './core.js';
 import {passwordError} from '../supabase/functions/_shared/password.js';
 
@@ -23,7 +23,7 @@ export function renderProfile({state, shell, icon, busy, modal, toast, refresh, 
     const image = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', 0.88));
     if (!image) throw new Error('头像处理失败，请更换图片');
     const path = `${state.user.id}/${crypto.randomUUID()}.webp`, oldPath = state.profile?.avatar_path;
-    const {error} = await db.storage.from('avatars').upload(path, image, {contentType: 'image/webp', upsert: false}); if (error) throw error;
+    await ensureStorageSpace(image.size);const {error} = await db.storage.from('avatars').upload(path, image, {contentType: 'image/webp', upsert: false}); if (error) throw error;
     const updated = await db.from('profiles').update({avatar_path: path}).eq('id', state.user.id).select().single();
     if (updated.error) {await db.storage.from('avatars').remove([path]); throw updated.error;}
     if (oldPath) await db.storage.from('avatars').remove([oldPath]);

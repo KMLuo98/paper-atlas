@@ -1,3 +1,4 @@
+import {communityAnchors} from './network-clusters.js';
 import {getLanguage} from './i18n.js';
 import {forceSimulation,forceLink,forceManyBody,forceCenter,forceCollide,forceX,forceY} from 'd3-force';
 
@@ -7,14 +8,15 @@ export function drawNetwork(svg,data,{authors=false,onClick=()=>{},onSelectionCh
  const make=(name,attrs={})=>{const el=document.createElementNS(ns,name);for(const [key,value] of Object.entries(attrs))el.setAttribute(key,String(value));return el;};
  const idOf=node=>typeof node==='object'?node.id:node;
  const degree=new Map(data.nodes.map(n=>[n.id,0]));for(const edge of data.edges){degree.set(idOf(edge.source),(degree.get(idOf(edge.source))||0)+1);degree.set(idOf(edge.target),(degree.get(idOf(edge.target))||0)+1);}
- const radius=id=>Math.min(28,13+Math.sqrt(degree.get(id)||0)*2.5),nodes=data.nodes.map((n,i)=>{const angle=i*2.399963,r=Math.sqrt(i+1)*85;return {...n,x:width/2+Math.cos(angle)*r,y:height/2+Math.sin(angle)*r};}),links=data.edges.map(edge=>({...edge}));
+ const clustering=communityAnchors(data.nodes,data.edges,width,height),memberIndex=new Map();
+ const radius=id=>Math.min(28,13+Math.sqrt(degree.get(id)||0)*2.5),nodes=data.nodes.map((n,i)=>{const group=clustering.groups.get(n.id),center=clustering.centers.get(group),index=memberIndex.get(group)||0;memberIndex.set(group,index+1);const angle=index*2.399963,r=Math.sqrt(index+1)*62;return {...n,community:group,x:center.x+Math.cos(angle)*r,y:center.y+Math.sin(angle)*r};}),links=data.edges.map(edge=>({...edge}));
  const markerId='network-arrow-'+Math.random().toString(36).slice(2),defs=make('defs'),marker=make('marker',{id:markerId,viewBox:'0 -5 10 10',refX:30,refY:0,markerWidth:7,markerHeight:7,orient:'auto'});marker.append(make('path',{d:'M0,-4L9,0L0,4',fill:'#8da880'}));defs.append(marker);svg.append(defs);
  const viewport=make('g',{'data-network-viewport':''});svg.append(viewport);
  const edgeEls=links.map(link=>{const el=make('line',{class:'network-edge',stroke:'#aec29e','stroke-width':authors?Math.min(4,1+Math.log1p(link.weight||1)):1.3,'stroke-opacity':links.length>nodes.length*3?.18:.42,...(!authors?{'marker-end':`url(#${markerId})`}:{})});viewport.append(el);return el;});
  let selected=null,labels=data.nodes.length<=40,scale=1,tx=0,ty=0,pan=null,disposed=false;
  const important=new Set([...nodes].sort((a,b)=>(degree.get(b.id)||0)-(degree.get(a.id)||0)).slice(0,data.nodes.length>40?5:0).map(n=>n.id));
  const nodeEls=nodes.map((node,i)=>{
-  const r=radius(node.id),g=make('g',{class:'node',tabindex:0,role:'button','aria-label':node.label,'aria-pressed':'false','data-node-id':node.id});
+  const r=radius(node.id),g=make('g',{class:'node',tabindex:0,role:'button','aria-label':node.label,'aria-pressed':'false','data-node-id':node.id,'data-community':node.community});
   g.append(make('circle',{class:'selection-ring',r:r+8,fill:'none',stroke:'#d18b31','stroke-width':4,opacity:0}));
   g.append(make('circle',{r:r,fill:['#50764c','#87a76b','#b4bd87','#729180','#b49f6a'][i%5],stroke:'#fffefa','stroke-width':2}));
   const inner=make('text',{'text-anchor':'middle',dy:4,style:'fill:#fffef9;font-size:12px;font-weight:600'});inner.textContent=authors?node.name.split(' ').map(part=>part[0]).slice(0,2).join(''):(node.short_label==='未发表'&&getLanguage()==='en'?'Unpub.':node.short_label||'PDF');g.append(inner);
@@ -30,10 +32,10 @@ export function drawNetwork(svg,data,{authors=false,onClick=()=>{},onSelectionCh
  // Avoid a fixed viewport clamp: it piles peripheral nodes against the same boundary.
  // Link strengths are normalized by degree, so dense coauthor groups can spread out.
  const simulation=forceSimulation(nodes)
-  .force('link',forceLink(links).id(n=>n.id).distance(link=>(authors?175:200)/(1+Math.log1p(link.weight||1)*.04)).strength(link=>Math.min(.16,(.12+Math.log1p(link.weight||1)*.015)/Math.sqrt(Math.max(1,Math.min(degree.get(idOf(link.source))||1,degree.get(idOf(link.target))||1))))))
-  .force('charge',forceManyBody().strength(-620).distanceMax(750))
+  .force('link',forceLink(links).id(n=>n.id).distance(link=>(clustering.groups.get(idOf(link.source))===clustering.groups.get(idOf(link.target))?105:270)/(1+Math.log1p(link.weight||1)*.08)).strength(link=>Math.min(.16,(.12+Math.log1p(link.weight||1)*.015)/Math.sqrt(Math.max(1,Math.min(degree.get(idOf(link.source))||1,degree.get(idOf(link.target))||1))))))
+  .force('charge',forceManyBody().strength(-390).distanceMax(750))
   .force('center',forceCenter(width/2,height/2).strength(.025))
-  .force('x',forceX(width/2).strength(.006)).force('y',forceY(height/2).strength(.007))
+  .force('x',forceX(n=>clustering.centers.get(n.community).x).strength(.06)).force('y',forceY(n=>clustering.centers.get(n.community).y).strength(.06))
   .force('collision',forceCollide(n=>radius(n.id)+29).strength(1).iterations(4)).stop();
  simulation.tick(Math.min(260,120+Math.floor(nodes.length/3)));
  const transform=()=>viewport.setAttribute('transform',`translate(${tx},${ty}) scale(${scale})`);

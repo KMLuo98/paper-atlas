@@ -1,4 +1,16 @@
 const entries = `
+被引用|Citation count
+升序或降序|Ascending or descending
+↑ 升序|↑ Ascending
+↓ 降序|↓ Descending
+空间配额|Storage quota
+调整配额|Adjust quota
+保存配额|Save quota
+配额（GB）|Quota (GB)
+当前用量|Current usage
+配额已更新|Quota updated
+配额不足，请联系管理员|Storage quota exceeded; contact the administrator
+
 年份范围|Year range
 查看合作论文|View shared papers
 合作论文|Shared papers

@@ -1,4 +1,5 @@
 import {api, db} from './cloud.js';
+import {getLanguage} from './i18n.js';
 import {escapeHTML as e} from './core.js';
 export async function renderAdmin({state, shell, modal, busy, toast, go, render}) {
   if (!state.isAdmin) {shell('用户管理', '<div class="content"><h1>无权访问</h1><p>只有管理员能够访问用户管理。</p></div>'); return;}
@@ -12,6 +13,8 @@ export async function renderAdmin({state, shell, modal, busy, toast, go, render}
     });
   };
   if (state.adminMustChange) return;
+  const l=(zh,en)=>getLanguage()==='en'?en:zh;
+  const gb=n=>(Number(n)/1073741824).toFixed(2);
   let selectedUser = null, usersPage = 0, papersPage = 0;
   async function confirmDelete({title, detail, action, payload, onDone}) {
     const d = modal(title, `<p>${e(detail)}</p><form id="admin-delete-form"><label>当前管理员密码<input name="password" type="password" autocomplete="current-password" required></label><label class="remember"><input type="checkbox" required>我确认永久删除，无法恢复</label><div class="actions"><button type="button" id="cancel-admin-delete">取消</button><button type="submit" class="danger">确认永久删除</button></div></form>`);
@@ -25,9 +28,14 @@ export async function renderAdmin({state, shell, modal, busy, toast, go, render}
     usersPage = page; const target = document.querySelector('#admin-user-list'); if (!target) return;
     try {
       const result = await api('admin_users', {page});
-      target.innerHTML = `<div class="admin-table">${result.users.map(user => `<div class="api-key-row"><span><strong>${e(user.display_name || user.username)}</strong><br><small>${e(user.username)} · ${e(user.email)}</small></span><button data-user-papers="${e(user.id)}">查看论文</button>${user.id !== state.user.id ? `<button class="danger" data-delete-user="${e(user.id)}">删除用户</button>` : '<small>当前管理员</small>'}</div>`).join('') || '<p>没有用户。</p>'}</div><div class="actions"><button id="users-prev" ${!page ? 'disabled' : ''}>上一页</button><span>第 ${page + 1} 页</span><button id="users-next" ${!result.has_more ? 'disabled' : ''}>下一页</button></div>`;
+      target.innerHTML = `<div class="admin-table">${result.users.map(user => `<div class="api-key-row"><span><strong>${e(user.display_name || user.username)}</strong><br><small>${e(user.username)} · ${e(user.email)}</small><br><small>${l('当前用量','Current usage')}: ${gb(user.used_bytes||0)} / ${gb(user.quota_bytes??1073741824)} GB</small></span><button data-user-quota="${e(user.id)}">${l('调整配额','Adjust quota')}</button><button data-user-papers="${e(user.id)}">查看论文</button>${user.id !== state.user.id ? `<button class="danger" data-delete-user="${e(user.id)}">删除用户</button>` : '<small>当前管理员</small>'}</div>`).join('') || '<p>没有用户。</p>'}</div><div class="actions"><button id="users-prev" ${!page ? 'disabled' : ''}>上一页</button><span>第 ${page + 1} 页</span><button id="users-next" ${!result.has_more ? 'disabled' : ''}>下一页</button></div>`;
       target.querySelector('#users-prev').onclick = () => loadUsers(page - 1); target.querySelector('#users-next').onclick = () => loadUsers(page + 1);
       target.querySelectorAll('[data-user-papers]').forEach(button => button.onclick = () => {selectedUser = result.users.find(user => user.id === button.dataset.userPapers); loadPapers(0);});
+      target.querySelectorAll('[data-user-quota]').forEach(button=>button.onclick=()=>{
+        const user=result.users.find(u=>u.id===button.dataset.userQuota);
+        const d=modal(l('空间配额','Storage quota'),`<p data-user-content>${e(user.username)} · ${l('当前用量','Current usage')} ${gb(user.used_bytes||0)} GB</p><form id="quota-form"><label>${l('配额（GB）','Quota (GB)')}<input name="quota" type="number" min="0" max="10240" step="0.01" value="${Number(((user.quota_bytes??1073741824)/1073741824).toFixed(4))}" required></label><p>${l('0 表示暂停新增上传。降低配额不会删除已有文件。','0 pauses new uploads. Reducing a quota preserves existing files.')}</p><button class="primary" type="submit">${l('保存配额','Save quota')}</button></form>`);
+        d.el.querySelector('#quota-form').onsubmit=event=>{event.preventDefault();const form=event.currentTarget;busy(form.querySelector('button'),async()=>{const value=Number(form.querySelector('[name=quota]').value);if(!Number.isFinite(value)||value<0||value>10240)throw Error(l('请输入有效配额','Enter a valid quota'));await api('admin_set_quota',{user_id:user.id,quota_bytes:Math.round(value*1073741824)});d.close();toast(l('配额已更新','Quota updated'));await loadUsers(usersPage);});};
+      });
       target.querySelectorAll('[data-delete-user]').forEach(button => button.onclick = () => {
         const user = result.users.find(user => user.id === button.dataset.deleteUser);
         confirmDelete({title: '永久删除用户', detail: `删除 ${user.username} 的账户、头像、全部论文与 API 令牌，无法恢复。`, action: 'admin_delete_user', payload: {user_id: user.id, confirmation: 'DELETE_USER'}, onDone: async () => {selectedUser = null; document.querySelector('#admin-paper-list').textContent = '请选择用户'; await loadUsers(usersPage);}});
