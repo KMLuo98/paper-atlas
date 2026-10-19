@@ -190,7 +190,7 @@ AI 研究总结|AI summary
 AI 生成内容请对照原文核验。原文未给出的机构和邮箱不会自动补全。|Check AI output against the original paper. Missing affiliations or email addresses are not invented.
 尚未生成 AI 总结。请配置服务端模型密钥后点击解析。|No AI summary yet. Configure the model service and start analysis.
 批量导入论文|Import papers
-支持 PDF、文件夹及 ZIP，不限制每批篇数。先保存全部文件，再逐篇分析。|Import PDFs, folders or ZIP archives with no paper-count limit. All files are uploaded before analysis begins.
+支持 PDF、文件夹及 ZIP，不限制每批篇数。先保存全部文件，再并行分析（最多 3 篇）。|Import PDFs, folders or ZIP archives with no paper-count limit. All files are uploaded before analysis begins, with up to 3 papers analyzed concurrently.
 拖入文件或文件夹，或点击选择 PDF / ZIP|Drop files or folders here, or choose PDFs / ZIPs
 每篇 PDF 最大 30 MB · 云端空间以你的项目配额为准|Up to 30 MB per PDF. Storage depends on your project quota.
 选择文件夹|Choose folder
@@ -201,7 +201,7 @@ AI 生成内容请对照原文核验。原文未给出的机构和邮箱不会�
 ZIP 中只读取 PDF，逐个解压上传。中文和未发表稿件也可分析；缺少期刊或日期不会中止。扫描件仍需要 OCR。关闭或刷新页面会停止当前队列，已上传文件可以稍后继续分析。|Only PDFs are extracted from ZIPs, one at a time. Chinese and unpublished manuscripts are supported. Missing journal or date fields do not stop analysis. Scanned papers still need OCR. Keep this page open while processing; uploaded files can be analyzed later if interrupted.
 单篇失败不会中止队列，请保持本页打开。|A failed paper will not stop the queue. Keep this page open.
 先上传全部文件|Upload all files first
-逐篇 AI 分析|Analyze papers one at a time
+并行 AI 分析（最多 3 篇）|Analyze papers in parallel (up to 3)
 整理双语关键词|Organize bilingual keywords
 导入队列已完成|Import complete
 处理已完成|Processing complete
@@ -386,7 +386,7 @@ export function translateText(value, lang = language) {
     [/^已合并 (\d+) 页(.*)$/, (_, n, rest) => `Combined ${n} pages${rest ? '; some papers could not be merged' : ''}`]
   ];
   for (const [pattern, replacement] of patterns) if (pattern.test(trimmed)) return trimmed.replace(pattern, replacement);
-  const fragments = {'文献已保存':'Papers saved','先上传全部文件':'Upload all files first','逐篇 AI 分析':'Analyze papers one at a time','整理双语关键词':'Organize bilingual keywords','已使用 · 配额见后端':'used · project quota applies','篇共同论文':'shared papers','篇论文':'papers','已选文献':'selected papers','当前筛选结果':'current results','已选':'selected','选择 ':'Select ','收藏 ':'Favorite ','构建网络':'Build network','查看全部':'Show all','导出网络':'Export network','重置布局':'Reset layout','隐藏标签':'Hide labels','显示标签':'Show labels','成员':'members','个节点':'nodes','条连线':'edges','到期':'expires','恢复':'Restore','未识别':'Unknown','未发表':'Unpublished','双语扩展：':'Bilingual expansion: ','处理中':'Processing'};
+  const fragments = {'文献已保存':'Papers saved','先上传全部文件':'Upload all files first','并行 AI 分析（最多 3 篇）':'Analyze papers in parallel (up to 3)','整理双语关键词':'Organize bilingual keywords','已使用 · 配额见后端':'used · project quota applies','篇共同论文':'shared papers','篇论文':'papers','已选文献':'selected papers','当前筛选结果':'current results','已选':'selected','选择 ':'Select ','收藏 ':'Favorite ','构建网络':'Build network','查看全部':'Show all','导出网络':'Export network','重置布局':'Reset layout','隐藏标签':'Hide labels','显示标签':'Show labels','成员':'members','个节点':'nodes','条连线':'edges','到期':'expires','恢复':'Restore','未识别':'Unknown','未发表':'Unpublished','双语扩展：':'Bilingual expansion: ','处理中':'Processing'};
   let translated = value;
   for (const [from, to] of Object.entries(fragments)) translated = translated.replaceAll(from, to);
   return translated;

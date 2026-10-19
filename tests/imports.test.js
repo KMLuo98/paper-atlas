@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ZipWriter, BlobWriter, TextReader} from '@zip.js/zip.js';
-import {collectImports, runImportBatch, safeImportPath} from '../src/imports.js';
+import {collectImports, runImportBatch, runAnalysisQueue, safeImportPath} from '../src/imports.js';
 
 test('more than ten PDFs upload completely before the first analysis, despite failures', async () => {
   const events = [], items = Array.from({length: 27}, (_, n) => ({name: `paper-${n}`}));
@@ -30,4 +30,28 @@ test('a corrupt ZIP does not block another PDF in the same batch', async () => {
 test('import paths reject traversal, absolute paths and hidden OS metadata', () => {
   for (const name of ['../x.pdf', 'a/../../x.pdf', '/x.pdf', 'C:\\x.pdf', '__MACOSX/a.pdf']) assert.equal(safeImportPath(name), '');
   assert.equal(safeImportPath('论文/中文.pdf'), '论文/中文.pdf');
+});
+
+test('analysis runs three papers concurrently and replaces finished or failed jobs without stopping', async () => {
+  const papers = Array.from({length: 7}, (_, id) => ({id, title: String(id)}));
+  const releases = new Map(), started = [], progress = [];
+  let active = 0, peak = 0;
+  const running = runAnalysisQueue(papers, async paper => {
+    started.push(paper.id); active++; peak = Math.max(peak, active);
+    await new Promise(resolve => releases.set(paper.id, resolve));
+    active--;
+    if (paper.id === 1) throw new Error('one failed');
+  }, {onProgress: p => progress.push(p.index)});
+  assert.deepEqual(started, [0, 1, 2]);
+  releases.get(1)();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(started, [0, 1, 2, 3]);
+  releases.get(0)(); releases.get(2)(); releases.get(3)();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(started, [0, 1, 2, 3, 4, 5, 6]);
+  releases.get(6)(); releases.get(4)(); releases.get(5)();
+  const failures = await running;
+  assert.equal(peak, 3); assert.equal(active, 0);
+  assert.deepEqual(failures, [{phase: 'analyze', name: '1', message: 'one failed'}]);
+  assert.deepEqual(progress, [0, 1, 2, 3, 4, 5, 6, 7]);
 });

@@ -1,4 +1,4 @@
-import {collectImports, filesFromDrop, MAX_PDF_BYTES, runImportBatch} from './imports.js';
+import {collectImports, filesFromDrop, MAX_PDF_BYTES, runImportBatch, runAnalysisQueue} from './imports.js';
 import {db, api, signedPDF, updatePaper,ensureStorageSpace} from './cloud.js';
 import {extractPDF} from './pdf-text.js';
 import {escapeHTML as e} from './core.js';
@@ -7,7 +7,7 @@ export function createLibraryActions({state, modal, icon, busy, toast, refresh, 
   function progress(info) {
     let banner = document.querySelector('#batch-status');
     if (!banner) {banner = document.createElement('div'); banner.id = 'batch-status'; banner.setAttribute('role', 'status'); document.body.append(banner);}
-    banner.innerHTML = `<strong>${info.phase === 'upload' ? '先上传全部文件' : info.phase === 'keywords' ? '整理双语关键词' : '逐篇 AI 分析'} · ${info.index}/${info.total}</strong><span>${e(info.name || '')}</span><small>单篇失败不会中止队列，请保持本页打开。</small>`;
+    banner.innerHTML = `<strong>${info.phase === 'upload' ? '先上传全部文件' : info.phase === 'keywords' ? '整理双语关键词' : '并行 AI 分析（最多 3 篇）'} · ${info.index}/${info.total}</strong><span>${e(info.name || '')}</span><small>单篇失败不会中止队列，请保持本页打开。</small>`;
   }
   async function analyzePaper(p) {
     try {
@@ -30,10 +30,10 @@ export function createLibraryActions({state, modal, icon, busy, toast, refresh, 
     if (!papers.length) {if (!silent) toast('没有待处理的论文'); return;}
     state.batchBusy = true; const failures = [];
     try {
-      for (let i = 0; i < papers.length; i++) {
-        const p = papers[i]; progress({phase: keywordsOnly ? 'keywords' : 'analyze', index: i + 1, total: papers.length, name: p.title});
-        try {if (keywordsOnly) Object.assign(p, (await api('upgrade_keywords', {paper_id: p.id})).paper); else await analyzePaper(p);} catch (error) {failures.push({name: p.title, message: error.message});}
-      }
+      failures.push(...await runAnalysisQueue(papers, async p => {
+        if (keywordsOnly) Object.assign(p, (await api('upgrade_keywords', {paper_id: p.id})).paper);
+        else await analyzePaper(p);
+      }, {onProgress: info => progress({...info, phase: keywordsOnly ? 'keywords' : 'analyze'})}));
       await refresh(); if (!document.querySelector('.dialog-backdrop')) await render();
       if (failures.length && !silent) showFailures('处理已完成', papers.length - failures.length, failures);
       else if (!silent) toast(`已完成 ${papers.length} 篇论文的${keywordsOnly ? '双语关键词整理' : '分析'}`);
@@ -45,7 +45,7 @@ export function createLibraryActions({state, modal, icon, busy, toast, refresh, 
   function uploadDialog() {
     if (state.demo) {toast('请登录后上传到私人云端文献库'); return;}
     if (state.batchBusy) {toast('请等待当前队列完成后再添加一批文件'); return;}
-    const d = modal('批量导入论文', `<p>支持 PDF、文件夹及 ZIP，不限制每批篇数。先保存全部文件，再逐篇分析。</p><label class="upload-zone" id="drop-zone" for="import-files">${icon('cloud-upload')}<strong>拖入文件或文件夹，或点击选择 PDF / ZIP</strong><small>每篇 PDF 最大 30 MB · 云端空间以你的项目配额为准</small></label><input type="file" id="import-files" accept=".pdf,.zip,application/pdf,application/zip" multiple hidden><input type="file" id="import-folder" webkitdirectory multiple hidden><div class="actions"><button id="choose-folder">${icon('folder-open')} 选择文件夹</button><button id="add-imports">继续添加 PDF / ZIP</button></div><div id="import-list" class="import-list"></div><div id="import-feedback" role="status"></div><div class="import-analysis-option"><label class="remember import-option"><input type="checkbox" id="auto-analyze" checked>全部上传完成后自动开始 AI 分析</label><span class="help-tooltip" tabindex="0">?<span role="tooltip">ZIP 中只读取 PDF，逐个解压上传。中文和未发表稿件也可分析；缺少期刊或日期不会中止。扫描件仍需要 OCR。关闭或刷新页面会停止当前队列，已上传文件可以稍后继续分析。</span></span></div><div class="actions"><button id="start-import" class="primary" disabled>上传全部文件</button></div>`);
+    const d = modal('批量导入论文', `<p>支持 PDF、文件夹及 ZIP，不限制每批篇数。先保存全部文件，再并行分析（最多 3 篇）。</p><label class="upload-zone" id="drop-zone" for="import-files">${icon('cloud-upload')}<strong>拖入文件或文件夹，或点击选择 PDF / ZIP</strong><small>每篇 PDF 最大 30 MB · 云端空间以你的项目配额为准</small></label><input type="file" id="import-files" accept=".pdf,.zip,application/pdf,application/zip" multiple hidden><input type="file" id="import-folder" webkitdirectory multiple hidden><div class="actions"><button id="choose-folder">${icon('folder-open')} 选择文件夹</button><button id="add-imports">继续添加 PDF / ZIP</button></div><div id="import-list" class="import-list"></div><div id="import-feedback" role="status"></div><div class="import-analysis-option"><label class="remember import-option"><input type="checkbox" id="auto-analyze" checked>全部上传完成后自动开始 AI 分析</label><span class="help-tooltip" tabindex="0">?<span role="tooltip">ZIP 中只读取 PDF，逐个解压上传。中文和未发表稿件也可分析；缺少期刊或日期不会中止。扫描件仍需要 OCR。关闭或刷新页面会停止当前队列，已上传文件可以稍后继续分析。</span></span></div><div class="actions"><button id="start-import" class="primary" disabled>上传全部文件</button></div>`);
     const picker = d.el.querySelector('#import-files'), folder = d.el.querySelector('#import-folder'), zone = d.el.querySelector('#drop-zone'), start = d.el.querySelector('#start-import');
     const packs = [], items = [], skipped = []; let selecting = false, uploading = false;
     async function add(files) {

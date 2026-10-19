@@ -54,9 +54,23 @@ export async function runImportBatch(items, {upload, analyze, onProgress = () =>
     try {saved.push(await upload(items[i]));} catch (error) {failures.push({phase: 'upload', name: items[i].name, message: error.message});}
   }
   // No PDF extraction or model request starts until every upload has been attempted.
-  for (let i = 0; analyze && i < saved.length; i++) {
-    onProgress({phase: 'analyze', index: i + 1, total: saved.length, name: saved[i].title});
-    try {await analyze(saved[i]);} catch (error) {failures.push({phase: 'analyze', name: saved[i].title, message: error.message});}
-  }
+  if (analyze) failures.push(...await runAnalysisQueue(saved, analyze, {onProgress}));
   return {saved, failures};
+}
+
+// Keep model/PDF work bounded while allowing independent papers to finish out of order.
+export async function runAnalysisQueue(papers, analyze, {onProgress = () => {}} = {}) {
+  const failures = [];
+  let next = 0, completed = 0;
+  onProgress({phase: 'analyze', index: 0, total: papers.length});
+  async function worker() {
+    while (next < papers.length) {
+      const paper = papers[next++];
+      try {await analyze(paper);} catch (error) {failures.push({phase: 'analyze', name: paper.title, message: error.message});}
+      completed++;
+      onProgress({phase: 'analyze', index: completed, total: papers.length, name: paper.title});
+    }
+  }
+  await Promise.all(Array.from({length: Math.min(3, papers.length)}, worker));
+  return failures;
 }
