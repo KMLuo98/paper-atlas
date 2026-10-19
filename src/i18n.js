@@ -1,4 +1,9 @@
 const entries = `
+年份范围|Year range
+查看合作论文|View shared papers
+合作论文|Shared papers
+引用计数说明|About citation counts
+
 AI 助手|AI assistant
 AI 对话分析|AI chat analysis
 文献检索|Literature search

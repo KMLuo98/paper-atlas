@@ -1,4 +1,5 @@
 import {collectPublicEvidence} from '../_shared/web-evidence.js';
+import {literatureSearch} from '../_shared/literature-search.js';
 import {chatAction} from '../_shared/chat.js';
 import {lookupPublication,arxivID} from '../_shared/publication.js';
 import {passwordError} from '../_shared/password.js';
@@ -97,6 +98,11 @@ Deno.serve(async(req:Request)=>{
       let papers=await allPapers();if(body.paper_ids!==undefined){if(!Array.isArray(body.paper_ids)||body.paper_ids.some((id:unknown)=>typeof id!=='string'))throw new HTTPError(400,'paper_ids 必须为 ID 数组');papers=papers.filter(p=>body.paper_ids.includes(p.id));}
       if(action==='network')return json(body.kind==='authors'?authorNetwork(papers):citationNetwork(papers));
       const format=str(body.format)||'bibtex';if(!['bibtex','ris','csl','gbt','apa'].includes(format))throw new HTTPError(400,'不支持的引用格式');return json({format,count:papers.length,content:exportCitations(papers,format)});
+    }
+    if(action==='literature_search'){
+      await limit('literature-search:'+userId,60,3600);
+      try{return json(await literatureSearch({engine:body.engine||'crossref',query:body.query,offset:body.offset??0}));}
+      catch(error){throw new HTTPError(400,error instanceof Error?error.message:'文献检索失败，请重试');}
     }
     if(action==='chat'||action==='clear_chat'){
       await limit('chat:'+userId,20,3600);
