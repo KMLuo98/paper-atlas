@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ZipWriter, BlobWriter, TextReader} from '@zip.js/zip.js';
-import {collectImports, runImportBatch, runAnalysisQueue, safeImportPath} from '../src/imports.js';
+import {collectImports, runImportBatch, runAnalysisQueue, analysisConcurrency, safeImportPath} from '../src/imports.js';
 
 test('more than ten PDFs upload completely before the first analysis, despite failures', async () => {
   const events = [], items = Array.from({length: 27}, (_, n) => ({name: `paper-${n}`}));
@@ -41,7 +41,7 @@ test('analysis runs three papers concurrently and replaces finished or failed jo
     await new Promise(resolve => releases.set(paper.id, resolve));
     active--;
     if (paper.id === 1) throw new Error('one failed');
-  }, {onProgress: p => progress.push(p.index)});
+  }, {concurrency: 3, onProgress: p => progress.push(p.index)});
   assert.deepEqual(started, [0, 1, 2]);
   releases.get(1)();
   await new Promise(resolve => setImmediate(resolve));
@@ -54,4 +54,19 @@ test('analysis runs three papers concurrently and replaces finished or failed jo
   assert.equal(peak, 3); assert.equal(active, 0);
   assert.deepEqual(failures, [{phase: 'analyze', name: '1', message: 'one failed'}]);
   assert.deepEqual(progress, [0, 1, 2, 3, 4, 5, 6, 7]);
+});
+
+test('mobile layouts use three workers and desktop layouts use ten workers', async () => {
+  for (const mobile of [true, false]) {
+    const limit = analysisConcurrency(query => {
+      assert.equal(query, '(max-width: 850px)'); return {matches: mobile};
+    });
+    assert.equal(limit, mobile ? 3 : 10);
+    let active = 0, peak = 0;
+    await runAnalysisQueue(Array.from({length: 24}, (_, title) => ({title})), async () => {
+      active++; peak = Math.max(peak, active);
+      await new Promise(resolve => setImmediate(resolve)); active--;
+    }, {concurrency: limit});
+    assert.equal(peak, limit); assert.equal(active, 0);
+  }
 });

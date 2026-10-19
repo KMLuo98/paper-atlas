@@ -59,7 +59,11 @@ export async function runImportBatch(items, {upload, analyze, onProgress = () =>
 }
 
 // Keep model/PDF work bounded while allowing independent papers to finish out of order.
-export async function runAnalysisQueue(papers, analyze, {onProgress = () => {}} = {}) {
+export function analysisConcurrency(matchMedia = globalThis.matchMedia?.bind(globalThis)) {
+  return matchMedia?.('(max-width: 850px)')?.matches ? 3 : 10;
+}
+export async function runAnalysisQueue(papers, analyze, {onProgress = () => {}, concurrency = analysisConcurrency()} = {}) {
+  const limit = Math.max(1, Math.min(10, Math.floor(Number(concurrency)) || 3));
   const failures = [];
   let next = 0, completed = 0;
   onProgress({phase: 'analyze', index: 0, total: papers.length});
@@ -71,6 +75,6 @@ export async function runAnalysisQueue(papers, analyze, {onProgress = () => {}} 
       onProgress({phase: 'analyze', index: completed, total: papers.length, name: paper.title});
     }
   }
-  await Promise.all(Array.from({length: Math.min(3, papers.length)}, worker));
+  await Promise.all(Array.from({length: Math.min(limit, papers.length)}, worker));
   return failures;
 }
