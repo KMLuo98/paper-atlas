@@ -4,11 +4,12 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
 import {photoKey} from '../../supabase/functions/mail-api/photos.js';
+import {clean} from '../../supabase/functions/mail-api/core.js';
 const source=readFileSync(new URL('../../supabase/functions/mail-api/index.ts',import.meta.url),'utf8');
 const code=stripTypeScriptTypes(source.slice(source.indexOf('async function lookupPhoto('),source.indexOf('async function autoPhoto(')));
 function harness(contact,result){let searches=0,uploads=0;const writes=[];
  const service={from(){let patch;const q={update(p){patch=p;return q;},eq(){return q;},or(){return q;},select:async()=>{writes.push(patch);Object.assign(contact,patch);return [{id:contact.id}];},then(resolve){writes.push(patch);Object.assign(contact,patch);resolve({data:null,error:null});}};return q;},storage:{from(){return{upload:async()=>{uploads++;return {error:null};},remove:async()=>({error:null})};}}};
- const context={service,photoKey,parseHTML(){},findContactPhoto:async()=>{searches++;return result;},checked:async p=>{const r=await p;return Array.isArray(r)?r:r.data;},Date,crypto,HTTPError:Error};vm.runInNewContext(code+'\nglobalThis.lookup=lookupPhoto;',context);
+ const context={service,photoKey,clean,parseHTML(){},findContactPhoto:async()=>{searches++;return result;},checked:async p=>{const r=await p;return Array.isArray(r)?r:r.data;},Date,crypto,HTTPError:Error};vm.runInNewContext(code+'\nglobalThis.lookup=lookupPhoto;',context);
  return {lookup:retry=>context.lookup('owner',contact,retry),writes,counts:()=>({searches,uploads})};
 }
 test('a failed portrait match persists and is reused on the next request',async()=>{

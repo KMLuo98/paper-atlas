@@ -1,0 +1,2 @@
+export function messageIds(value){const text=Array.isArray(value)?value.join(' '):String(value||'');return [...new Set((text.match(/<[^<>\s]+@[^<>\s]+>/g)||[]).map(s=>s.slice(0,500)))].slice(-100);}
+export function replyHeaders(m){const header=name=>(m.headers||[]).filter(x=>String(x.key).toLowerCase()===name).map(x=>x.value).join(' ');return {in_reply_to:messageIds(m.inReplyTo||header('in-reply-to'))[0]||'',reference_ids:messageIds(m.references||header('references')),reply_headers_loaded:true};}
