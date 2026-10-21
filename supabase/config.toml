@@ -3,3 +3,7 @@ project_id = "paper-atlas"
 [functions.library-api]
 # JWT and API tokens are verified inside the handler; login is the only anonymous action.
 verify_jwt = false
+
+[functions.mail-api]
+# Every user action verifies Auth server-side; OAuth callbacks and scheduled sync use separate one-time/service-only credentials.
+verify_jwt = false

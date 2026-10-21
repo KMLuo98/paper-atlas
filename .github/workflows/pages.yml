@@ -24,6 +24,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:verify
+      - run: node --test mail/tests/*.test.js
       - run: pnpm build
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
