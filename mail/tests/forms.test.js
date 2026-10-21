@@ -17,7 +17,7 @@ function harness(formId,values,{provider='school',failAction=''}={}){
   FormData:class{constructor(f){this.entries=f.entries;}[Symbol.iterator](){return this.entries[Symbol.iterator]();}},
   api:async(action,data)=>{calls.push({action,data});if(action===failAction)throw Error('连接验证失败');return {id:'saved-mailbox-id'};},
   closeModal:()=>{},bootstrap:async()=>{},navigate:async()=>{},syncAll:async()=>{},render:()=>{},
-  toast:text=>feedback.push(text),error:e=>feedback.push(e.message),S:{authBusy:false}
+  contactDraft:()=>values,cache:()=>({clear(){}}),toast:text=>feedback.push(text),error:e=>feedback.push(e.message),S:{authBusy:false}
  };
  vm.runInNewContext(submitSource,context);
  return {calls,feedback,button,message,submit:()=>handler({target:form,preventDefault(){}})};
