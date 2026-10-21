@@ -10,3 +10,19 @@ export function safeFilename(s){return clean(s,150).replace(/[<>:"/\\|?*\x00-\x1
 export function categoryResult(result,allowed){if(!Array.isArray(result?.items))throw Error('分类结果格式无效');return result.items.filter(x=>typeof x.id==='string'&&(x.category_id===null||allowed.has(x.category_id)));}
 export const LIST_COLUMNS='id,account_id,from_email,from_name,subject,received_at,preview,is_read,starred,category_id,category_source,folder,attachments,ai_error';
 export function modelText(value){const text=clean(value,100000);const s=text.replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');if(s.startsWith('{'))try{const o=JSON.parse(s);for(const k of ['translation','content','body','text'])if(typeof o[k]==='string')return clean(o[k],100000);}catch{}return text;}
+export function providerError(error,stage,privateValues=[]){
+ const e=error||{};
+ // Do not stringify errors: executedCommand and auth payloads may contain credentials.
+ let reason=clean(e.responseText,600)||clean(e.message,600)||'连接失败';
+ for(const value of privateValues)if(typeof value==='string'&&value.length)reason=reason.split(value).join('[已隐藏]');
+ reason=reason.replace(/[^\s<>"']+@[^\s<>"']+\.[^\s<>"']+/g,'[邮箱]').replace(/(password|access_token|refresh_token|authorization)\s*[:=]\s*\S+/gi,'$1=[已隐藏]');
+ const code=clean(e.serverResponseCode||e.code,50).replace(/[^a-z0-9_/-]/gi,'');
+ return new Error(clean(stage,50)+'：'+(code?'['+code+'] ':'')+reason);
+}
+export function mailboxPassword(value,imapHost){
+ if(typeof value!=='string')return '';
+ const trimmed=value.trim();
+ // Tencent client codes are 16 ASCII letters/digits. Preserve ordinary passwords,
+ // including intentional spaces, for every other host or credential shape.
+ return ['imap.qq.com','imap.exmail.qq.com'].includes(imapHost)&&/^[A-Za-z0-9]{16}$/.test(trimmed)?trimmed:value;
+}

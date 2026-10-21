@@ -2,7 +2,7 @@ import {ImapFlow} from 'npm:imapflow@2.5.9';
 import nodemailer from 'npm:nodemailer@10.1.7';
 import PostalMime from 'npm:postal-mime@4.0.11';
 import {Buffer} from 'node:buffer';
-import {clean,publicIPv4,hostname} from './core.js';
+import {clean,publicIPv4,hostname,providerError,mailboxPassword} from './core.js';
 
 export {PostalMime};
 export const b64=(s:Uint8Array)=>Buffer.from(s).toString('base64');
@@ -11,13 +11,13 @@ const env=(n:string)=>Deno.env.get(n)||'';
 export const callback=()=>env('SUPABASE_URL')+'/functions/v1/mail-api';
 export function oauthMeta(provider:string){return provider==='gmail'?{auth:'https://accounts.google.com/o/oauth2/v2/auth',token:'https://oauth2.googleapis.com/token',scope:'https://mail.google.com/'}:{auth:'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',token:'https://login.microsoftonline.com/common/oauth2/v2.0/token',scope:'offline_access https://graph.microsoft.com/Mail.ReadWrite https://graph.microsoft.com/Mail.Send'};}
 export async function oauthExchange(provider:string,params:Record<string,string>){const r=await fetch(oauthMeta(provider).token,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(params),signal:AbortSignal.timeout(20000)});const d=await r.json();if(!r.ok||!d.access_token)throw Error('邮箱授权失败或已过期，请重新授权');return d;}
-export async function credentials(service:any,a:any){const {data:s,error}=await service.rpc('mail_secret',{p_account:a.id,p_user:a.user_id});if(error||!s)throw Error('尚未连接邮箱，请在设置中授权');if(s.auth_type==='oauth'&&(!s.expires_at||s.expires_at<Date.now()+120000)){
+export async function credentials(service:any,a:any){const {data:s,error}=await service.rpc('mail_secret',{p_account:a.id,p_user:a.user_id});if(error||!s)throw Error('尚未连接邮箱，请在设置中授权');if(s.auth_type==='password'){const normalized=mailboxPassword(s.password,a.config.imap_host);if(normalized!==s.password){s.password=normalized;const saved=await service.rpc('mail_secret',{p_account:a.id,p_user:a.user_id,p_value:s});if(saved.error)throw Error('授权码格式修正保存失败');}}if(s.auth_type==='oauth'&&(!s.expires_at||s.expires_at<Date.now()+120000)){
  const d=await oauthExchange(a.provider,{grant_type:'refresh_token',refresh_token:s.refresh_token,client_id:s.client_id,...(s.client_secret?{client_secret:s.client_secret}:{}),scope:oauthMeta(a.provider).scope});
  Object.assign(s,{access_token:d.access_token,refresh_token:d.refresh_token||s.refresh_token,expires_at:Date.now()+d.expires_in*1000});
  const saved=await service.rpc('mail_secret',{p_account:a.id,p_user:a.user_id,p_value:s});if(saved.error)throw Error('授权保存失败');
  }return s;}
 async function endpoint(host:string){const h=hostname(host);const ips=await Deno.resolveDns(h,'A');if(!ips.length||ips.some(ip=>!publicIPv4(ip)))throw Error('邮箱服务器地址不被允许');return {host:ips[0],servername:h};}
-export async function imap(a:any,s:any){const ep=await endpoint(a.config.imap_host||'imap.gmail.com');const c=new ImapFlow({...ep,port:993,secure:true,tls:{servername:ep.servername,minVersion:'TLSv1.2',rejectUnauthorized:true},auth:{user:a.config.username||a.email,...(s.auth_type==='oauth'?{accessToken:s.access_token}:{pass:s.password})},clientInfo:{name:'Mail Atlas',version:'1.0.0',vendor:'Mail Atlas'},logger:false,disableAutoIdle:true,disableCompression:true,connectionTimeout:15000,greetingTimeout:15000,socketTimeout:30000});c.on('error',()=>{});await c.connect();return c;}
+export async function imap(a:any,s:any){const ep=await endpoint(a.config.imap_host||'imap.gmail.com');const c=new ImapFlow({...ep,port:993,secure:true,tls:{servername:ep.servername,minVersion:'TLSv1.2',rejectUnauthorized:true},auth:{user:a.config.username||a.email,...(s.auth_type==='oauth'?{accessToken:s.access_token}:{pass:s.password})},clientInfo:{name:'Mail Atlas',version:'1.0.0',vendor:'Mail Atlas'},logger:false,disableAutoIdle:true,disableCompression:true,connectionTimeout:15000,greetingTimeout:15000,socketTimeout:30000});c.on('error',()=>{});try{await c.connect();return c;}catch(e){c.close();throw providerError(e,'IMAP连接或登录',[s.password,s.access_token]);}}
 export async function smtp(a:any,s:any){const ep=await endpoint(a.config.smtp_host||'smtp.gmail.com');return nodemailer.createTransport({...ep,port:465,secure:true,tls:{servername:ep.servername,minVersion:'TLSv1.2',rejectUnauthorized:true},auth:s.auth_type==='oauth'?{type:'OAuth2',user:a.email,accessToken:s.access_token}:{user:a.config.username||a.email,pass:s.password},connectionTimeout:15000,greetingTimeout:15000,socketTimeout:30000,logger:false,debug:false});}
 export async function graph(s:any,path:string,options:RequestInit={}){const url=path.startsWith('https://')?path:'https://graph.microsoft.com/v1.0/me/'+path;if(!url.startsWith('https://graph.microsoft.com/v1.0/'))throw Error('无效分页地址');const r=await fetch(url,{...options,headers:{Authorization:`Bearer ${s.access_token}`,...options.headers},signal:AbortSignal.timeout(25000)});if(!r.ok){await r.body?.cancel();throw Error(`Outlook 接口失败（${r.status}），请重新授权或稍后重试`);}return r;}
 export async function parseRaw(raw:Uint8Array){return await PostalMime.parse(raw,{attachmentEncoding:'base64',maxNestingDepth:30});}
@@ -31,15 +31,15 @@ export async function syncRemote(a:any,s:any,accept:(id:string,raw:Uint8Array|nu
  if(older)return {...a.sync_state,older_link:d['@odata.nextLink']||null};
  const initial=!a.sync_state.last_received;return {...a.sync_state,...(initial?{older_link:d['@odata.nextLink']||null}:{}),next_link:initial?null:d['@odata.nextLink']||null,pending_latest:(!initial&&d['@odata.nextLink'])?latest:null,last_received:(!initial&&d['@odata.nextLink'])?a.sync_state.last_received:latest};
  }
- const c=await imap(a,s);let lock;try{lock=await c.getMailboxLock('INBOX');const valid=String((c.mailbox as any).uidValidity),changed=a.sync_state.uid_validity!==valid;
+ const c=await imap(a,s);let lock,stage='打开IMAP收件箱';try{lock=await c.getMailboxLock('INBOX');stage='查找IMAP邮件';const valid=String((c.mailbox as any).uidValidity),changed=a.sync_state.uid_validity!==valid;
  const last=changed?0:Number(a.sync_state.last_uid||0),oldest=changed?0:Number(a.sync_state.oldest_uid||0);let ids:number[]=[];
  if(older){if(!oldest||oldest<=1)return {...a.sync_state,has_older:false};ids=(await c.search({uid:'1:'+(oldest-1)},{uid:true})||[]).slice(-15);}
  else if(last){const found=await c.search({uid:(last+1)+':*'},{uid:true});ids=(found||[]).filter((v:number)=>v>last).slice(0,15);}
  else {const found=await c.search({all:true},{uid:true});ids=(found||[]).slice(-30);}
- let newest=last,old=oldest;for(const id of ids){const meta=await c.fetchOne(id,{size:true},{uid:true});if(!meta)continue;if(meta.size>25000000)throw Error('存在超过25MB的邮件，请在原邮箱处理后继续同步');const item=await c.fetchOne(id,{source:true,flags:true},{uid:true});if(!item||!item.source)continue;await accept('INBOX|'+valid+':'+id,new Uint8Array(item.source),{read:item.flags.has('\\Seen'),starred:item.flags.has('\\Flagged')});newest=Math.max(newest,id);old=old?Math.min(old,id):id;}
- const flags:any[]=[];const exists=Number((c.mailbox as any).exists);if(exists&&!older)for await(const item of c.fetch(Math.max(1,exists-99)+':*',{uid:true,flags:true})){flags.push({remote_id:'INBOX|'+valid+':'+item.uid,is_read:item.flags.has('\\Seen'),starred:item.flags.has('\\Flagged')});}
+ stage='读取IMAP邮件';let newest=last,old=oldest;for(const id of ids){const meta=await c.fetchOne(id,{size:true},{uid:true});if(!meta)continue;if(meta.size>25000000)throw Error('存在超过25MB的邮件，请在原邮箱处理后继续同步');const item=await c.fetchOne(id,{source:true,flags:true},{uid:true});if(!item||!item.source)continue;await accept('INBOX|'+valid+':'+id,new Uint8Array(item.source),{read:item.flags.has('\\Seen'),starred:item.flags.has('\\Flagged')});newest=Math.max(newest,id);old=old?Math.min(old,id):id;}
+ stage='同步IMAP已读状态';const flags:any[]=[];const exists=Number((c.mailbox as any).exists);if(exists&&!older)for await(const item of c.fetch(Math.max(1,exists-99)+':*',{uid:true,flags:true})){flags.push({remote_id:'INBOX|'+valid+':'+item.uid,is_read:item.flags.has('\\Seen'),starred:item.flags.has('\\Flagged')});}
  return {...a.sync_state,uid_validity:valid,last_uid:newest,oldest_uid:old,has_older:older?ids.length===15:old>1,_flags:flags};
- }finally{lock?.release();await c.logout().catch(()=>c.close());}}
+ }catch(e){throw providerError(e,stage,[s.password,s.access_token]);}finally{lock?.release();await c.logout().catch(()=>c.close());}}
 export async function remotePatch(a:any,s:any,m:any,patch:any){if(!m.remote_id||m.remote_id.startsWith('local:'))return;
  if(a.provider==='outlook'){
  const p:any={};if('is_read'in patch)p.isRead=patch.is_read;if('starred'in patch)p.flag={flagStatus:patch.starred?'flagged':'notFlagged'};

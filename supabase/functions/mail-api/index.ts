@@ -1,5 +1,5 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.117.3';
-import {clean,email,uuid,addresses,validColor,accountConfig,categoryResult,modelText} from './core.js';
+import {clean,email,uuid,addresses,validColor,accountConfig,categoryResult,modelText,mailboxPassword} from './core.js';
 import {credentials,imap,smtp,graph,parseRaw,messageFields,syncRemote,remotePatch,composeRaw,sendRemote,b64,unb64,callback,oauthMeta,oauthExchange} from './providers.ts';
 const env=(n:string)=>Deno.env.get(n)||'';
 const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false,autoRefreshToken:false}});
@@ -87,7 +87,7 @@ Deno.serve(async(req:Request)=>{
  if(!existing&&!clean(b.password,1024)&&!clean(b.client_id,300))throw new HTTPError(400,'请填写授权码或 OAuth Client ID');
  const patch={id,user_id:user,email:address,label,color:validColor(b.color),provider,config,...(existing?{}:{enabled:!!clean(b.password,1024)})};
  await checked(service.from('mail_accounts').upsert(patch,{onConflict:'id'}));
- if(clean(b.password,1024))await checked(service.rpc('mail_secret',{p_account:id,p_user:user,p_value:{auth_type:'password',password:b.password}}));
+ if(clean(b.password,1024))await checked(service.rpc('mail_secret',{p_account:id,p_user:user,p_value:{auth_type:'password',password:mailboxPassword(b.password,config.imap_host)}}));
  else if(clean(b.client_id,300)){const old=await checked(service.rpc('mail_secret',{p_account:id,p_user:user}));await checked(service.rpc('mail_secret',{p_account:id,p_user:user,p_value:{...old,auth_type:'oauth',client_id:clean(b.client_id,300),client_secret:clean(b.client_secret,2000)}}));}
  return json({id});
  }
