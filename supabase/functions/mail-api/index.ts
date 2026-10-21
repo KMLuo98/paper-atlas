@@ -6,7 +6,7 @@ import {clean,email,uuid,addresses,validColor,accountConfig,categoryResult,model
 import {credentials,imap,smtp,graph,parseRaw,messageFields,syncRemote,remotePatch,composeRaw,sendRemote,b64,unb64,callback,oauthMeta,oauthExchange} from './providers.ts';
 const env=(n:string)=>Deno.env.get(n)||'';
 const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false,autoRefreshToken:false}});
-const FRONT='https://kmluo98.github.io/paper-atlas/mail/';
+const FRONT='https://kmluo98.github.io/mail/';
 const sha=async(s:string)=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))).map(b=>b.toString(16).padStart(2,'0')).join('');
 class HTTPError extends Error{constructor(public status:number,message:string){super(message);}}
 const checked=async(p:any)=>{const {data,error}=await p;if(error)throw new HTTPError(503,'云端保存或读取失败，请重试');return data;};
