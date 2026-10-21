@@ -2,6 +2,7 @@ import {ImapFlow} from 'npm:imapflow@2.5.9';
 import nodemailer from 'npm:nodemailer@10.1.7';
 import PostalMime from 'npm:postal-mime@4.0.11';
 import {Buffer} from 'node:buffer';
+import {folderKey,imapFolders,priorFolderState,selectSyncFolders,syncImapFolder} from './folders.js';
 import {clean,publicIPv4,hostname,providerError,mailboxPassword} from './core.js';
 
 export {PostalMime};
@@ -22,24 +23,37 @@ export async function smtp(a:any,s:any){const ep=await endpoint(a.config.smtp_ho
 export async function graph(s:any,path:string,options:RequestInit={}){const url=path.startsWith('https://')?path:'https://graph.microsoft.com/v1.0/me/'+path;if(!url.startsWith('https://graph.microsoft.com/v1.0/'))throw Error('无效分页地址');const r=await fetch(url,{...options,headers:{Authorization:`Bearer ${s.access_token}`,...options.headers},signal:AbortSignal.timeout(25000)});if(!r.ok){await r.body?.cancel();throw Error(`Outlook 接口失败（${r.status}），请重新授权或稍后重试`);}return r;}
 export async function parseRaw(raw:Uint8Array){return await PostalMime.parse(raw,{attachmentEncoding:'base64',maxNestingDepth:30});}
 export function messageFields(m:any){return {message_id:clean(m.messageId,500),from_email:clean(m.from?.address,254).toLowerCase(),from_name:clean(m.from?.name,200),to_list:(m.to||[]).map((x:any)=>({address:clean(x.address,254),name:clean(x.name,100)})),cc_list:(m.cc||[]).map((x:any)=>({address:clean(x.address,254),name:clean(x.name,100)})),reply_to:clean(m.replyTo?.[0]?.address,254),subject:clean(m.subject,1000)||'（无主题）',received_at:Number.isFinite(Date.parse(m.date))?new Date(m.date).toISOString():new Date().toISOString(),preview:clean(m.text||String(m.html||'').replace(/<[^>]+>/g,' '),220),text_body:clean(m.text,600000),html_body:clean(m.html,1000000),attachments:(m.attachments||[]).map((x:any,i:number)=>({index:i,filename:clean(x.filename,200)||'附件',mime_type:clean(x.mimeType,100),size:Math.floor(String(x.content||'').length*3/4),content_id:clean(x.contentId,200)}))};}
-export async function syncRemote(a:any,s:any,accept:(id:string,raw:Uint8Array|null,flags:any,remoteFolder?:string)=>Promise<void>,older=false){
- if(a.provider==='outlook'){
- let path=older?a.sync_state.older_link:a.sync_state.next_link;
- if(!path){if(older)return {...a.sync_state};path='mailFolders/inbox/messages?$top=20&$select=id,receivedDateTime,isRead,flag&$orderby=receivedDateTime desc';if(a.sync_state.last_received)path+='&$filter='+encodeURIComponent('receivedDateTime gt '+a.sync_state.last_received);}
- const d=await (await graph(s,path)).json();let latest=a.sync_state.pending_latest||a.sync_state.last_received||'';
- for(const x of d.value||[]){const raw=new Uint8Array(await (await graph(s,'messages/'+encodeURIComponent(x.id)+'/$value')).arrayBuffer());if(raw.length>25000000)throw Error('邮件超过25MB，跳过前请单独处理');await accept(x.id,raw,{read:x.isRead,starred:x.flag?.flagStatus==='flagged'});if(x.receivedDateTime>latest)latest=x.receivedDateTime;}
- if(older)return {...a.sync_state,older_link:d['@odata.nextLink']||null};
- const initial=!a.sync_state.last_received;return {...a.sync_state,...(initial?{older_link:d['@odata.nextLink']||null}:{}),next_link:initial?null:d['@odata.nextLink']||null,pending_latest:(!initial&&d['@odata.nextLink'])?latest:null,last_received:(!initial&&d['@odata.nextLink'])?a.sync_state.last_received:latest};
- }
- const c=await imap(a,s);let lock,stage='打开IMAP收件箱';try{lock=await c.getMailboxLock('INBOX');stage='查找IMAP邮件';const valid=String((c.mailbox as any).uidValidity),changed=a.sync_state.uid_validity!==valid;
- const last=changed?0:Number(a.sync_state.last_uid||0),oldest=changed?0:Number(a.sync_state.oldest_uid||0);let ids:number[]=[];
- if(older){if(!oldest||oldest<=1)return {...a.sync_state,has_older:false};ids=(await c.search({uid:'1:'+(oldest-1)},{uid:true})||[]).slice(-15);}
- else if(last){const found=await c.search({uid:(last+1)+':*'},{uid:true});ids=(found||[]).filter((v:number)=>v>last).slice(0,15);}
- else {const found=await c.search({all:true},{uid:true});ids=(found||[]).slice(-30);}
- stage='读取IMAP邮件';let newest=last,old=oldest;for(const id of ids){const meta=await c.fetchOne(id,{size:true},{uid:true});if(!meta)continue;if(meta.size>25000000)throw Error('存在超过25MB的邮件，请在原邮箱处理后继续同步');const item=await c.fetchOne(id,{source:true,flags:true},{uid:true});if(!item||!item.source)continue;await accept('INBOX|'+valid+':'+id,new Uint8Array(item.source),{read:item.flags.has('\\Seen'),starred:item.flags.has('\\Flagged')});newest=Math.max(newest,id);old=old?Math.min(old,id):id;}
- stage='同步IMAP已读状态';const flags:any[]=[];const exists=Number((c.mailbox as any).exists);if(exists&&!older)for await(const item of c.fetch(Math.max(1,exists-99)+':*',{uid:true,flags:true})){flags.push({remote_id:'INBOX|'+valid+':'+item.uid,is_read:item.flags.has('\\Seen'),starred:item.flags.has('\\Flagged')});}
- return {...a.sync_state,uid_validity:valid,last_uid:newest,oldest_uid:old,has_older:older?ids.length===15:old>1,_flags:flags};
- }catch(e){throw providerError(e,stage,[s.password,s.access_token]);}finally{lock?.release();await c.logout().catch(()=>c.close());}}
+async function graphFolders(a:any,s:any){
+ const previous=a.sync_state||{};if(previous.folders?.length&&Date.now()-Date.parse(previous.folders_discovered_at||'')<600000)return previous.folders;
+ const roles:any={inbox:'inbox',sentitems:'sent',drafts:'drafts',archive:'archive',deleteditems:'trash',junkemail:'spam'};const known:any[]=[];
+ for(const [path,kind]of Object.entries(roles)){try{const f=await(await graph(s,'mailFolders/'+path+'?$select=id,displayName,totalItemCount,unreadItemCount')).json();known.push({path:f.id,name:f.displayName,kind,total:f.totalItemCount,unread:f.unreadItemCount});}catch(e){if(path==='inbox')throw e;}}
+ let next='mailFolders?$top=100&$select=id,displayName,totalItemCount,unreadItemCount,childFolderCount';const pending:string[]=[];let n=0;
+ while(next&&n++<20){const d=await(await graph(s,next)).json();for(const f of d.value||[]){if(!known.some(x=>x.path===f.id))known.push({path:f.id,name:f.displayName,kind:'custom',total:f.totalItemCount,unread:f.unreadItemCount});if(f.childFolderCount&&pending.length<100)pending.push('mailFolders/'+encodeURIComponent(f.id)+'/childFolders?$top=100&$select=id,displayName,totalItemCount,unreadItemCount,childFolderCount');}next=d['@odata.nextLink']||pending.shift()||'';}
+ return known;
+}
+async function syncGraphFolder(a:any,s:any,f:any,state:any,accept:any,older:boolean,limit:number){
+ let path=older?state.older_link:state.next_link;if(older&&!path)return {...state,_processed:0,has_older:false};
+ if(!path){path='mailFolders/'+encodeURIComponent(f.path)+'/messages?$top='+limit+'&$select=id,receivedDateTime,isRead,flag&$orderby=receivedDateTime desc';if(state.last_received&&f.kind!=='drafts')path+='&$filter='+encodeURIComponent('receivedDateTime gt '+state.last_received);}
+ const d=await(await graph(s,path)).json();let latest=state.pending_latest||state.last_received||'';
+ for(const x of d.value||[]){const raw=new Uint8Array(await(await graph(s,'messages/'+encodeURIComponent(x.id)+'/$value')).arrayBuffer());if(raw.length>25000000)throw Error('邮件超过25MB，无法导入');await accept(x.id,raw,{read:x.isRead,starred:x.flag?.flagStatus==='flagged'},f.path,f.kind);if(x.receivedDateTime>latest)latest=x.receivedDateTime;}
+ if(older)return {...state,older_link:d['@odata.nextLink']||null,has_older:!!d['@odata.nextLink'],last_sync:new Date().toISOString(),error:null,_processed:(d.value||[]).length};
+ const initial=!state.last_received;return {...state,...(initial?{older_link:d['@odata.nextLink']||null,has_older:!!d['@odata.nextLink']}:{}),next_link:initial?null:d['@odata.nextLink']||null,pending_latest:!initial&&d['@odata.nextLink']?latest:null,last_received:!initial&&d['@odata.nextLink']?state.last_received:latest,last_sync:new Date().toISOString(),error:null,_processed:(d.value||[]).length};
+}
+export async function syncRemote(a:any,s:any,accept:(id:string,raw:Uint8Array|null,flags:any,remoteFolder?:string,folderKind?:string)=>Promise<void>,older=false,target:any={}){
+ const root={...(a.sync_state||{})},states={...(root.folder_states||{})},allFlags:any[]=[],errors:string[]=[];let client:any=null,processed=0;
+ try{
+ const folders=a.provider==='outlook'?await graphFolders(a,s):imapFolders(await (client=await imap(a,s)).list());
+ // Upgrade the original inbox-only cursor without downloading it a second time.
+ const graphInbox=folders.find((f:any)=>f.kind==='inbox');if(a.provider==='outlook'&&graphInbox&&!states[folderKey(graphInbox.path)]&&root.last_received)states[folderKey(graphInbox.path)]={last_received:root.last_received,older_link:root.older_link,next_link:root.next_link,pending_latest:root.pending_latest};
+ root.folder_states=states;const selected=selectSyncFolders(folders,root,target.folder||'',target.remote_path||'',older);const deadline=Date.now()+85000;
+ for(const f of selected){if(processed>=30||Date.now()>=deadline)break;const key=folderKey(f.path),state=priorFolderState(root,f);try{
+ const result=a.provider==='outlook'?await syncGraphFolder(a,s,f,state,accept,older,Math.min(20,30-processed)):await syncImapFolder(client,f,state,accept,{older,limit:Math.min(selected.length>1?15:30,30-processed),deadline});
+ const {_flags=[],_processed=0,...saved}=result;states[key]=saved;allFlags.push(..._flags);processed+=_processed;
+ }catch(e){const safe=providerError(e,'同步'+f.name,[s.password,s.access_token]);states[key]={...state,error:safe.message,last_attempt:new Date().toISOString()};errors.push(safe.message);}}
+ const inventory=folders.map((f:any)=>{const state=priorFolderState(root,f);return {...f,last_sync:state.last_sync||null,has_older:!!state.has_older,error:state.error||null,...(state.total!==undefined?{total:state.total}:{})};});
+ const inbox=folders.find((f:any)=>f.kind==='inbox');const inboxState=inbox?states[folderKey(inbox.path)]:null;
+ return {...root,...(inboxState?{uid_validity:inboxState.uid_validity,last_uid:inboxState.last_uid,oldest_uid:inboxState.oldest_uid,has_older:inboxState.has_older}:{}),folders:inventory,folders_discovered_at:new Date().toISOString(),folder_states:states,_flags:allFlags,_errors:errors,_missing:!!target.folder&&!selected.length};
+ }finally{if(client)await client.logout().catch(()=>client.close());}}
 export async function remotePatch(a:any,s:any,m:any,patch:any){if(!m.remote_id||m.remote_id.startsWith('local:'))return;
  if(a.provider==='outlook'){
  const p:any={};if('is_read'in patch)p.isRead=patch.is_read;if('starred'in patch)p.flag={flagStatus:patch.starred?'flagged':'notFlagged'};
