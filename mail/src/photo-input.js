@@ -1,5 +1,5 @@
 // Local files, clipboard and user-initiated display capture share the same crop step.
-export function openPhotoInput({overlay,close,onChoose}){
+export function openPhotoInput({overlay,close,onChoose,onAutoMatch,onError}){
  let imageURL='',dispose=()=>{};
  const notify=text=>{const n=document.querySelector('#photo-input-message');if(n)n.textContent=text;};
  const crop=async blob=>{
@@ -19,8 +19,8 @@ export function openPhotoInput({overlay,close,onChoose}){
   document.querySelector('#crop-accept').onclick=async()=>{try{const b=box||{x:0,y:0,w:canvas.width,h:canvas.height},ratio=image.naturalWidth/canvas.width,out=document.createElement('canvas'),scale=Math.min(1,1200/Math.max(b.w*ratio,b.h*ratio));out.width=Math.max(1,Math.round(b.w*ratio*scale));out.height=Math.max(1,Math.round(b.h*ratio*scale));out.getContext('2d').drawImage(image,b.x*ratio,b.y*ratio,b.w*ratio,b.h*ratio,0,0,out.width,out.height);const file=await new Promise(r=>out.toBlob(r,'image/jpeg',.9));if(!file||file.size>2000000)throw Error('裁剪后仍超过 2MB，请缩小区域');await onChoose(new File([file],'avatar.jpg',{type:file.type}));dispose();close();}catch(e){notify(e.message);}};
   paint();
  };
- overlay('选择照片','<div class="photo-upload-zone" id="photo-drop" tabindex="0"><strong>将照片拖到这里，或粘贴剪贴板中的图片</strong><div><label class="secondary file-button">选择文件<input id="photo-upload" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button type="button" class="secondary" id="photo-paste">读取剪贴板</button><button type="button" class="secondary" id="photo-screen">截图并裁剪</button></div></div><p role="status" id="photo-input-message"></p><div id="photo-crop"></div>');
- const root=document.querySelector('#review-overlay'),zone=document.querySelector('#photo-drop');
+ overlay('选择照片',(onAutoMatch?'<div class="photo-auto-search"><button type="button" class="primary" id="photo-auto">自动匹配照片</button></div>':'')+'<div class="photo-upload-zone" id="photo-drop" tabindex="0"><strong>将照片拖到这里，或粘贴剪贴板中的图片</strong><div><label class="secondary file-button">选择文件<input id="photo-upload" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button type="button" class="secondary" id="photo-paste">读取剪贴板</button><button type="button" class="secondary" id="photo-screen">截图并裁剪</button></div></div><p role="status" id="photo-input-message"></p><div id="photo-crop"></div>');
+ const root=document.querySelector('#review-overlay'),zone=document.querySelector('#photo-drop');if(onAutoMatch)document.querySelector('#photo-auto').onclick=()=>{dispose();Promise.resolve().then(onAutoMatch).catch(onError||notify);};
  const run=fn=>Promise.resolve().then(fn).catch(e=>notify(e.message||'当前浏览器暂不支持此操作，可以选择文件或直接粘贴。'));
  document.querySelector('#photo-upload').onchange=e=>{if(e.target.files[0])run(()=>crop(e.target.files[0]));};
  zone.ondragover=e=>{e.preventDefault();zone.classList.add('drag-over');};zone.ondragleave=()=>zone.classList.remove('drag-over');zone.ondrop=e=>{e.preventDefault();zone.classList.remove('drag-over');if(e.dataTransfer.files[0])run(()=>crop(e.dataTransfer.files[0]));};
