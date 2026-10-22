@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
-import {photoKey} from '../../supabase/functions/mail-api/photos.js';
+import {photoKey,photoLookupCached} from '../../supabase/functions/mail-api/photos.js';
 import {clean} from '../../supabase/functions/mail-api/core.js';
 const source=readFileSync(new URL('../../supabase/functions/mail-api/index.ts',import.meta.url),'utf8');
 const code=stripTypeScriptTypes(source.slice(source.indexOf('async function lookupPhoto('),source.indexOf('async function autoPhoto(')));
 function harness(contact,result){let searches=0,uploads=0,removed=0;const writes=[];
  const service={from(){let patch,activeOnly=false;const q={update(p){patch=p;return q;},eq(){return q;},is(key,value){if(key==='deleted_at'&&value===null)activeOnly=true;return q;},or(){return q;},select:async()=>{if(activeOnly&&contact.deleted_at)return [];writes.push(patch);Object.assign(contact,patch);return [{id:contact.id}];},then(resolve){writes.push(patch);Object.assign(contact,patch);resolve({data:null,error:null});}};return q;},storage:{from(){return{upload:async()=>{uploads++;return {error:null};},remove:async()=>{removed++;return {error:null};}};}}};
- const context={service,photoKey,clean,parseHTML(){},findContactPhoto:async()=>{searches++;return typeof result==='function'?result():result;},checked:async p=>{const r=await p;return Array.isArray(r)?r:r.data;},Date,crypto,HTTPError:Error};vm.runInNewContext(code+'\nglobalThis.lookup=lookupPhoto;',context);
+ const context={service,photoKey,photoLookupCached,clean,parseHTML(){},findContactPhoto:async()=>{searches++;return typeof result==='function'?result():result;},checked:async p=>{const r=await p;return Array.isArray(r)?r:r.data;},Date,crypto,HTTPError:Error};vm.runInNewContext(code+'\nglobalThis.lookup=lookupPhoto;',context);
  return {lookup:retry=>context.lookup('owner',contact,retry),writes,counts:()=>({searches,uploads}),removed:()=>removed};
 }
 test('a failed portrait match persists and is reused on the next request',async()=>{
@@ -26,4 +26,7 @@ test('trashed contacts are not searched and deletion during a search discards it
  const skipped=harness(c,{status:'found'});assert.equal((await skipped.lookup(true)).status,'changed');assert.deepEqual(skipped.counts(),{searches:0,uploads:0});
  c.deleted_at=null;const racing=harness(c,()=>{c.deleted_at='2026-10-22T02:00:00Z';return {status:'found',bytes:new Uint8Array([1]),mime:'image/jpeg',source:'https://example.edu/alice'};});
  assert.equal((await racing.lookup()).status,'changed');assert.equal(c.photo_path,'');assert.equal(racing.removed(),1);assert.equal(c.deleted_at,'2026-10-22T02:00:00Z');
+});
+test('a temporary source outage is cached briefly and becomes retryable without resetting saved portraits',()=>{
+ const now=Date.now(),c={name:'Georg Gottwald',email:'g@example.edu',photo_lookup_status:'unavailable',photo_lookup_at:new Date(now-5*60000).toISOString()};c.photo_lookup_key=photoKey(c);assert.equal(photoLookupCached(c,now),true);assert.equal(photoLookupCached(c,now+16*60000),false);c.photo_lookup_status='not_found';assert.equal(photoLookupCached(c,now+16*60000),true);c.photo_lookup_key=c.photo_lookup_key.replace('v5','v4');assert.equal(photoLookupCached(c,now),false);
 });
