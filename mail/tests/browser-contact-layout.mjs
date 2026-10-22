@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+const {chromium}=await import(process.env.MAIL_PLAYWRIGHT_MODULE||'playwright');
+const browser=await chromium.launch({headless:true,...(process.env.MAIL_BROWSER_CHANNEL?{channel:process.env.MAIL_BROWSER_CHANNEL}:{})});
+const mock=`export const db={auth:{getSession:async()=>({data:{session:{user:{id:'layout-user',email:'qa@example.edu'}}}}),onAuthStateChange(){}}};export const login=async()=>{};export const register=async()=>{};export async function api(action){if(action==='bootstrap')return {profile:{username:'qa'},accounts:[],categories:[],drafts:[],counts:[],settings:{contact_groups:['Research']},contacts:[{id:'a',name:'Alice',email:'alice@example.edu',organization:'University of Sydney',group_name:'Research'},{id:'b',name:'Bob With A Much Longer Name',email:'bob@example.edu',emails:['bob@example.edu','another-long-email-address@example.edu','third@example.edu'],organization:'A long institution name with a laboratory and department',group_name:'Research'},{id:'c',name:'Carol',email:'carol@example.edu',organization:'',group_name:'未分类'}]};return {messages:[],total:0};}`;
+const results=[];
+for(const width of [320,390,768,1024,1440]){
+ const context=await browser.newContext({viewport:{width,height:950},isMobile:width<700,hasTouch:width<700}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(15000);
+ await page.route('**/src/cloud.js',r=>r.fulfill({body:mock,contentType:'application/javascript'}));await page.goto(process.env.MAIL_TEST_URL||'http://127.0.0.1:5174/');await page.locator('.app-shell').waitFor();
+ if(await page.locator('[data-action=toggle-nav]').isVisible())await page.locator('[data-action=toggle-nav]').click();await page.locator('[data-action=nav][data-view=contacts]').click();
+ assert.equal(await page.locator('.contacts-page [data-action=find-photo],.contacts-page [data-action=find-photos]').count(),0);assert.equal(await page.locator('[data-contact-card=a] .contact-organization').textContent(),'University of Sydney');assert.equal(await page.locator('[data-contact-card=c] .contact-organization').count(),0);
+ await page.screenshot({path:'test-results/mail-contact-cards-'+width+'.png',fullPage:true});await page.locator('[data-action=contact-layout]').click();
+ assert.equal(await page.locator('[data-contact-card=a] .contact-organization').textContent(),'University of Sydney');assert.equal(await page.locator('[data-contact-card=c] .contact-organization').textContent(),'—');
+ const positions=await page.locator('.contacts-list .contact-card').evaluateAll(rows=>rows.map(row=>Object.fromEntries(['.contact-main','.contact-organization','.contact-emails','.contact-group-cell','.contact-card-actions'].map(selector=>[selector,row.querySelector(selector).getBoundingClientRect().x]))));
+ for(const selector of Object.keys(positions[0]))for(const row of positions)assert.ok(Math.abs(row[selector]-positions[0][selector])<1,JSON.stringify({width,selector,positions}));
+ const bounds=await page.evaluate(()=>({w:innerWidth,scroll:document.documentElement.scrollWidth}));assert.ok(bounds.scroll<=bounds.w+1,JSON.stringify({width,...bounds}));assert.deepEqual(errors,[]);await page.screenshot({path:'test-results/mail-contact-list-'+width+'.png',fullPage:true});results.push({width,passed:true});await context.close();
+}
+await browser.close();console.log(JSON.stringify(results));
