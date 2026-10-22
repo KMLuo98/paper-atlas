@@ -1,7 +1,8 @@
 import {matchPublicImage} from './photo-sources.js';
+import {affiliationSchool} from './affiliation.js';
 const compact=s=>String(s||'').normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
 const genericDomain=/(?:^|\.)(?:gmail\.com|googlemail\.com|qq\.com|outlook\.com|hotmail\.com|live\.com|163\.com|126\.com|yahoo\.[a-z.]+|icloud\.com|foxmail\.com|proton\.me|protonmail\.com)$/i;
-export function photoKey(c){return JSON.stringify(['v5',...['name','email','organization','profile_url'].map(k=>String(c[k]||'').trim().toLowerCase())]);}
+export function photoKey(c){return JSON.stringify(['v5',...['name','email','organization','profile_url'].map(k=>String(k==='organization'?affiliationSchool(c[k]):c[k]||'').trim().toLowerCase())]);}
 export function photoLookupCached(c,now=Date.now()){if(c.photo_lookup_key!==photoKey(c)||!c.photo_lookup_status)return false;if(c.photo_lookup_status==='unavailable'){const at=Date.parse(c.photo_lookup_at);return Number.isFinite(at)&&now-at<15*60000;}return true;}
 export function personName(value){let name=String(value||'').trim();if(name.includes(',')){const [last,...first]=name.split(',');name=first.join(' ').trim()+' '+last.trim();}return name.replace(/\b(?:prof(?:essor)?|dr|phd|mr|mrs|ms)\.?\s+/gi,'').replace(/\s+/g,' ').trim();}
 const tokens=value=>personName(value).normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().split(/[\s-]+/).map(compact).filter(Boolean);
