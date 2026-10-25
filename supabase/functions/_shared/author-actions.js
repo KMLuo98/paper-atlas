@@ -1,6 +1,6 @@
 import {authorInformationPrompt,authorInformationPatch} from './author-information.js';
 import {authorPhotoIdentity} from './author-photos.js';
-import {buildAuthorDirectory, researchPapers, authorEnrichmentKey} from './author-directory.js';
+import {buildAuthorDirectory, researchPapers, authorEnrichmentKey,authorPhotoInputsChanged} from './author-directory.js';
 import {normalizeORCID} from './author-identity.js';
 import {splitContext} from './library-context.js';
 import {publicPhotoURL} from '../mail-api/photos.js';
@@ -69,21 +69,25 @@ export async function authorAction({service, userId, body, allPapers, model, lim
       const checked = await service.storage.from('avatars').createSignedUrl(patch.photo_path, 60);
       if (checked.error) throw new HTTPError(400, '所选照片尚未上传成功');
     }
+    if(authorPhotoInputsChanged(person,patch))Object.assign(patch,{photo_lookup_key:'',photo_lookup_status:'',photo_lookup_at:null});
     const candidate = {...base, ...patch, updated_at: new Date().toISOString()};
     const updated = buildAuthorDirectory(papers, [...profiles.filter(p => p.id !== base.id), candidate]).find(a => a.key === 'profile:' + base.id);
     return save({...patch, identity_keys: updated?.identity_keys || person.identity_keys});
   }
   if(body.action==='author_match_information'){
     await limit('author-info:'+userId,30,60);
-    const sources=await discoverInformation(person);if(!sources.length)return {skipped:true,information_status:'not_found'};
+    const key=authorEnrichmentKey(person,'information');
+    if(base.information_lookup_key===key&&base.information_lookup_status)return {profile:base,skipped:true,information_status:base.information_lookup_status};
+    const sources=await discoverInformation(person);if(!sources.length){const saved=await save({information_lookup_key:key,information_lookup_status:'not_found',information_lookup_at:new Date().toISOString()});return {...saved,information_status:'not_found'};}
     const raw=await model(authorInformationPrompt,{author:{names:person.aliases,orcid:person.orcid,institutions:person.institutions},sources},true);
     await ensureProfile();
     const current=await service.from('author_profiles').select('*').eq('id',base.id).eq('user_id',userId).single();if(current.error)throw new HTTPError(503,'作者资料读取失败');
     const patch=authorInformationPatch(person,current.data,raw,sources);
-    if(!Object.keys(patch).length)return {profile:current.data,information_status:'unchanged'};
-    const write=await service.from('author_profiles').update({...patch,updated_at:new Date().toISOString()}).eq('id',base.id).eq('user_id',userId).eq('updated_at',current.data.updated_at).select('*').maybeSingle();
+    if(authorPhotoInputsChanged(person,patch))Object.assign(patch,{photo_lookup_key:'',photo_lookup_status:'',photo_lookup_at:null});
+    const changed=Object.keys(patch).length>0,status=changed?'updated':'unchanged',nextKey=changed?authorEnrichmentKey({...person,...patch},'information'):key;
+    const write=await service.from('author_profiles').update({...patch,information_lookup_key:nextKey,information_lookup_status:status,information_lookup_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',base.id).eq('user_id',userId).eq('updated_at',current.data.updated_at).select('*').maybeSingle();
     if(write.error)throw new HTTPError(503,'作者资料保存失败');
-    return {profile:write.data||current.data,information_status:write.data?'updated':'changed_during_lookup',information_fields:write.data?Object.keys(patch):[],information_sources:sources.map(s=>({title:s.title,url:s.url}))};
+    return {profile:write.data||current.data,information_status:write.data?status:'changed_during_lookup',information_fields:write.data?Object.keys(patch):[],information_sources:sources.map(s=>({title:s.title,url:s.url}))};
   }
   if (body.action === 'author_keywords') {
     await limit('author-keywords:' + userId, 30, 60);

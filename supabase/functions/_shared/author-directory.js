@@ -83,8 +83,15 @@ export function authorIndexValue(person, sort, format) {
 export function researchPapers(person) {return person.papers.filter(p=>p.status==='ready'||p.summary||p.keyword_pairs?.length);}
 function fingerprint(value) {const str=JSON.stringify(value);let a=2166136261,b=5381;for(let i=0;i<str.length;i++){a=Math.imul(a^str.charCodeAt(i),16777619);b=Math.imul(b,33)^str.charCodeAt(i);}return (a>>>0).toString(16).padStart(8,'0')+(b>>>0).toString(16).padStart(8,'0');}
 export function authorEnrichmentKey(person, kind) {
+  if(kind==='information')return fingerprint(['author-info-v1',person.first_name,person.last_name,[...(person.aliases||[])].sort(),authorInstitutions(person),person.email||'',person.orcid||'',person.profile_url||'',person.papers.map(p=>[p.id,p.published_at||p.arxiv_date||null]).sort((a,b)=>a[0].localeCompare(b[0]))]);
   if(kind==='photo')return fingerprint(['school-photo-names-v4',person.first_name,person.last_name,person.original_names,authorInstitutions(person),person.profile_url,person.papers.map(p=>[p.id,p.published_at||p.arxiv_date||null]).sort((a,b)=>a[0].localeCompare(b[0]))]);
   return fingerprint(researchPapers(person).map(p=>[p.id,p.title,p.summary||'',p.keyword_pairs||p.keywords||[]]).sort((a,b)=>a[0].localeCompare(b[0])));
+}
+export function authorPhotoInputsChanged(person,patch){
+ const fields=['first_name','last_name','institution','email','orcid','profile_url'];
+ if(fields.some(key=>key in patch&&String(patch[key]||'').trim()!==String(person[key]||'').trim()))return true;
+ const names=value=>JSON.stringify([...new Set((value||[]).map(n=>String(n).trim()).filter(Boolean))].sort());
+ return 'aliases' in patch&&names(patch.aliases)!==names(person.aliases);
 }
 export function authorEnrichmentTasks(authors,{photosOnly=false,force=false,now=Date.now()}={}) {
  const tasks=[];

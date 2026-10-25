@@ -1,3 +1,4 @@
+import {cachedAuthorPhotos,clearAuthorPhotoCache} from './author-photo-cache.js';
 import {authorAffiliations,recentAuthorAffiliations,countryName} from '../supabase/functions/_shared/author-affiliations.js';
 import {db, api, ensureStorageSpace} from './cloud.js';
 import {escapeHTML as e, journalFull, safeURL, searchPapers} from './core.js';
@@ -14,19 +15,15 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
   const ownerId = () => state.user?.id || 'demo';
   function switchOwner() {
     if (owner === ownerId()) return;
-    if(maintenance)maintenance.stopped=true;maintenance=null;paused=false;pendingRequest=null;rescan=false;owner = ownerId(); profiles = []; photos.clear(); loadedAt = 0; loading = null; query = '';
+    clearAuthorPhotoCache(owner);if(maintenance)maintenance.stopped=true;maintenance=null;paused=false;pendingRequest=null;rescan=false;owner = ownerId(); profiles = []; photos.clear(); loadedAt = 0; loading = null; query = '';
     try {preferences = {...{view: 'cards', sort: 'name', format: 'given_family'}, ...JSON.parse(localStorage.getItem('pa-author-view-' + owner) || '{}')};} catch {}
   }
   function persist() {try {localStorage.setItem('pa-author-view-' + owner, JSON.stringify(preferences));} catch {}}
   async function signPhotos() {
     const paths = [...new Set(profiles.map(p => p.photo_path).filter(p => p?.startsWith(owner + '/')))];
-    const id = owner, next = new Map();
-    for (let i = 0; i < paths.length; i += 100) {
-      const r = await db.storage.from('avatars').createSignedUrls(paths.slice(i, i + 100), 3600);
-      if (!r.error) for (const item of r.data || []) if (item.signedUrl) next.set(item.path, item.signedUrl);
-    }
-    if (ownerId() === id) photos = next;
+    const id=owner,next=await cachedAuthorPhotos(db,id,paths);if(ownerId()===id)photos=next;
   }
+
   async function load(force = false) {
     switchOwner(); if (state.demo) return;
     if (!force && loadedAt && Date.now() - loadedAt < 60000) return;
@@ -88,7 +85,7 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
   async function savePerson(person, extra = {}) {
     if (state.demo) throw Error(l('请登录后编辑作者资料', 'Sign in to edit authors'));
     const profile = {first_name: person.first_name, last_name: person.last_name, institution: person.institution, email: person.email, aliases: person.aliases, orcid: person.orcid, profile_url: person.profile_url, name_format: person.name_format, ...extra};
-    const result = await api('author_save', {author_key: person.key, profile}); return updateProfile(result);
+    const result = await api('author_save', {author_key: person.key, profile});const updated=await updateProfile(result);paused=false;scheduleAutomatic();return updated;
   }
   async function renderDetail(key, isCurrent = () => true) {
     const version = ++revision; switchOwner();
@@ -155,7 +152,7 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
   async function mergeBackground(result){
     if(result.profile?.user_id!==ownerId())return;
     const profile=result.profile,index=profiles.findIndex(p=>p.id===profile.id);if(index<0)profiles.push(profile);else if(!profile.updated_at||!profiles[index].updated_at||Date.parse(profile.updated_at)>=Date.parse(profiles[index].updated_at))profiles[index]=profile;
-    if(profile.photo_path&&!photos.has(profile.photo_path)){const signed=await db.storage.from('avatars').createSignedUrl(profile.photo_path,3600);if(!signed.error)photos.set(profile.photo_path,signed.data.signedUrl);}
+    if(profile.photo_path&&!photos.has(profile.photo_path)){const signed=await cachedAuthorPhotos(db,ownerId(),[profile.photo_path]);if(profile.user_id===ownerId())for(const [path,url] of signed)photos.set(path,url);}
     clearTimeout(repaintTimer);repaintTimer=setTimeout(()=>{if(document.querySelector('#authors-results'))listPaint?.();else if(location.hash.startsWith('#/author/')&&!document.querySelector('.dialog-backdrop')&&!document.activeElement?.matches('input,textarea,select')){const key=decodeURIComponent(location.hash.slice('#/author/'.length));if(key==='profile:'+profile.id||profile.identity_keys?.includes(key))renderDetail(key,()=>location.hash==='#/author/'+encodeURIComponent(key)).catch(error=>toast(error.message));}},500);
   }
   async function startMaintenance({photosOnly=false,information=false,force=false}={}){
@@ -163,7 +160,7 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
     if(maintenance?.running){if(force&&(photosOnly||information)){pendingRequest={photosOnly,information,force};maintenance.stopped=true;}rescan=true;return;}
     if(paused&&!force)return;paused=false;const prior=JSON.stringify(profiles.map(p=>[p.id,p.updated_at]));await load(true);const id=ownerId();
     if(prior!==JSON.stringify(profiles.map(p=>[p.id,p.updated_at]))){if(document.querySelector('#authors-results'))listPaint?.();else if(location.hash.startsWith('#/author/')&&!document.querySelector('.dialog-backdrop')){const route=location.hash,key=decodeURIComponent(route.slice('#/author/'.length));renderDetail(key,()=>location.hash===route).catch(error=>toast(error.message));}}
-    const tasks=authorEnrichmentTasks(people(),{photosOnly,force});if(information)tasks.unshift(...people().map(person=>({kind:'information',author_key:person.key,identity_keys:person.identity_keys})));if(!tasks.length){if(profiles.some(p=>p.photo_lookup_status==='running'||p.keywords_lookup_status==='running'))maintenanceTimer=setTimeout(()=>startMaintenance().catch(error=>toast(error.message)),10000);return;}
+    const tasks=authorEnrichmentTasks(people(),{photosOnly,force:information?false:force});if(information)tasks.unshift(...people().map(person=>({kind:'information',author_key:person.key,identity_keys:person.identity_keys})));if(!tasks.length){if(profiles.some(p=>p.photo_lookup_status==='running'||p.keywords_lookup_status==='running'))maintenanceTimer=setTimeout(()=>startMaintenance().catch(error=>toast(error.message)),10000);return;}
     const job={running:true,stopped:false,total:tasks.length,completed:0,found:0,information:0,keywords:0,errors:0};maintenance=job;paintMaintenance();let next=0,resumeAt=0;
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     async function worker(){while(next<tasks.length&&!job.stopped&&id===ownerId()){
@@ -172,7 +169,7 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
         while(resumeAt>Date.now()&&!job.stopped)await wait(Math.min(1200,resumeAt-Date.now()));if(job.stopped||id!==ownerId())break;
         try{const current=people().find(p=>p.key===task.author_key||p.identity_keys.some(key=>task.identity_keys.includes(key)));if(!current)break;
           const result=await api(task.kind==='information'?'author_match_information':task.kind==='photo'?'author_match_photo':'author_keywords',{author_key:current.key,automatic:!force});if(id!==ownerId())return;
-          await mergeBackground(result);if(task.kind==='information'&&result.information_status==='updated')job.information++;if(task.kind==='photo'&&result.profile?.photo_path)job.found++;if(task.kind==='keywords'&&!result.skipped)job.keywords++;break;
+          await mergeBackground(result);if(task.kind==='information'&&!result.skipped&&result.information_status==='updated'){job.information++;rescan=true;}if(task.kind==='photo'&&result.profile?.photo_path)job.found++;if(task.kind==='keywords'&&!result.skipped)job.keywords++;break;
         }catch(error){if(error.status===429&&attempt<3){resumeAt=Math.max(resumeAt,Date.now()+(error.retryAfter||61)*1000);continue;}job.errors++;break;}
       }job.completed++;paintMaintenance();
     }}
@@ -180,5 +177,5 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
   }
   function scheduleAutomatic(){if(!state.user||state.demo||state.isAdmin)return;clearTimeout(maintenanceTimer);maintenanceTimer=setTimeout(()=>startMaintenance().catch(error=>toast(error.message)),1400);}
   document.addEventListener('pa-authors-changed',()=>{paused=false;scheduleAutomatic();});
-  return {renderList, renderDetail, scheduleAutomatic, stop,reset(){stop();owner='';paused=false;}};
+  return {renderList, renderDetail, scheduleAutomatic, stop,reset(){stop();clearAuthorPhotoCache(owner);clearAuthorPhotoCache(ownerId());photos.clear();owner='';paused=false;}};
 }

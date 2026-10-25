@@ -4,7 +4,7 @@ test('network photos use owner profiles and ORCID identity while signing each sh
  const id='0000-0002-1825-0097',papers=[{id:'p',authors:[{name:'Alice Smith',orcid:id},{name:'Bob Jones'}]}],signed=[];
  const profiles=[{id:'a',first_name:'Alice',last_name:'Smith',orcid:id,aliases:['Alice Smith'],identity_keys:['orcid:'+id],photo_path:'owner/alice.jpg'},{id:'b',first_name:'Bob',last_name:'Jones',aliases:['Bob Jones'],identity_keys:['name:bobjones'],photo_path:'another-user/bob.jpg'}];
  const db={from(table){assert.equal(table,'author_profiles');return {select(){return this;},eq(k,v){assert.equal(k,'user_id');assert.equal(v,'owner');return this;},order(){return this;},range:async()=>({data:profiles})};},storage:{from(bucket){assert.equal(bucket,'avatars');return {createSignedUrls:async paths=>{signed.push(...paths);return {data:paths.map(path=>({path,signedUrl:'https://storage.example/'+path}))};}};}}};
- const photos=await loadNetworkPhotos(db,'owner',papers,[{id:'orcid:'+id},{id:'name:bobjones'}]);assert.equal(photos.get('orcid:'+id),'https://storage.example/owner/alice.jpg');assert(!photos.has('name:bobjones'));assert.deepEqual(signed,['owner/alice.jpg']);
+ const photos=await loadNetworkPhotos(db,'owner',papers,[{id:'orcid:'+id},{id:'name:bobjones'}],{fetcher:async()=>new Response(new Uint8Array(500),{headers:{'Content-Type':'image/png'}})});assert.match(photos.get('orcid:'+id),/^blob:/);assert(!photos.has('name:bobjones'));assert.deepEqual(signed,['owner/alice.jpg']);
  assert.equal((await loadNetworkPhotos(null,null,papers,[])).size,0);
 });
 test('photo nodes are circular, retain weighted geometry and selection, and fall back on failures',()=>{

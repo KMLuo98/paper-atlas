@@ -51,7 +51,7 @@ export function drawNetwork(svg, data, {authors = false, onClick = () => {}, onS
     if(!authors||disposed)return;photosVisible=visible;
     nodes.forEach((node,i)=>{
       const url=photos.get(node.id);let image=photoEls[i];
-      if(url&&/^https:\/\//i.test(url)&&!image){
+      if(url&&/^(?:https:\/\/|blob:)/i.test(url)&&!image){
         const r=radius(node.id)-1,clipId=markerId+'-photo-'+i,clip=make('clipPath',{id:clipId,clipPathUnits:'userSpaceOnUse'});clip.append(make('circle',{r}));defs.append(clip);
         image=make('image',{class:'node-photo',x:-r,y:-r,width:r*2,height:r*2,preserveAspectRatio:'xMidYMid slice','clip-path':`url(#${clipId})`,'pointer-events':'none'});image.style.display='none';image.loaded=false;
         image.onload=()=>{if(disposed)return;image.loaded=true;image.style.display=photosVisible?'':'none';innerEls[i].style.display=photosVisible?'none':'';};

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildAuthorDirectory,formattedAuthorName,publishedPaper,filterAuthors,authorEnrichmentTasks,authorEnrichmentKey,authorIndexValue,authorInstitutions} from '../supabase/functions/_shared/author-directory.js';
+import {buildAuthorDirectory,formattedAuthorName,publishedPaper,filterAuthors,authorEnrichmentTasks,authorEnrichmentKey,authorPhotoInputsChanged,authorIndexValue,authorInstitutions} from '../supabase/functions/_shared/author-directory.js';
 import {validateAuthorPatch,authorAction} from '../supabase/functions/_shared/author-actions.js';
 const orcid='0000-0002-1825-0097',other='0000-0001-5109-3700';
 const papers=[{id:'p1',title:'Network research',publication_status:'published',journal:'Physical Review E',published_at:'2020-01-01',authors:[{name:'Jun-an Lu',institution:'Institute One',email:'lu@example.edu',orcid},{name:'Alice Smith'}]}, {id:'p2',title:'Synchronization',publication_status:'published',authors:[{name:'Lu Jun-An',institution:'Institute Two',orcid}]}, {id:'p3',title:'Preprint',publication_status:'unpublished',authors:[{name:'陆君安',orcid}]}, {id:'p4',title:'Different identity',publication_status:'published',authors:[{name:'Jun-an Lu',orcid:other}]}];
@@ -78,4 +78,21 @@ test('one-click photo matching saves only verified matches and never overwrites 
   else if(scenario==='manual-race'){assert.equal(result.profile.photo_source,'manual');assert.equal(result.profile.photo_path,uid+'/manual.jpg');}
   else{assert.equal(uploads.length,1);assert(result.profile.photo_path.startsWith(uid+'/'));assert.equal(result.profile.photo_source,'auto');assert.equal(result.profile.photo_lookup_lease_until,null);}
  }
+});
+
+test('photo misses are invalidated by identity edits but not alias order or unchanged values',()=>{
+ const p=buildAuthorDirectory(papers).find(a=>a.orcid===orcid);
+ assert(authorPhotoInputsChanged(p,{aliases:[...p.aliases,'New documented spelling']}));
+ assert(authorPhotoInputsChanged(p,{email:'updated@example.edu'}));
+ assert(!authorPhotoInputsChanged(p,{aliases:[...p.aliases].reverse(),orcid:p.orcid}));
+ const first=authorEnrichmentKey(p,'information');assert.notEqual(first,authorEnrichmentKey({...p,aliases:[...p.aliases,'Another name']},'information'));
+});
+
+test('backend remembers a no-information result and retries only when the author inputs change',async()=>{
+ const row={id:'saved',user_id:'owner',source_key:'orcid:'+orcid,identity_keys:['orcid:'+orcid],first_name:'Jun-an',last_name:'Lu',orcid,aliases:[],updated_at:'2026-10-25T00:00:00Z'};let calls=0;
+ const service={from:()=>{let patch;return {select(){return this;},eq(){return this;},order(){return this;},range:async()=>({data:[{...row}]}),update(value){patch=value;return this;},single:async()=>{if(patch)Object.assign(row,patch);return {data:{...row}};}};}};
+ class HTTPError extends Error{constructor(status,message){super(message);this.status=status;}}
+ const args={service,userId:'owner',body:{action:'author_match_information',author_key:'profile:saved'},allPapers:async()=>papers,limit:async()=>{},discoverInformation:async()=>{calls++;return [];},HTTPError};
+ const first=await authorAction(args);assert.equal(first.profile.information_lookup_status,'not_found');const second=await authorAction(args);assert.equal(second.skipped,true);assert.equal(calls,1);
+ row.aliases=['陆君安','New documented spelling'];await authorAction(args);assert.equal(calls,2);
 });
