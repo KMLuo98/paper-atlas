@@ -1,5 +1,6 @@
 import {databaseText} from '../supabase/functions/_shared/text.js';
 import {openPDFTask} from './pdf-engine.js';
+import {pdfORCIDLinks} from './pdf-orcid.js';
 
 export async function extractDocumentText(loadingTask) {
   try {
@@ -12,6 +13,7 @@ export async function extractDocumentText(loadingTask) {
       const items = content.items.map(item => ({...item, str: databaseText(item.str || '')}));
       contentLength += items.reduce((n, item) => n + item.str.trim().length, 0);
       text += `\n[Page ${n}]\n` + items.map(item => item.str + (item.hasEOL ? '\n' : ' ')).join('');
+      try{const links=pdfORCIDLinks(await page.getAnnotations?.({intent:'display'}),items);if(links)text+='\n[PDF ORCID links; assign only when author correspondence is unambiguous]\n'+links+'\n';}catch{/* Unreadable annotations must not block text extraction. */}
       if (text.length > 600000) throw new Error('全文超过 60 万字符，请分拆 PDF 后重试');
     }
     if (contentLength < 150) throw new Error('未提取到足够文本，扫描版 PDF 请先做 OCR');

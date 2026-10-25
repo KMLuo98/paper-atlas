@@ -1,5 +1,17 @@
 import {normalizePaperJournal} from './journals.js';
-import {sameAuthor} from './author-identity.js';
+import {sameAuthor,normalizeORCID} from './author-identity.js';
+export function publicationAuthorORCIDs(authors,work){
+ return (authors||[]).map(a=>{
+  if(a.orcid)return a;
+  const matches=(work.author||[]).filter(b=>sameAuthor(a,{name:`${b.given||''} ${b.family||''}`.trim()}));
+  // Same-name coauthors are ambiguous; never assign by author order.
+  if(matches.length!==1)return a;
+  const id=normalizeORCID(matches[0].ORCID);
+  if(!/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(id))return a;
+  const owners=(authors||[]).filter(b=>sameAuthor(b,{name:`${matches[0].given||''} ${matches[0].family||''}`.trim()}));
+  return owners.length===1?{...a,orcid:id}:a;
+ });
+}
 const canonical=value=>String(value||'').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
 export function arxivID(p){const explicit=String(p.arxiv_id||'').match(/^(\d{4}\.\d{4,5}|[a-z-]+\/\d{7})(?:v\d+)?$/i);if(explicit)return explicit[1];const text=[p.doi,p.preprint_url,p.original_filename,(p.full_text||'').slice(0,3000)].join(' ');return text.match(/(?:arxiv(?:\.org\/(?:abs|pdf)\/|[:_\s/]+)|10\.48550\/arxiv\.)(\d{4}\.\d{4,5}|[a-z-]+\/\d{7})(?:v\d+)?/i)?.[1]||(/^(\d{4}\.\d{4,5})/.exec(p.original_filename||'')?.[1]||'');}
 export function exactPublishedMatch(p,work){
@@ -31,7 +43,7 @@ export async function lookupPublication(p,fetcher=fetch){
   if(doi&&!/^10\.48550\/arxiv\./i.test(doi)){const result=await(await request('https://api.crossref.org/works/'+encodeURIComponent(doi))).json();if(exactPublishedMatch(p,result.message))work=result.message;}
   if(!work&&p.title){const url=new URL('https://api.crossref.org/works');url.searchParams.set('query.title',p.title);url.searchParams.set('rows','8');const result=await(await request(url)).json();work=(result.message?.items||[]).find(w=>exactPublishedMatch(p,w))||null;}
  }catch{notes.push('Crossref 暂不可用');}
- if(work){const date=workDate(work);Object.assign(patch,{publication_lookup_status:'matched',doi:work.DOI,citation_count:Number.isInteger(work['is-referenced-by-count'])?work['is-referenced-by-count']:null,citation_source:'Crossref',citation_url:'https://api.crossref.org/works/'+encodeURIComponent(work.DOI),citation_checked_at:checked});
+ if(work){const date=workDate(work);Object.assign(patch,{authors:publicationAuthorORCIDs(p.authors,work),publication_lookup_status:'matched',doi:work.DOI,citation_count:Number.isInteger(work['is-referenced-by-count'])?work['is-referenced-by-count']:null,citation_source:'Crossref',citation_url:'https://api.crossref.org/works/'+encodeURIComponent(work.DOI),citation_checked_at:checked});
   // Promote only after exact title or verified arXiv publication DOI, plus author checks.
   Object.assign(patch,{title:work.title[0],publication_status:'published',journal:work['container-title'][0],published_at:date,volume:work.volume||p.volume||'',issue:work.issue||p.issue||'',pages:work.page||work['article-number']||p.pages||''});
  }else if(id&&p.publication_status!=='published'){Object.assign(patch,{publication_status:'unpublished',journal:'arXiv',journal_abbr:'arXiv',published_at:arxivDate});}
