@@ -1,4 +1,7 @@
 const entries = `
+作者库|Author directory
+作者资料|Author profile
+
 新用户默认额度|New user defaults
 AI 提问|AI questions
 调整提问次数|Adjust questions

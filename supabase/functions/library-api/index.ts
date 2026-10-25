@@ -1,3 +1,6 @@
+import {authorAction} from '../_shared/author-actions.js';
+import {discoverPhotoCandidates} from '../mail-api/photo-sources.js';
+import {parseHTML} from 'npm:linkedom@0.18.13';
 import {collectPublicEvidence} from '../_shared/web-evidence.js';
 import {literatureSearch} from '../_shared/literature-search.js';
 import {chatAction} from '../_shared/chat.js';
@@ -91,6 +94,7 @@ Deno.serve(async(req:Request)=>{
     if(action.startsWith('admin_'))return json(await adminAction({service,userId,action,body,limit,createAuth:()=>createClient(env('SUPABASE_URL'),env('SUPABASE_ANON_KEY'),{auth:{persistSession:false,autoRefreshToken:false}}),HTTPError}));
     async function ownPaper(id:unknown,columns=metadataColumns){if(typeof id!=='string'||!/^[0-9a-f-]{36}$/i.test(id))throw new HTTPError(400,'无效文献 ID');const {data,error}=await service.from('papers').select(columns).eq('id',id).eq('user_id',userId).is('deleted_at',null).maybeSingle();if(error)throw new HTTPError(503,'文献读取失败');if(!data)throw new HTTPError(404,'文献不存在或无权访问');return normalizePaperJournal(data) as any;}
     async function allPapers(){const result:any[]=[];for(let start=0;;start+=500){const {data,error}=await service.from('papers').select(metadataColumns).eq('user_id',userId).is('deleted_at',null).order('id').range(start,start+499);if(error)throw new HTTPError(503,'文献读取失败');result.push(...data.map(normalizePaperJournal));if(data.length<500)return result;}}
+    if(action.startsWith('author_'))return json(await authorAction({service,userId,body,allPapers,model,limit,discoverPhotos:(person:unknown,options:unknown)=>discoverPhotoCandidates(person,parseHTML,options),HTTPError}));
     if(action==='list'){const limitN=Math.max(1,Math.min(200,Math.floor(Number(body.limit)||50))),offset=Math.max(0,Math.floor(Number(body.offset)||0));const filtered=searchPapers(await allPapers(),str(body.query,200));return json({papers:filtered.slice(offset,offset+limitN),total:filtered.length,limit:limitN,offset});}
     if(action==='storage_status'){const [storage,ai]=await Promise.all([service.rpc('account_storage_stats',{target_ids:[userId]}),service.rpc('account_ai_stats',{target_ids:[userId]})]);if(storage.error||ai.error)throw new HTTPError(503,'账户额度读取失败');return json({...storage.data?.[0],...ai.data?.[0]});}
     if(action==='get')return json({paper:await ownPaper(body.paper_id)});
