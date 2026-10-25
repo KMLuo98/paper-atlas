@@ -1,3 +1,4 @@
+import {authorPhotoIdentity} from './author-photos.js';
 import {buildAuthorDirectory, researchPapers, authorEnrichmentKey} from './author-directory.js';
 import {normalizeORCID} from './author-identity.js';
 import {splitContext} from './library-context.js';
@@ -96,7 +97,7 @@ export async function authorAction({service, userId, body, allPapers, model, lim
     if(!await claim('photo',key))return {profile:base,skipped:true,in_progress:true};
     try{
       const name=[person.first_name,person.last_name].filter(Boolean).join(' ')||person.original_names[0];
-      const found=await discoverPhotos({name,organization:person.institution,email:'',profile_url:person.profile_url},{expand:false});
+      const found=await discoverPhotos(authorPhotoIdentity(person),{expand:false});
       const matches=found.items.filter(item=>item.exact),patch={photo_lookup_key:key,photo_lookup_at:new Date().toISOString(),photo_lookup_lease_until:null};
       if(matches.length){
         const item=matches[0],usage=await service.rpc('account_storage_stats',{target_ids:[userId]}),stats=usage.data?.[0];
@@ -112,7 +113,7 @@ export async function authorAction({service, userId, body, allPapers, model, lim
   if (body.action === 'author_photo_candidates') {
     await limit('author-photos:' + userId, 30, 60);
     const name = [person.first_name, person.last_name].filter(Boolean).join(' ') || person.original_names[0];
-    const result = await discoverPhotos({name, organization: person.institution, email: '', profile_url: person.profile_url}, {expand: body.expand === true, exclude: Array.isArray(body.exclude) ? body.exclude.slice(0, 50).filter(v => typeof v === 'string') : []});
+    const result = await discoverPhotos(authorPhotoIdentity(person), {expand: body.expand === true, exclude: Array.isArray(body.exclude) ? body.exclude.slice(0, 50).filter(v => typeof v === 'string') : []});
     return {candidates: result.items.slice(0, 6).map(item => {
       let binary = ''; for (let i = 0; i < item.bytes.length; i += 8192) binary += String.fromCharCode(...item.bytes.subarray(i, i + 8192));
       return {key: item.key, image: 'data:' + item.mime + ';base64,' + btoa(binary), source: publicPhotoURL(item.source) || '', title: text(item.title, 200), provider: text(item.provider, 100), exact: !!item.exact};

@@ -1,4 +1,4 @@
-import {authorNetwork, normalize} from './core.js';
+import {authorNetwork, normalize, searchPapers} from './core.js';
 import {sameAuthor, normalizeORCID, authorNameKeys} from './author-identity.js';
 const unique = values => [...new Set(values.filter(v => typeof v === 'string' && v.trim()).map(v => v.trim()))];
 export function publishedPaper(p) {
@@ -64,7 +64,7 @@ export function filterAuthors(authors, query = '', sort = 'name', format = 'give
 }
 
 function fuzzyAuthorWord(a, b) {
-  if (a.length < 3 || b.length < 3) return false;
+  if (a.length < 3 || b.length < 3 || !/\p{L}/u.test(a)) return false;
   const limit = a.length >= 7 ? 2 : 1;
   if (Math.abs(a.length - b.length) > limit) return false;
   let prev = Array.from({length:b.length+1},(_,i)=>i),older=null;
@@ -83,7 +83,7 @@ export function authorIndexValue(person, sort, format) {
 export function researchPapers(person) {return person.papers.filter(p=>p.status==='ready'||p.summary||p.keyword_pairs?.length);}
 function fingerprint(value) {const str=JSON.stringify(value);let a=2166136261,b=5381;for(let i=0;i<str.length;i++){a=Math.imul(a^str.charCodeAt(i),16777619);b=Math.imul(b,33)^str.charCodeAt(i);}return (a>>>0).toString(16).padStart(8,'0')+(b>>>0).toString(16).padStart(8,'0');}
 export function authorEnrichmentKey(person, kind) {
-  if(kind==='photo')return fingerprint([person.first_name,person.last_name,person.original_names,authorInstitutions(person),person.profile_url,person.papers.map(p=>p.id).sort()]);
+  if(kind==='photo')return fingerprint(['school-photo-match-v2',person.first_name,person.last_name,person.original_names,authorInstitutions(person),person.profile_url,person.papers.map(p=>[p.id,p.published_at||p.arxiv_date||null]).sort((a,b)=>a[0].localeCompare(b[0]))]);
   return fingerprint(researchPapers(person).map(p=>[p.id,p.title,p.summary||'',p.keyword_pairs||p.keywords||[]]).sort((a,b)=>a[0].localeCompare(b[0])));
 }
 export function authorEnrichmentTasks(authors,{photosOnly=false,force=false,now=Date.now()}={}) {
@@ -97,4 +97,12 @@ export function authorEnrichmentTasks(authors,{photosOnly=false,force=false,now=
   tasks.push({author_key:person.key,kind,title:person.english_name||person.original_names[0]||'',identity_keys:person.identity_keys});
  }
  return tasks;
+}
+
+export function searchAuthorPapers(papers,query=''){
+ const matches=searchPapers(papers,query),words=normalize(query).split(' ').filter(Boolean);
+ if(!words.length)return matches;
+ const match=p=>{const text=normalize([p.title,p.journal,p.published_at,p.arxiv_date,p.summary,...(p.keywords||[]),...(p.keyword_pairs||[]).flatMap(k=>[k.zh,k.en]),...(p.authors||[]).flatMap(a=>[a.name,a.institution])].join(' ')),tokens=text.split(' ');return words.every(word=>words.length>1&&/^[a-z]{1,2}$/i.test(word)?tokens.includes(word):text.includes(word)||tokens.some(token=>fuzzyAuthorWord(word,token)));};
+ const ordered=[...new Map([...matches,...papers.filter(match)].map(p=>[p.id,p])).values()];
+ return words.length>1?ordered.filter(match):ordered;
 }
