@@ -1,3 +1,4 @@
+import {installHelpTooltips} from './help-tooltips.js';
 import {createAuthorDirectory} from './author-directory.js';
 import {getLanguage,installI18n} from './i18n.js';
 import {renderAdmin} from './admin.js';
@@ -16,15 +17,16 @@ import {sortPapers} from './paper-sort.js';
 import './style.css';
 import './features.css';
 import './desktop-refinements.css';
-import { createIcons, Languages, ArrowLeft, ArrowRight, ArrowUpRight, Bookmark, Braces, ChevronRight, CircleHelp, Clock3, Cloud, CloudUpload, Copy, Database, Download, ExternalLink, Files, FileText, FolderOpen, Info, KeyRound, LibraryBig, Lightbulb, List, ListChecks, LogOut, MailCheck, MoveUpRight, Plus, Quote, RefreshCw, RotateCcw, Scan, Search, SearchX, Settings2, ShieldCheck, Sparkles, SquarePen, Star, Tags, Trash2, Type, UsersRound, Waypoints, X, Ellipsis, LayoutGrid } from 'lucide';
+import { createIcons, Languages, ArrowLeft, ArrowRight, ArrowUpRight, Bookmark, Braces, ChevronRight, CircleHelp, Clock3, Cloud, CloudUpload, Copy, Database, Download, ExternalLink, Files, FileText, FolderOpen, Image, Info, KeyRound, LibraryBig, Lightbulb, List, ListChecks, LogOut, MailCheck, MoveUpRight, Plus, Quote, RefreshCw, RotateCcw, Scan, Search, SearchX, Settings2, ShieldCheck, Sparkles, SquarePen, Star, Tags, Trash2, Type, UsersRound, Waypoints, X, Ellipsis, LayoutGrid } from 'lucide';
 import { db, configured, cloudConfig, api, loadPapers, updatePaper, signedPDF } from './cloud.js';
 import { escapeHTML as e, filename, searchPapers, exportCitations, authorNetwork, citationNetwork, safeURL, journalFull, journalShort, normalizeKeywordPairs, keywordFields } from './core.js';
 import { drawNetwork } from './network.js';
 
 const app=document.querySelector('#app');
+installHelpTooltips(document);
 const state={user:null,profile:null,papers:[],demo:false,query:'',tab:'all',journal:'',journals:[],years:null,groupSize:2,sort:'recent',sortDirection:'desc',view:'list',selected:new Set(),tag:'',scope:null,loading:false,authMode:'login',avatarURL:null,batchBusy:false,isAdmin:false,adminMustChange:false};
 const icon=(name,extra='')=>`<i data-lucide="${name}" class="icon ${extra}" aria-hidden="true"></i>`;
-const uiIcons=()=>createIcons({icons:{Languages,ArrowLeft,ArrowRight,ArrowUpRight,Bookmark,Braces,ChevronRight,CircleHelp,Clock3,Cloud,CloudUpload,Copy,Database,Download,ExternalLink,Files,FileText,FolderOpen,Info,KeyRound,LibraryBig,Lightbulb,List,ListChecks,LogOut,MailCheck,MoveUpRight,Plus,Quote,RefreshCw,RotateCcw,Scan,Search,SearchX,Settings2,ShieldCheck,Sparkles,SquarePen,Star,Tags,Trash2,Type,UsersRound,Waypoints,X,Ellipsis,LayoutGrid},attrs:{'aria-hidden':'true'}});
+const uiIcons=()=>createIcons({icons:{Languages,ArrowLeft,ArrowRight,ArrowUpRight,Bookmark,Braces,ChevronRight,CircleHelp,Clock3,Cloud,CloudUpload,Copy,Database,Download,ExternalLink,Files,FileText,FolderOpen,Image,Info,KeyRound,LibraryBig,Lightbulb,List,ListChecks,LogOut,MailCheck,MoveUpRight,Plus,Quote,RefreshCw,RotateCcw,Scan,Search,SearchX,Settings2,ShieldCheck,Sparkles,SquarePen,Star,Tags,Trash2,Type,UsersRound,Waypoints,X,Ellipsis,LayoutGrid},attrs:{'aria-hidden':'true'}});
 let graphCleanup=null,readerCleanup=null,readerObjectURL=null,renderVersion=0;
 const chatUI=createChatUI({user:()=>state.user,toast,go});
 const authorUI=createAuthorDirectory({state,shell,icon,modal,busy,toast,go,uiIcons});

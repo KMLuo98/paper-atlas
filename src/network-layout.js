@@ -29,14 +29,15 @@ export function drawNetwork(svg, data, {authors = false, onClick = () => {}, onS
     viewport.append(el); return el;
   });
   let selected = null, labels = nodes.length <= 40, scale = 1, tx = 0, ty = 0, disposed = false, layoutReady = !!cached;
-  const labelEls = [], rings = [];
+  const labelEls = [], rings = [], innerEls=[], photoEls=[];
+  let photosVisible=false;
   const nodeEls = nodes.map((node, i) => {
     const r = radius(node.id), g = make('g', {class: 'node', tabindex: 0, role: 'button', 'aria-label': node.label, 'aria-pressed': 'false', 'data-node-id': node.id});
     const ring = make('circle', {class: 'selection-ring', r: r + 8, fill: 'none', stroke: '#d18b31', 'stroke-width': 4, opacity: 0}); rings.push(ring); g.append(ring);
     g.append(make('circle', {r, fill: ['#50764c', '#87a76b', '#b4bd87', '#729180', '#b49f6a'][i % 5], stroke: '#fffefa', 'stroke-width': 2}));
     const innerText = authors ? node.name.split(' ').map(part => part[0]).slice(0, 2).join('') : (node.short_label === '未发表' && getLanguage() === 'en' ? 'Unpub.' : node.short_label || 'PDF');
     const units = [...innerText].reduce((sum, char) => sum + (/[\p{Script=Han}]/u.test(char) ? 1 : .62), 0), innerSize = r * Math.min(12 / 14, 1.72 / Math.max(1, units)), labelSize = r * 12 / 14;
-    const inner = make('text', {'text-anchor': 'middle', dy: innerSize * .35, class: 'node-inner-label', style: `fill:#fffef9;font-size:${innerSize}px;font-weight:600`}); inner.textContent = innerText; g.append(inner);
+    const inner = make('text', {'text-anchor': 'middle', dy: innerSize * .35, class: 'node-inner-label', style: `fill:#fffef9;font-size:${innerSize}px;font-weight:600`}); inner.textContent = innerText; g.append(inner);innerEls.push(inner);
     const label = make('text', {y: r + labelSize * 1.5, 'text-anchor': 'middle', class: 'node-label', style: `font-size:${labelSize}px`});
     label.textContent = authors ? node.name : node.label.length > 27 ? node.label.slice(0, 25) + '…' : node.label; labelEls.push(label); g.append(label);
     const title = make('title'); title.textContent = node.label; g.append(title); viewport.append(g);
@@ -46,6 +47,20 @@ export function drawNetwork(svg, data, {authors = false, onClick = () => {}, onS
     g.onmouseleave = g.onblur = () => g.classList.remove('hovered');
     return g;
   });
+  function setPhotos(photos,visible=true){
+    if(!authors||disposed)return;photosVisible=visible;
+    nodes.forEach((node,i)=>{
+      const url=photos.get(node.id);let image=photoEls[i];
+      if(url&&/^https:\/\//i.test(url)&&!image){
+        const r=radius(node.id)-1,clipId=markerId+'-photo-'+i,clip=make('clipPath',{id:clipId,clipPathUnits:'userSpaceOnUse'});clip.append(make('circle',{r}));defs.append(clip);
+        image=make('image',{class:'node-photo',x:-r,y:-r,width:r*2,height:r*2,preserveAspectRatio:'xMidYMid slice','clip-path':`url(#${clipId})`,'pointer-events':'none'});image.style.display='none';image.loaded=false;
+        image.onload=()=>{if(disposed)return;image.loaded=true;image.style.display=photosVisible?'':'none';innerEls[i].style.display=photosVisible?'none':'';};
+        image.onerror=()=>{image.loaded=false;image.style.display='none';innerEls[i].style.display='';};
+        photoEls[i]=image;nodeEls[i].append(image);image.setAttribute('href',url);
+      }
+      if(image){image.style.display=photosVisible&&image.loaded?'':'none';innerEls[i].style.display=photosVisible&&image.loaded?'none':'';}
+    });
+  }
   const transform = () => viewport.setAttribute('transform', `translate(${tx},${ty}) scale(${scale})`);
   function paintEdge(i) {
     const edge = links[i], el = edgeEls[i], dx = edge.target.x - edge.source.x, dy = edge.target.y - edge.source.y, distance = Math.hypot(dx, dy) || 1, from = radius(edge.source.id) + 2, to = radius(edge.target.id) + 4;
@@ -126,5 +141,5 @@ export function drawNetwork(svg, data, {authors = false, onClick = () => {}, onS
       } catch {worker?.terminate(); worker = null; fallback();}
     } else fallback();
   }
-  return {ready, destroy() {remember(); disposed = true; worker?.terminate(); cancelFallback(); if (frame !== null) host.cancelAnimationFrame?.(frame); gestures.destroy(); finishReady();}, reset() {gestures.cancel(); highlight(null, {focus: false}); fit();}, toggleLabels() {labels = !labels; paintSelection(); return labels;}, highlight};
+  return {ready, setPhotos, destroy() {remember(); disposed = true; worker?.terminate(); cancelFallback(); if (frame !== null) host.cancelAnimationFrame?.(frame); gestures.destroy(); finishReady();}, reset() {gestures.cancel(); highlight(null, {focus: false}); fit();}, toggleLabels() {labels = !labels; paintSelection(); return labels;}, highlight};
 }

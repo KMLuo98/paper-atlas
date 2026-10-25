@@ -1,0 +1,14 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {parseHTML} from 'linkedom';
+import {loadNetworkPhotos} from '../src/network-photos.js';import {drawNetwork} from '../src/network-layout.js';
+test('network photos use owner profiles and ORCID identity while signing each shared photo once',async()=>{
+ const id='0000-0002-1825-0097',papers=[{id:'p',authors:[{name:'Alice Smith',orcid:id},{name:'Bob Jones'}]}],signed=[];
+ const profiles=[{id:'a',first_name:'Alice',last_name:'Smith',orcid:id,aliases:['Alice Smith'],identity_keys:['orcid:'+id],photo_path:'owner/alice.jpg'},{id:'b',first_name:'Bob',last_name:'Jones',aliases:['Bob Jones'],identity_keys:['name:bobjones'],photo_path:'another-user/bob.jpg'}];
+ const db={from(table){assert.equal(table,'author_profiles');return {select(){return this;},eq(k,v){assert.equal(k,'user_id');assert.equal(v,'owner');return this;},order(){return this;},range:async()=>({data:profiles})};},storage:{from(bucket){assert.equal(bucket,'avatars');return {createSignedUrls:async paths=>{signed.push(...paths);return {data:paths.map(path=>({path,signedUrl:'https://storage.example/'+path}))};}};}}};
+ const photos=await loadNetworkPhotos(db,'owner',papers,[{id:'orcid:'+id},{id:'name:bobjones'}]);assert.equal(photos.get('orcid:'+id),'https://storage.example/owner/alice.jpg');assert(!photos.has('name:bobjones'));assert.deepEqual(signed,['owner/alice.jpg']);
+ assert.equal((await loadNetworkPhotos(null,null,papers,[])).size,0);
+});
+test('photo nodes are circular, retain weighted geometry and selection, and fall back on failures',()=>{
+ const {document}=parseHTML('<html><body><svg></svg></body></html>'),svg=document.querySelector('svg'),graph=drawNetwork(svg,{nodes:[{id:'a',name:'Alice Smith',label:'Alice Smith'},{id:'b',name:'Bob Jones',label:'Bob Jones'}],edges:[{source:'a',target:'b',weight:5}]},{authors:true});
+ const initial=svg.querySelector('.node').getAttribute('transform'),photos=new Map([['a','https://storage.example/a.jpg']]);graph.setPhotos(photos,true);const image=svg.querySelector('.node-photo');assert(image);assert(image.getAttribute('clip-path'));assert(svg.querySelector('clipPath circle'));image.onload();assert.equal(svg.querySelector('.node-inner-label').style.display,'none');assert.equal(svg.querySelector('[data-node-id="b"] .node-inner-label').style.display,'');graph.highlight('a',{focus:false});assert(svg.querySelector('.node.selected'));assert.equal(svg.querySelector('.node').getAttribute('transform'),initial);
+ graph.setPhotos(photos,false);assert.equal(image.style.display,'none');assert.equal(svg.querySelector('.node-inner-label').style.display,'');graph.setPhotos(photos,true);assert.equal(image.style.display,'');image.onerror();assert.equal(image.style.display,'none');assert.equal(svg.querySelector('.node-inner-label').style.display,'');assert.equal(svg.querySelectorAll('.node-photo').length,1);graph.destroy();
+});
