@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildAuthorDirectory,formattedAuthorName,publishedPaper,filterAuthors} from '../supabase/functions/_shared/author-directory.js';
+import {buildAuthorDirectory,formattedAuthorName,publishedPaper,filterAuthors,authorEnrichmentTasks,authorEnrichmentKey,authorIndexValue,authorInstitutions} from '../supabase/functions/_shared/author-directory.js';
 import {validateAuthorPatch,authorAction} from '../supabase/functions/_shared/author-actions.js';
 const orcid='0000-0002-1825-0097',other='0000-0001-5109-3700';
 const papers=[{id:'p1',title:'Network research',publication_status:'published',journal:'Physical Review E',published_at:'2020-01-01',authors:[{name:'Jun-an Lu',institution:'Institute One',email:'lu@example.edu',orcid},{name:'Alice Smith'}]}, {id:'p2',title:'Synchronization',publication_status:'published',authors:[{name:'Lu Jun-An',institution:'Institute Two',orcid}]}, {id:'p3',title:'Preprint',publication_status:'unpublished',authors:[{name:'陆君安',orcid}]}, {id:'p4',title:'Different identity',publication_status:'published',authors:[{name:'Jun-an Lu',orcid:other}]}];
@@ -35,16 +35,47 @@ test('author services deny an out-of-library identity before model or photo look
  await assert.rejects(authorAction({service,userId:'owner',body:{action:'author_keywords',author_key:'unowned'},allPapers:async()=>papers,model:async()=>{calls++;},discoverPhotos:async()=>{calls++;},HTTPError}),e=>e.status===404);assert.equal(calls,0);
 });
 
-test('author keyword generation covers all owned published papers and saves ten bilingual topics',async()=>{
- const rows=[],writes=[],inputs=[];
- const service={from:table=>{assert.equal(table,'author_profiles');return {select(){return this;},eq(key,value){assert.equal(key,'user_id');assert.equal(value,'owner');return this;},order(){return this;},range:async()=>({data:rows}),upsert(row){writes.push(row);return {select:()=>({single:async()=>({data:row})})};}};}};
+test('author keyword generation includes parsed preprints and updates only the claimed profile fields',async()=>{
+ const row={id:'saved',source_key:'orcid:'+orcid,user_id:'owner',identity_keys:['orcid:'+orcid],first_name:'Jun-an',last_name:'Lu',orcid,aliases:[],keywords:[]},rows=[row],writes=[],inputs=[];
+ const service={from:table=>{assert.equal(table,'author_profiles');return {select(){return this;},eq(key,value){if(key==='user_id')assert.equal(value,'owner');return this;},order(){return this;},range:async()=>({data:rows}),update(patch){writes.push(patch);Object.assign(row,patch);return this;},or(){return this;},maybeSingle:async()=>({data:{...row}}),single:async()=>({data:{...row}})};}};
  class HTTPError extends Error{constructor(status,message){super(message);this.status=status;}}
- const result=await authorAction({service,userId:'owner',body:{action:'author_keywords',author_key:'orcid:'+orcid},allPapers:async()=>papers,limit:async()=>{},model:async(prompt,input,json)=>{assert(json);inputs.push(input);return {keywords:Array.from({length:10},(_,i)=>({zh:'研究词'+i,en:'topic '+i})),summary:'复杂网络与同步研究'};},HTTPError});
- assert.deepEqual(inputs[0].papers.map(p=>p.id).sort(),['p1','p2']);assert.equal(result.profile.keywords.length,10);assert.equal(writes[0].user_id,'owner');assert.deepEqual(writes[0].keywords_paper_ids.sort(),['p1','p2']);
+ const result=await authorAction({service,userId:'owner',body:{action:'author_keywords',author_key:'profile:saved'},allPapers:async()=>papers.map(p=>({...p,status:'ready'})),limit:async()=>{},model:async(prompt,input,json)=>{assert(json);inputs.push(input);return {keywords:Array.from({length:10},(_,i)=>({zh:'研究词'+i,en:'topic '+i})),summary:'复杂网络与同步研究'};},HTTPError});
+ assert.deepEqual(inputs[0].papers.map(p=>p.id).sort(),['p1','p2','p3']);assert.equal(result.profile.keywords.length,10);assert.equal(result.profile.user_id,'owner');assert.deepEqual(result.profile.keywords_paper_ids.sort(),['p1','p2','p3']);assert.equal(result.profile.keywords_lookup_status,'ready');assert.equal(result.profile.keywords_lookup_lease_until,null);
 });
 test('photo matching sends only public identity clues, without paper text or email',async()=>{
  let identity;
  const service={from:()=>({select(){return this;},eq(){return this;},order(){return this;},range:async()=>({data:[]})})};class HTTPError extends Error{constructor(status,message){super(message);this.status=status;}}
  await authorAction({service,userId:'owner',body:{action:'author_photo_candidates',author_key:'orcid:'+orcid},allPapers:async()=>papers,limit:async()=>{},discoverPhotos:async person=>{identity=person;return {items:[],unavailable:false};},HTTPError});
  assert.equal(identity.email,'');assert(identity.name.includes('Lu'));assert.equal(identity.organization,'Institute One');assert(!('papers'in identity));assert(!('summary'in identity));
+});
+
+test('author search tolerates misspellings and group indices match count/name ordering',()=>{
+ const people=buildAuthorDirectory(papers);assert(filterAuthors(people,'Junna Lu').length);assert(filterAuthors(people,'Instittue One').some(p=>p.orcid===orcid));
+ const lu=people.find(p=>p.orcid===orcid);assert.equal(authorIndexValue(lu,'papers','given_family'),'3');assert.equal(authorIndexValue(lu,'name','family_given'),'L');assert.deepEqual(authorInstitutions({...lu,institution:'First; Second\nThird',institutions:[]}),['First','Second','Third']);
+});
+test('default author work reuses completed results, retries after new papers, and preserves manual edits',()=>{
+ const p=buildAuthorDirectory(papers.map(p=>({...p,status:'ready'}))).find(p=>p.orcid===orcid);p.profile={};
+ assert.deepEqual(authorEnrichmentTasks([p]).map(t=>t.kind),['photo','keywords']);
+ p.profile={photo_lookup_key:authorEnrichmentKey(p,'photo'),photo_lookup_status:'not_found',keywords_lookup_key:authorEnrichmentKey(p,'keywords'),keywords_lookup_status:'ready'};
+ assert.equal(authorEnrichmentTasks([p]).length,0);
+ p.papers.push({id:'new',title:'New arXiv paper',journal:'arXiv',status:'ready',summary:'A new result'});p.paper_count++;
+ assert.equal(authorEnrichmentTasks([p]).length,2);
+ p.photo_path='owner/manual.jpg';p.profile.keywords_manual=true;assert.equal(authorEnrichmentTasks([p]).length,0);
+});
+
+test('one-click photo matching saves only verified matches and never overwrites a manual photo',async()=>{
+ const uid='12345678-1234-1234-1234-123456789012';
+ for(const scenario of ['verified','ambiguous','manual-race']){
+  const row={id:'saved',user_id:uid,source_key:'orcid:'+orcid,identity_keys:['orcid:'+orcid],first_name:'Jun-an',last_name:'Lu',orcid,aliases:[],photo_path:'',photo_source:''},uploads=[];
+  const service={rpc:async()=>({data:[{used_bytes:0,quota_bytes:10000000}]}),storage:{from:()=>({upload:async(path)=>{uploads.push(path);if(scenario==='manual-race'){row.photo_path=uid+'/manual.jpg';row.photo_source='manual';}return {};}})},from:()=>{
+   let patch=null,filters=[];const run=async()=>{if(!filters.every(([k,v])=>row[k]===v))return {data:null};if(patch)Object.assign(row,patch);return {data:{...row}};};
+   return {select(){return this;},eq(k,v){filters.push([k,v]);return this;},order(){return this;},range:async()=>({data:[row]}),update(value){patch=value;return this;},or(){return this;},single:run,maybeSingle:run};
+  }};
+  class HTTPError extends Error{constructor(status,message){super(message);this.status=status;}}
+  const args={service,userId:uid,body:{action:'author_match_photo',author_key:'profile:saved'},allPapers:async()=>papers,limit:async()=>{},discoverPhotos:async()=>({items:[{exact:scenario!=='ambiguous',bytes:new Uint8Array(500),mime:'image/png',source:'https://example.edu/person'}],unavailable:false}),HTTPError};
+  const result=await authorAction(args);
+  if(scenario==='ambiguous'){assert.equal(uploads.length,0);assert.equal(result.profile.photo_lookup_status,'ambiguous');let calls=0;await authorAction({...args,body:{...args.body,automatic:true},discoverPhotos:async()=>{calls++;}});assert.equal(calls,0);}
+  else if(scenario==='manual-race'){assert.equal(result.profile.photo_source,'manual');assert.equal(result.profile.photo_path,uid+'/manual.jpg');}
+  else{assert.equal(uploads.length,1);assert(result.profile.photo_path.startsWith(uid+'/'));assert.equal(result.profile.photo_source,'auto');assert.equal(result.profile.photo_lookup_lease_until,null);}
+ }
 });

@@ -1,5 +1,5 @@
 import {authorNetwork, normalize} from './core.js';
-import {sameAuthor, normalizeORCID} from './author-identity.js';
+import {sameAuthor, normalizeORCID, authorNameKeys} from './author-identity.js';
 const unique = values => [...new Set(values.filter(v => typeof v === 'string' && v.trim()).map(v => v.trim()))];
 export function publishedPaper(p) {
   if (p.publication_status === 'unpublished' || /^arxiv$/i.test(p.journal || '')) return false;
@@ -25,8 +25,12 @@ export function formattedAuthorName(author, format = 'given_family') {
 export function buildAuthorDirectory(papers, profiles = []) {
   papers = [...new Map(papers.filter(p => !p.deleted_at).map(p => [p.id, p])).values()];
   const raw = authorNetwork(papers), paperMap = new Map(papers.map(p => [p.id, p])), grouped = new Map();
+  const identityIndex=new Map(),orcidIndex=new Map(),nameIndex=new Map();
+  const index=(map,key,profile)=>{if(!key)return;if(!map.has(key))map.set(key,new Set());map.get(key).add(profile);};
+  for(const profile of profiles){for(const key of profile.identity_keys||[])index(identityIndex,key,profile);index(orcidIndex,normalizeORCID(profile.orcid),profile);for(const key of authorNameKeys({name:[profile.first_name,profile.last_name].filter(Boolean).join(' '),aliases:profile.aliases||[]}))index(nameIndex,key,profile);}
   for (const person of raw.nodes) {
-    const candidates = profiles.filter(p => {
+    const pool=new Set([...(identityIndex.get(person.id)||[]),...(orcidIndex.get(normalizeORCID(person.orcid))||[]),...authorNameKeys(person).flatMap(key=>[...(nameIndex.get(key)||[])])]);
+    const candidates = [...pool].filter(p => {
       if (person.orcid && p.orcid && normalizeORCID(person.orcid) !== normalizeORCID(p.orcid)) return false;
       return p.identity_keys?.includes(person.id) || sameAuthor(person, {name: [p.first_name, p.last_name].filter(Boolean).join(' '), orcid: p.orcid, aliases: p.aliases || []});
     });
@@ -45,7 +49,7 @@ export function buildAuthorDirectory(papers, profiles = []) {
     const aliases = unique([...names, ...(profile?.aliases || []), [first_name, last_name].filter(Boolean).join(' ')]);
     const ownPapers = unique(records.flatMap(r => r.papers || [])).map(id => paperMap.get(id)).filter(Boolean).sort((a, b) => String(b.published_at || b.created_at || '').localeCompare(String(a.published_at || a.created_at || '')));
     const institutions = unique([...records.map(r => r.institution), ...ownPapers.flatMap(p => (p.authors || []).filter(a => records.some(r => sameAuthor(a, r))).map(a => a.institution))]);
-    return {key, profile, identity_keys: records.map(r => r.id), first_name, last_name, english_name: [first_name, last_name].filter(Boolean).join(' '),
+    return {key, profile, identity_keys: unique([...records.map(r => r.id), ...(profile?.identity_keys || [])]), first_name, last_name, english_name: [first_name, last_name].filter(Boolean).join(' '),
       name_format: profile?.name_format || 'default', aliases, original_names: names, institution: profile?.institution ?? institutions[0] ?? '', institutions,
       email: profile?.email ?? records.find(r => r.email)?.email ?? '', orcid: profile?.orcid || records.find(r => r.orcid)?.orcid || '', profile_url: profile?.profile_url || '',
       papers: ownPapers, paper_count: ownPapers.length, published_count: ownPapers.filter(publishedPaper).length,
@@ -55,6 +59,42 @@ export function buildAuthorDirectory(papers, profiles = []) {
 }
 export function filterAuthors(authors, query = '', sort = 'name', format = 'given_family') {
   const words = normalize(query).split(' ').filter(Boolean);
-  return authors.filter(a => {const text = normalize([a.english_name, ...a.aliases, a.institution, ...a.institutions, a.email, a.orcid].join(' '));return words.every(w => text.includes(w));})
-    .sort((a, b) => (sort === 'papers' ? b.published_count - a.published_count : 0) || formattedAuthorName(a, format).localeCompare(formattedAuthorName(b, format), 'en', {sensitivity: 'base'}) || a.key.localeCompare(b.key));
+  return authors.filter(a => {const names=[a.english_name,...a.aliases],text = normalize([...names,...names.map(n=>n.replace(/[-.]/g,'')), a.institution, ...a.institutions, a.email, a.orcid].join(' '));return words.every(w => text.includes(w) || text.split(' ').some(token => fuzzyAuthorWord(w, token)));})
+    .sort((a, b) => (sort === 'papers' ? b.paper_count - a.paper_count : 0) || formattedAuthorName(a, format).localeCompare(formattedAuthorName(b, format), 'en', {sensitivity: 'base'}) || a.key.localeCompare(b.key));
+}
+
+function fuzzyAuthorWord(a, b) {
+  if (a.length < 3 || b.length < 3) return false;
+  const limit = a.length >= 7 ? 2 : 1;
+  if (Math.abs(a.length - b.length) > limit) return false;
+  let prev = Array.from({length:b.length+1},(_,i)=>i),older=null;
+  for(let i=1;i<=a.length;i++) {const row=[i];for(let j=1;j<=b.length;j++){row[j]=Math.min(row[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1])row[j]=Math.min(row[j],older[j-2]+1);}if(Math.min(...row)>limit)return false;older=prev;prev=row;}
+  return prev[b.length] <= limit;
+}
+export function authorInstitutions(person) {
+  const lines = value => String(value || '').split(/\r?\n|\s*;\s*|；/).map(v=>v.trim()).filter(Boolean);
+  return unique([...(person.institution ? lines(person.institution) : []), ...(person.institutions || []).flatMap(lines)]);
+}
+export function authorIndexValue(person, sort, format) {
+  if (sort === 'papers') return String(person.paper_count);
+  const initial = [...formattedAuthorName(person, format).normalize('NFKD').replace(/\p{M}/gu,'')][0]?.toUpperCase();
+  return /^[A-Z]$/.test(initial || '') ? initial : '#';
+}
+export function researchPapers(person) {return person.papers.filter(p=>p.status==='ready'||p.summary||p.keyword_pairs?.length);}
+function fingerprint(value) {const str=JSON.stringify(value);let a=2166136261,b=5381;for(let i=0;i<str.length;i++){a=Math.imul(a^str.charCodeAt(i),16777619);b=Math.imul(b,33)^str.charCodeAt(i);}return (a>>>0).toString(16).padStart(8,'0')+(b>>>0).toString(16).padStart(8,'0');}
+export function authorEnrichmentKey(person, kind) {
+  if(kind==='photo')return fingerprint([person.first_name,person.last_name,person.original_names,authorInstitutions(person),person.profile_url,person.papers.map(p=>p.id).sort()]);
+  return fingerprint(researchPapers(person).map(p=>[p.id,p.title,p.summary||'',p.keyword_pairs||p.keywords||[]]).sort((a,b)=>a[0].localeCompare(b[0])));
+}
+export function authorEnrichmentTasks(authors,{photosOnly=false,force=false,now=Date.now()}={}) {
+ const tasks=[];
+ for(const person of authors)for(const kind of photosOnly?['photo']:['photo','keywords']) {
+  const p=person.profile||{},key=authorEnrichmentKey(person,kind),prefix=kind==='photo'?'photo_lookup':'keywords_lookup';
+  if(kind==='photo'&&person.photo_path)continue;
+  if(kind==='keywords'&&(!researchPapers(person).length||p.keywords_manual))continue;
+  if(Date.parse(p[prefix+'_lease_until']||'')>now)continue;
+  if(!force&&p[prefix+'_key']===key&&p[prefix+'_status']!=='running')continue;
+  tasks.push({author_key:person.key,kind,title:person.english_name||person.original_names[0]||'',identity_keys:person.identity_keys});
+ }
+ return tasks;
 }

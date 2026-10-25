@@ -41,3 +41,5 @@ export function resolveAuthorRecords(papers) {
     return {id:orcid?'orcid:'+orcid:'name:'+keys[0],orcid,members};
   });
 }
+
+export {nameKeys as authorNameKeys};

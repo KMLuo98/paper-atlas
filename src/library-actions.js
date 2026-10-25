@@ -18,7 +18,7 @@ export function createLibraryActions({state, modal, icon, busy, toast, refresh, 
         text = await extractPDF(await response.blob()); await updatePaper(p.id, {full_text: text});
       }
       p.full_text = text;
-      const result = await api('analyze', {paper_id: p.id}); Object.assign(p, result.paper); return p;
+      const result = await api('analyze', {paper_id: p.id}); Object.assign(p, result.paper); document.dispatchEvent(new (document.defaultView?.Event||Event)('pa-authors-changed')); return p;
     } catch (error) {
       if (error.status === 429) throw error;
       p.status = 'error'; p.analysis_error = error.message;
