@@ -4,6 +4,7 @@ import {englishName} from './author-directory.js';
 import {imageCandidateKey,discoverPhotoCandidates} from '../mail-api/photo-sources.js';
 import {safeFetch,bounded,text,publicPhotoURL} from '../mail-api/photos.js';
 const fold=value=>String(value||'').normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
+export function authorSearchNames(person){return [...new Set([person.name,...(person.aliases||[])].filter(n=>typeof n==='string'&&n.trim()).map(n=>n.trim()))].sort((a,b)=>Number(/\p{Script=Han}/u.test(b))-Number(/\p{Script=Han}/u.test(a)));}
 export function authorPhotoIdentity(person){const schools=authorAffiliations(person),school=schools[0];return {name:englishName([person.english_name,...person.aliases])||person.original_names[0]||'',organization:school?.school||person.institution||'',organization_aliases:school?.aliases||[],aliases:person.aliases||[],orcid:person.orcid||'',email:'',profile_url:person.profile_url||''};}
 function nameParts(value){let name=String(value||'').replace(/,?\s*(?:Ph\.?D\.?|M\.?Sc\.?|M\.?D\.?)$/i,'').replace(/^(?:professor|prof\.?|dr\.?|mr\.?|mrs\.?)\s+/i,'').split(/\s+[–—-]\s+|\|/)[0].trim();if(name.includes(',')){const [last,...first]=name.split(',');name=first.join(' ').trim()+' '+last.trim();}const words=name.split(/\s+/).map(w=>fold(w)).filter(Boolean);return {name,words,last:words.at(-1)||'',given:words.slice(0,-1).join(''),initials:name.split(/\s+/).slice(0,-1).flatMap(w=>w.split(/[-.]+/)).map(w=>fold(w)[0]||'').join('')};}
 export function scholarlyNameMatch(expected,candidate){
@@ -29,6 +30,7 @@ export function photoIdentityEvidence(person,evidence){
  return nameMatch&&(organizationMatch||!!(orcid&&identifiers.includes(orcid)));
 }
 export async function discoverAuthorPhotos(person,parseHTML,options={}){
+ person={...person,search_names:authorSearchNames(person)};person.name=person.search_names[0]||person.name;
  const settled=await Promise.allSettled([discoverPhotoCandidates(person,parseHTML,options),discoverResearchGatePhotos(person,parseHTML,options,photoIdentityEvidence)]);
  const successful=settled.filter(r=>r.status==='fulfilled').map(r=>r.value),unique=new Map();
  for(const item of successful.flatMap(r=>r.items).sort((a,b)=>Number(b.exact)-Number(a.exact))){const key=imageCandidateKey(item.url||item.key);if(!unique.has(key))unique.set(key,item);}

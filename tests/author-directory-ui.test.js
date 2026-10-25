@@ -39,9 +39,9 @@ test('right-side indices follow both sorts, counts have no suffix, and affiliati
  assert.equal(d.querySelector('.author-paper-count').textContent,'2');assert.equal(d.querySelectorAll('.author-card-wrapper:first-of-type .author-institution-line').length,2);
  const button=d.querySelector('[data-author-index]'),anchor=d.getElementById(button.dataset.authorIndex);let jumped=false;anchor.scrollIntoView=()=>jumped=true;button.onclick();assert(jumped);
 });
-test('bulk photo matching starts one-click jobs without selecting ambiguous candidates',async()=>{
+test('bulk information matching requests public profiles, photos and keywords without selecting ambiguous photos',async()=>{
  const f=fixture();await f.ui.renderList();await f.document.querySelector('#authors-match-all').onclick();
- assert.equal(f.calls.filter(c=>c.action==='author_match_photo').length,2);assert(!f.calls.some(c=>c.action==='author_photo_candidates'));f.ui.stop();
+ assert.equal(f.calls.filter(c=>c.action==='author_match_photo').length,2);assert.equal(f.calls.filter(c=>c.action==='author_match_information').length,2);assert.equal(f.calls.filter(c=>c.action==='author_keywords').length,2);assert.equal(f.document.querySelector('#authors-match-all').textContent,' 匹配作者信息');assert(!f.calls.some(c=>c.action==='author_photo_candidates'));f.ui.stop();
 });
 test('automatic enrichment resumes from saved results and only reschedules authors affected by a new paper',async()=>{
  const f=fixture();await f.ui.renderList();f.ui.scheduleAutomatic();await new Promise(r=>setTimeout(r,1550));

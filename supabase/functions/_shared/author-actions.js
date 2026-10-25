@@ -1,3 +1,4 @@
+import {authorInformationPrompt,authorInformationPatch} from './author-information.js';
 import {authorPhotoIdentity} from './author-photos.js';
 import {buildAuthorDirectory, researchPapers, authorEnrichmentKey} from './author-directory.js';
 import {normalizeORCID} from './author-identity.js';
@@ -32,7 +33,7 @@ export function validateAuthorPatch(patch, person, userId) {
   }
   return out;
 }
-export async function authorAction({service, userId, body, allPapers, model, limit, discoverPhotos, HTTPError}) {
+export async function authorAction({service, userId, body, allPapers, model, limit, discoverPhotos, discoverInformation, HTTPError}) {
   const profiles = [];
   for (let start = 0; ; start += 500) {
     const r = await service.from('author_profiles').select('*').eq('user_id', userId).order('id').range(start, start + 499);
@@ -71,6 +72,18 @@ export async function authorAction({service, userId, body, allPapers, model, lim
     const candidate = {...base, ...patch, updated_at: new Date().toISOString()};
     const updated = buildAuthorDirectory(papers, [...profiles.filter(p => p.id !== base.id), candidate]).find(a => a.key === 'profile:' + base.id);
     return save({...patch, identity_keys: updated?.identity_keys || person.identity_keys});
+  }
+  if(body.action==='author_match_information'){
+    await limit('author-info:'+userId,30,60);
+    const sources=await discoverInformation(person);if(!sources.length)return {skipped:true,information_status:'not_found'};
+    const raw=await model(authorInformationPrompt,{author:{names:person.aliases,orcid:person.orcid,institutions:person.institutions},sources},true);
+    await ensureProfile();
+    const current=await service.from('author_profiles').select('*').eq('id',base.id).eq('user_id',userId).single();if(current.error)throw new HTTPError(503,'作者资料读取失败');
+    const patch=authorInformationPatch(person,current.data,raw,sources);
+    if(!Object.keys(patch).length)return {profile:current.data,information_status:'unchanged'};
+    const write=await service.from('author_profiles').update({...patch,updated_at:new Date().toISOString()}).eq('id',base.id).eq('user_id',userId).eq('updated_at',current.data.updated_at).select('*').maybeSingle();
+    if(write.error)throw new HTTPError(503,'作者资料保存失败');
+    return {profile:write.data||current.data,information_status:write.data?'updated':'changed_during_lookup',information_fields:write.data?Object.keys(patch):[],information_sources:sources.map(s=>({title:s.title,url:s.url}))};
   }
   if (body.action === 'author_keywords') {
     await limit('author-keywords:' + userId, 30, 60);
