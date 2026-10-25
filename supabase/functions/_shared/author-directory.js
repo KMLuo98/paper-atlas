@@ -83,7 +83,7 @@ export function authorIndexValue(person, sort, format) {
 export function researchPapers(person) {return person.papers.filter(p=>p.status==='ready'||p.summary||p.keyword_pairs?.length);}
 function fingerprint(value) {const str=JSON.stringify(value);let a=2166136261,b=5381;for(let i=0;i<str.length;i++){a=Math.imul(a^str.charCodeAt(i),16777619);b=Math.imul(b,33)^str.charCodeAt(i);}return (a>>>0).toString(16).padStart(8,'0')+(b>>>0).toString(16).padStart(8,'0');}
 export function authorEnrichmentKey(person, kind) {
-  if(kind==='photo')return fingerprint(['school-photo-match-v2',person.first_name,person.last_name,person.original_names,authorInstitutions(person),person.profile_url,person.papers.map(p=>[p.id,p.published_at||p.arxiv_date||null]).sort((a,b)=>a[0].localeCompare(b[0]))]);
+  if(kind==='photo')return fingerprint(['school-photo-rg-v3',person.first_name,person.last_name,person.original_names,authorInstitutions(person),person.profile_url,person.papers.map(p=>[p.id,p.published_at||p.arxiv_date||null]).sort((a,b)=>a[0].localeCompare(b[0]))]);
   return fingerprint(researchPapers(person).map(p=>[p.id,p.title,p.summary||'',p.keyword_pairs||p.keywords||[]]).sort((a,b)=>a[0].localeCompare(b[0])));
 }
 export function authorEnrichmentTasks(authors,{photosOnly=false,force=false,now=Date.now()}={}) {

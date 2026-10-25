@@ -1,6 +1,7 @@
+import {discoverResearchGatePhotos} from './researchgate-photos.js';
 import {authorAffiliations} from './author-affiliations.js';
 import {englishName} from './author-directory.js';
-import {discoverPhotoCandidates} from '../mail-api/photo-sources.js';
+import {imageCandidateKey,discoverPhotoCandidates} from '../mail-api/photo-sources.js';
 import {safeFetch,bounded,text,publicPhotoURL} from '../mail-api/photos.js';
 const fold=value=>String(value||'').normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
 export function authorPhotoIdentity(person){const schools=authorAffiliations(person),school=schools[0];return {name:englishName([person.english_name,...person.aliases])||person.original_names[0]||'',organization:school?.school||person.institution||'',organization_aliases:school?.aliases||[],aliases:person.aliases||[],orcid:person.orcid||'',email:'',profile_url:person.profile_url||''};}
@@ -28,7 +29,10 @@ export function photoIdentityEvidence(person,evidence){
  return nameMatch&&(organizationMatch||!!(orcid&&identifiers.includes(orcid)));
 }
 export async function discoverAuthorPhotos(person,parseHTML,options={}){
- const result=await discoverPhotoCandidates(person,parseHTML,options);
+ const settled=await Promise.allSettled([discoverPhotoCandidates(person,parseHTML,options),discoverResearchGatePhotos(person,parseHTML,options,photoIdentityEvidence)]);
+ const successful=settled.filter(r=>r.status==='fulfilled').map(r=>r.value),unique=new Map();
+ for(const item of successful.flatMap(r=>r.items).sort((a,b)=>Number(b.exact)-Number(a.exact))){const key=imageCandidateKey(item.url||item.key);if(!unique.has(key))unique.set(key,item);}
+ const result={items:[...unique.values()],unavailable:settled.some(r=>r.status==='rejected')||successful.some(r=>r.unavailable)};
  const pages=[...new Set(result.items.filter(item=>!item.exact&&publicPhotoURL(item.source)).map(item=>item.source))].slice(0,4),evidence=new Map();
  await Promise.allSettled(pages.map(async source=>{const {response}=await safeFetch(source,'text/html',options);if(!response.headers.get('content-type')?.includes('text/html')){await response.body?.cancel();return;}const {document}=parseHTML(text(await bounded(response,900000)));for(const el of document.querySelectorAll('script,style,nav,footer'))el.remove();const headings=[...document.querySelectorAll('h1,h2,title')].map(el=>el.textContent.trim()),orcids=[...document.querySelectorAll('a[href*="orcid.org/"]')].map(el=>el.getAttribute('href').match(/\d{4}-\d{4}-\d{4}-\d{3}[\dX]/i)?.[0]).filter(Boolean);evidence.set(source,photoIdentityEvidence(person,{headings,orcids:[...new Set(orcids)],text:(document.body?.textContent||document.documentElement.textContent||'').slice(0,180000)}));}));
  return {...result,items:result.items.map(item=>({...item,exact:item.exact||evidence.get(item.source)===true}))};
