@@ -37,7 +37,7 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
         if (r.error) throw r.error; rows.push(...r.data); if (r.data.length < 250) break;
       }
       if (ownerId() !== id) return;
-      profiles = rows; await signPhotos(); loadedAt = Date.now();
+      profiles = rows; await signPhotos(); if (ownerId() === id) loadedAt = Date.now();
     })();
     try {await loading;} finally {if (owner === id) loading = null;}
   }
