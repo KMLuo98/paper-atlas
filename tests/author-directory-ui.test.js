@@ -21,7 +21,7 @@ test('author cards/list show one English name, institution and published count w
 });
 test('author details link all papers, allow editable names and email, and request research keywords for the selected author',async()=>{
  const f=fixture(),key='orcid:'+orcid,snapshot=structuredClone(f.state.papers);await f.ui.renderDetail(key);const d=f.document;
- assert.equal(d.querySelectorAll('.author-paper').length,2);assert(d.querySelector('.author-detail-grid>.author-papers'));assert(d.querySelector('.author-information'));assert(d.querySelector('#author-photo-auto'));assert(d.querySelector('#author-photo-manual'));
+ assert.equal(d.querySelectorAll('.author-paper').length,2);assert.equal(d.querySelector('.author-paper-authors').textContent,'Jun-an Lu; Alice Smith');assert.equal(d.querySelectorAll('.author-paper-authors').length,2);assert(d.querySelector('.author-detail-grid>.author-papers'));assert(d.querySelector('.author-information'));assert(d.querySelector('#author-photo-auto'));assert(d.querySelector('#author-photo-manual'));
  await d.querySelector('#author-keywords').onclick({currentTarget:d.querySelector('#author-keywords')});assert.equal(f.calls[0].action,'author_keywords');assert.equal(f.calls[0].body.author_key,key);assert.match(f.routes.at(-1),/^author\/profile/);
  await f.ui.renderDetail('profile:saved');assert.equal(d.querySelectorAll('.author-keywords .badge').length,10);
  d.querySelector('#author-edit').onclick();const form=d.querySelector('#author-edit-form');form.querySelector('[name=email]').value='new@example.edu';form.querySelector('[name=last_name]').value='Lu';form.querySelector('[name=aliases]').value='Jun-an Lu\n陆君安\nLu Jun-An';
