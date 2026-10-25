@@ -56,7 +56,7 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
     if(!rows.length)return e(l('学校未识别','Institution unavailable'));
     const month=date=>date?date.slice(0,7).replace('-','.'):l('日期未标注','Date unknown');
     return rows.map(row=>{const label=[row.school,countryName(row.country,language)].filter(Boolean).join(' · '),range=row.first_seen&&row.first_seen!==row.last_seen?month(row.first_seen)+' – '+month(row.last_seen):month(row.last_seen),title=row.manual?l('手动补充，未指定论文时间','Manual addition; publication date unspecified'):l('论文署名记录：','Paper affiliation records: ')+range;
-      if(!detail)return `<span class="author-institution-line ${row.historical?'historical':''}" title="${e(title)}">${e(label)}</span>`;
+      if(!detail)return `<span class="author-institution-line ${row.historical?'historical':''}" title="${e(title)}">${row.last_seen&&row.last_seen===rows[0].last_seen?`<strong>${e(row.school)}</strong>${countryName(row.country,language)?' · '+e(countryName(row.country,language)):''}`:e(label)}</span>`;
       return `<div class="author-affiliation-record ${row.historical?'historical':''}"><span class="author-institution-line">${e(label)}</span><small class="author-affiliation-dates">${row.manual?l('手动补充 · 日期未标注','Manual addition · date unknown'):e(range)}</small>${row.records.length?`<details><summary>${l('论文依据','Source papers')} (${row.records.length})</summary><ul>${row.records.map(r=>`<li><time>${e(month(r.date))}</time> · <a href="#/paper/${encodeURIComponent(r.paper_id)}" data-user-content>${e(r.title)}</a><small data-user-content>${e(r.raw)}</small></li>`).join('')}</ul></details>`:''}</div>`;
     }).join('');
   }
