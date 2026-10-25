@@ -1,4 +1,22 @@
 const entries = `
+选择照片|Choose photo
+自动匹配照片|Find a photo
+将照片拖到这里，或粘贴剪贴板中的图片|Drop a photo here or paste an image from the clipboard
+选择文件|Choose file
+读取剪贴板|Read clipboard
+截图并裁剪|Capture screen and crop
+拖动选择裁剪区域|Drag to select a crop area
+在图片上拖动选择区域；也可使用完整图片。|Drag on the image to select an area, or use the full image.
+使用完整图片|Use full image
+确认照片|Confirm photo
+请选择 PNG、JPEG 或 WebP 图片|Choose a PNG, JPEG or WebP image
+图片最大 25MB|Images must be 25 MB or smaller
+裁剪后仍超过 2MB，请缩小区域|The cropped image exceeds 2 MB; select a smaller area
+浏览器不支持直接读取，请使用 Ctrl+V 或手机粘贴|Clipboard reading is unavailable; use Ctrl+V or paste on your phone
+剪贴板中没有图片|No image was found in the clipboard
+当前浏览器暂不支持此操作，可以选择文件或直接粘贴。|This browser cannot perform this action; choose a file or paste an image.
+当前浏览器不支持网页截图，请用系统截图后粘贴或选择照片|Screen capture is unavailable; take a system screenshot and paste it or choose a photo
+
 作者库|Author directory
 作者资料|Author profile
 
