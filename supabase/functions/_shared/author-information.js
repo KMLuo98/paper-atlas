@@ -1,4 +1,4 @@
-import {discoverAcademicProfiles,academicInformationPatch} from './academic-profiles.js';
+import {discoverAcademicProfiles,academicInformationPatch,academicProfileURL} from './academic-profiles.js';
 import {gatherPersonEvidence} from '../mail-api/people-search.js';
 import {safeFetch,bounded,text,publicPhotoURL} from '../mail-api/photos.js';
 import {photoIdentityEvidence,authorPhotoIdentity,authorSearchNames} from './author-photos.js';
@@ -31,5 +31,14 @@ export function authorInformationPatch(person,base,raw,sources){
  }
  const aliases=(Array.isArray(raw?.aliases)?raw.aliases:[]).map(allowed).filter(n=>n&&n.length<=200);
  if(aliases.length)patch.aliases=[...new Set([...(base.aliases||[]),...(person.aliases||[]),...aliases])].slice(0,100);
- return {...patch,...academicInformationPatch(base,sources)};
+ const academicSources=[...sources],stamp=new Date().toISOString();
+ for(const field of ['scholar_url','researchgate_url']){const parsed=academicProfileURL(allowed(raw?.[field]));if(parsed&&parsed.provider===(field==='scholar_url'?'scholar':'researchgate')&&!base[field])patch[field]=parsed.url;}
+ const labels={publications:/publications|articles|论文|出版物/i,citations:/citations|cited by|引用|被引/i,h_index:/h[-‐‑– ]?index|h指数/i,i10_index:/i10[-‐‑– ]?index|i10指数/i};
+ for(const m of (Array.isArray(raw?.metrics)?raw.metrics:[]).slice(0,30)){
+  const row=byURL.get(m.source),parsed=academicProfileURL(m.source),provider=parsed?.provider||(m.source==='https://orcid.org/'+normalizeORCID(person.orcid)?'orcid':'');
+  if(!row||provider!==m.provider||!labels[m.field]||!Number.isSafeInteger(m.value)||m.value<0||m.value>1e10||typeof m.evidence!=='string'||!row.text.includes(m.evidence)||!labels[m.field].test(m.evidence))continue;
+  if(!(m.evidence.match(/\d[\d,]*/g)||[]).some(n=>Number(n.replace(/,/g,''))===m.value))continue;
+  academicSources.push({academic:{provider,url:parsed?.url||m.source,metrics:{[m.field]:m.value},checked_at:stamp,metric_methods:{[m.field]:'indexed_snippet'}}});
+ }
+ return {...patch,...academicInformationPatch(base,academicSources)};
 }

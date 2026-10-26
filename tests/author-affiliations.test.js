@@ -2,6 +2,7 @@ import test from 'node:test';import assert from 'node:assert/strict';
 import {parseAffiliations,authorAffiliations,recentAuthorAffiliations,countryName} from '../supabase/functions/_shared/author-affiliations.js';
 import {scholarlyNameMatch,photoIdentityEvidence,authorPhotoIdentity} from '../supabase/functions/_shared/author-photos.js';
 const orcid='0000-0002-1825-0097';
+test('Spanish universities are recognized from saved profile institutions',()=>{assert.equal(parseAffiliations('Universidad Rey Juan Carlos, Calle Tulipán s/n, Móstoles, Madrid, 28933, Spain')[0].school,'Universidad Rey Juan Carlos');assert.equal(parseAffiliations('Universidad de Valparaiso, Chile')[0].school,'Universidad de Valparaiso');});
 const paper=(id,date,institution)=>({id,title:'Paper '+id,published_at:date,authors:[{name:'Alice Smith',orcid,institution}]});
 const person={english_name:'Alice Smith',first_name:'Alice',last_name:'Smith',aliases:['Alice Smith'],original_names:['Alice Smith'],orcid,institution:'',papers:[
  paper('a','2020-02-01','武汉大学数学与统计学院'),paper('b','2022-05-01','School of Physics, Wuhan University, Wuhan 430072, China'),

@@ -92,7 +92,7 @@ test('backend remembers a no-information result and retries only when the author
  const row={id:'saved',user_id:'owner',source_key:'orcid:'+orcid,identity_keys:['orcid:'+orcid],first_name:'Jun-an',last_name:'Lu',orcid,aliases:[],updated_at:'2026-10-25T00:00:00Z'};let calls=0;
  const service={from:()=>{let patch;return {select(){return this;},eq(){return this;},order(){return this;},range:async()=>({data:[{...row}]}),update(value){patch=value;return this;},single:async()=>{if(patch)Object.assign(row,patch);return {data:{...row}};}};}};
  class HTTPError extends Error{constructor(status,message){super(message);this.status=status;}}
- const args={service,userId:'owner',body:{action:'author_match_information',author_key:'profile:saved'},allPapers:async()=>papers,limit:async()=>{},discoverInformation:async()=>{calls++;return [];},HTTPError};
+ const args={service,userId:'owner',body:{action:'author_match_information',author_key:'profile:saved',automatic:true},allPapers:async()=>papers,limit:async()=>{},discoverInformation:async()=>{calls++;return [];},HTTPError};
  const first=await authorAction(args);assert.equal(first.profile.information_lookup_status,'not_found');const second=await authorAction(args);assert.equal(second.skipped,true);assert.equal(calls,1);
- row.aliases=['陆君安','New documented spelling'];await authorAction(args);assert.equal(calls,2);
+ row.aliases=['陆君安','New documented spelling'];await authorAction(args);assert.equal(calls,2);args.body.automatic=false;await authorAction(args);assert.equal(calls,3);
 });

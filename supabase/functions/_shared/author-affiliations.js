@@ -20,7 +20,7 @@ const institutions=[
  ['École Polytechnique Fédérale de Lausanne','CH','Ecole Polytechnique Federale de Lausanne','EPFL','洛桑联邦理工学院'],['ETH Zurich','CH','ETH Zürich','苏黎世联邦理工学院'],
  ['University of Potsdam','DE','Universität Potsdam','波茨坦大学'],['Humboldt University of Berlin','DE','Humboldt-Universität zu Berlin','柏林洪堡大学'],
  ['National University of Singapore','SG','新加坡国立大学','NUS'],['Nanyang Technological University','SG','南洋理工大学'],
- ['Universidad de Granada','ES','University of Granada','格拉纳达大学'],['University of Catania','IT','Università di Catania','卡塔尼亚大学'],
+ ['Universidad Rey Juan Carlos','ES','Rey Juan Carlos University'],['Universidad de Santiago de Chile','CL','University of Santiago, Chile'],['Universidad de Granada','ES','University of Granada','格拉纳达大学'],['University of Catania','IT','Università di Catania','卡塔尼亚大学'],
  ['University of Bologna','IT','Università di Bologna','博洛尼亚大学'],['Fondazione Bruno Kessler','IT','Bruno Kessler Foundation'],
  ['SASTRA Deemed University','IN','SASTRA University'],['National Institute of Technology Durgapur','IN','National Institute of Technology, Durgapur'],
  ['Google DeepMind','','DeepMind'],['Google','','Google Cloud AI Research','Google Research'],['Microsoft','','Microsoft Research'],['IBM','','IBM Research'],['OpenAI','','OpenAI Research']
@@ -48,7 +48,7 @@ function parseAffiliationsUncached(value){
   }
   // A university takes precedence over its internal departments and laboratories.
   if(matches.length){const universities=matches.filter(m=>/university|universit|école|polytechnique|college|大学|理工学院/i.test(m.school));result.push(...(universities.length?universities:matches));continue;}
-  const segments=raw.split(/[,，]/).map(cleanSegment).filter(Boolean),university=segments.find(s=>/大学|\buniversit[\p{L}]*\b|\b(?:polytechnic|college)\b/iu.test(s));
+  const segments=raw.split(/[,，]/).map(cleanSegment).filter(Boolean),university=segments.find(s=>/大学|\bunivers(?:it|id)[\p{L}]*\b|\b(?:polytechnic|college)\b/iu.test(s));
   let school=university||segments.find(s=>!/^(?:department|school|faculty|laboratory|lab|center|centre)\b/i.test(s)&&/\binstitute\b|\bacademy\b|fondazione|foundation|研究院|研究所|科学院|医院|公司/i.test(s));
   if(school){const han=school.match(/[\p{Script=Han}·]{2,45}大学/u);if(han)school=han[0];else if(/^(?:department|school|faculty)\b/i.test(school)){school=school.match(/\bat\s+(.+)$/i)?.[1]||school.match(/\bUniversity\s+of\s+.+/i)?.[0]||'';}
    school=school.replace(/\s+\d{4,}.*$/,'').trim();

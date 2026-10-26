@@ -41,8 +41,14 @@ test('right-side indices follow both sorts, counts have no suffix, and affiliati
  const button=d.querySelector('[data-author-index]'),anchor=d.getElementById(button.dataset.authorIndex);let jumped=false;anchor.scrollIntoView=()=>jumped=true;button.onclick();assert(jumped);
 });
 test('bulk information matching requests public profiles, photos and keywords without selecting ambiguous photos',async()=>{
- const f=fixture();await f.ui.renderList();await f.document.querySelector('#authors-match-all').onclick();
+ const f=fixture();await f.ui.renderList();await f.document.querySelector('#authors-match-all').onclick();await f.document.querySelector('#author-match-everyone').onclick();
  assert.equal(f.calls.filter(c=>c.action==='author_match_photo').length,2);assert.equal(f.calls.filter(c=>c.action==='author_match_information').length,2);assert.equal(f.calls.filter(c=>c.action==='author_keywords').length,2);assert.equal(f.document.querySelector('#authors-match-all').textContent,' 匹配作者信息');assert(!f.calls.some(c=>c.action==='author_photo_candidates'));f.ui.stop();
+});
+test('bulk matching modal searches and scopes work to selected authors',async()=>{
+ const f=fixture();await f.ui.renderList();f.document.querySelector('#authors-match-all').onclick();const input=f.document.querySelector('#author-match-search');input.value='Alice';input.oninput();assert.equal(f.document.querySelectorAll('[data-match-author]').length,1);f.document.querySelector('#author-match-select').onclick();await f.document.querySelector('#author-match-selected').onclick();assert.equal(f.calls.filter(c=>c.action==='author_match_information').length,1);assert(f.calls.every(c=>!c.body.author_key.includes(orcid)));f.ui.stop();
+});
+test('edit profile can explicitly match information without submitting the form',async()=>{
+ const f=fixture();await f.ui.renderDetail('orcid:'+orcid);f.document.querySelector('#author-edit').onclick();const button=f.document.querySelector('#author-edit-match');assert.equal(button.type,'button');await button.onclick({currentTarget:button});assert.equal(f.calls[0].action,'author_match_information');assert.equal(f.calls[0].body.automatic,false);assert(f.document.querySelector('#author-edit-form'));f.ui.stop();
 });
 test('automatic enrichment resumes from saved results and only reschedules authors affected by a new paper',async()=>{
  const f=fixture();await f.ui.renderList();f.ui.scheduleAutomatic();await new Promise(r=>setTimeout(r,1550));
@@ -60,8 +66,8 @@ test('cards expose an independent edit button and scoped paper search combines t
 });
 
 test('bulk information updates honor saved photo misses instead of forcing another photo search',async()=>{
- const f=fixture();await f.ui.renderList();await f.document.querySelector('#authors-match-all').onclick();const before=f.calls.filter(c=>c.action==='author_match_photo').length;
- await f.document.querySelector('#authors-match-all').onclick();assert.equal(f.calls.filter(c=>c.action==='author_match_photo').length,before);f.ui.stop();
+ const f=fixture();await f.ui.renderList();await f.document.querySelector('#authors-match-all').onclick();await f.document.querySelector('#author-match-everyone').onclick();const before=f.calls.filter(c=>c.action==='author_match_photo').length;
+ await f.document.querySelector('#authors-match-all').onclick();await f.document.querySelector('#author-match-everyone').onclick();assert.equal(f.calls.filter(c=>c.action==='author_match_photo').length,before);f.ui.stop();
 });
 
 test('author details show academic homepages and sourced maximum metrics without replacing library counts',async()=>{
