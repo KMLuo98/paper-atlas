@@ -1,0 +1,6 @@
+import {cleanPDFMarks} from './pdf-marks.js';
+const drafts=new Map();
+export function annotationStore(db,userId,path){const key=userId+'|'+path;return {draft:()=>drafts.get(key),keep(value){drafts.set(key,structuredClone(value));},clear(){drafts.delete(key);},async load(){if(!db||!userId)return {marks:[],version:0};const r=await db.from('pdf_annotations').select('marks,version').eq('user_id',userId).eq('file_path',path).maybeSingle();if(r.error)throw r.error;return r.data||{marks:[],version:0};},async save(marks,version){if(!db||!userId)throw Error('请先登录 / Sign in first');const r=await db.rpc('save_pdf_annotations',{p_file_path:path,p_marks:marks,p_version:version});if(r.error){const current=await db.from('pdf_annotations').select('marks,version').eq('user_id',userId).eq('file_path',path).maybeSingle();if(!current.error&&current.data&&JSON.stringify(cleanPDFMarks(current.data.marks))===JSON.stringify(cleanPDFMarks(marks))){drafts.delete(key);return current.data;}throw r.error;}drafts.delete(key);return r.data;}};}
+export function clearAnnotationDrafts(owner){for(const key of drafts.keys())if(key.startsWith(owner+'|'))drafts.delete(key);}
+
+if(typeof window!=='undefined')window.addEventListener('beforeunload',event=>{if(drafts.size){event.preventDefault();event.returnValue='';}});
