@@ -63,3 +63,9 @@ test('bulk information updates honor saved photo misses instead of forcing anoth
  const f=fixture();await f.ui.renderList();await f.document.querySelector('#authors-match-all').onclick();const before=f.calls.filter(c=>c.action==='author_match_photo').length;
  await f.document.querySelector('#authors-match-all').onclick();assert.equal(f.calls.filter(c=>c.action==='author_match_photo').length,before);f.ui.stop();
 });
+
+test('author details show academic homepages and sourced maximum metrics without replacing library counts',async()=>{
+ const f=fixture();f.rows.push({id:'academic',user_id:uid,identity_keys:['orcid:'+orcid],first_name:'Jun-an',last_name:'Lu',orcid,scholar_url:'https://scholar.google.com/citations?user=abcd',researchgate_url:'https://www.researchgate.net/profile/Jun-An-Lu',academic_metrics:{best:{citations:{value:1234,provider:'scholar',url:'https://scholar.google.com/citations?user=abcd',checked_at:'2026-10-26T00:00:00Z'}}}});
+ await f.ui.renderDetail('orcid:'+orcid);assert(f.document.querySelector('a[href*=scholar]'));assert(f.document.querySelector('a[href*=researchgate]'));assert.match(f.document.querySelector('.author-academic-stats').textContent,/1234/);assert.match(f.document.querySelector('.author-academic-stats').textContent,/2026-10-26/);assert.equal(f.document.querySelectorAll('.author-paper').length,2);
+ f.document.querySelector('#author-edit').onclick();assert(f.document.querySelector('[name=scholar_url]'));assert(f.document.querySelector('[name=researchgate_url]'));f.ui.stop();
+});

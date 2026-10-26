@@ -1,3 +1,4 @@
+import {academicProfileURL,bestAcademicMetrics} from './academic-profiles.js';
 import {authorInformationPrompt,authorInformationPatch} from './author-information.js';
 import {authorPhotoIdentity} from './author-photos.js';
 import {buildAuthorDirectory, researchPapers, authorEnrichmentKey,authorPhotoInputsChanged} from './author-directory.js';
@@ -17,6 +18,7 @@ export function validateAuthorPatch(patch, person, userId) {
   if (out.orcid && !/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(out.orcid)) throw Error('ORCID 格式无效');
   if (person.orcid && out.orcid !== normalizeORCID(person.orcid)) throw Error('ORCID 与论文身份记录不一致，请核对后重试');
   if (out.profile_url && !publicPhotoURL(out.profile_url)) throw Error('主页须为有效的公开 HTTPS 地址');
+  for(const [field,provider] of [['scholar_url','scholar'],['researchgate_url','researchgate']])if(field in patch){const value=text(patch[field],2000),parsed=academicProfileURL(value);if(value&&parsed?.provider!==provider)throw Error('学术主页地址格式无效');out[field]=parsed?.url||'';if(out[field]!==String(person[field]||'')){const sources=(out.academic_metrics?.sources||person.academic_metrics?.sources||[]).filter(s=>s.provider!==provider);out.academic_metrics={sources,best:bestAcademicMetrics(sources)};}}
   if (!Array.isArray(patch.aliases) || patch.aliases.length > 100 || patch.aliases.some(v => typeof v !== 'string' || v.length > 200)) throw Error('其他姓名写法最多100项，每项最多200字符');
   out.aliases = [...new Set([...person.original_names, ...patch.aliases].map(n => text(n, 200)).filter(Boolean))];
   if ('keywords' in patch) {
@@ -79,12 +81,12 @@ export async function authorAction({service, userId, body, allPapers, model, lim
     const key=authorEnrichmentKey(person,'information');
     if(base.information_lookup_key===key&&base.information_lookup_status)return {profile:base,skipped:true,information_status:base.information_lookup_status};
     const sources=await discoverInformation(person);if(!sources.length){const saved=await save({information_lookup_key:key,information_lookup_status:'not_found',information_lookup_at:new Date().toISOString()});return {...saved,information_status:'not_found'};}
-    const raw=await model(authorInformationPrompt,{author:{names:person.aliases,orcid:person.orcid,institutions:person.institutions},sources},true);
+    let raw={};try{raw=await model(authorInformationPrompt,{author:{names:person.aliases,orcid:person.orcid,institutions:person.institutions},sources},true);}catch(error){if(!sources.some(s=>s.academic))throw error;}
     await ensureProfile();
     const current=await service.from('author_profiles').select('*').eq('id',base.id).eq('user_id',userId).single();if(current.error)throw new HTTPError(503,'作者资料读取失败');
     const patch=authorInformationPatch(person,current.data,raw,sources);
     if(authorPhotoInputsChanged(person,patch))Object.assign(patch,{photo_lookup_key:'',photo_lookup_status:'',photo_lookup_at:null});
-    const changed=Object.keys(patch).length>0,status=changed?'updated':'unchanged',nextKey=changed?authorEnrichmentKey({...person,...patch},'information'):key;
+    const changed=Object.keys(patch).length>0,status=changed?'updated':'unchanged',nextKey=key;
     const write=await service.from('author_profiles').update({...patch,information_lookup_key:nextKey,information_lookup_status:status,information_lookup_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',base.id).eq('user_id',userId).eq('updated_at',current.data.updated_at).select('*').maybeSingle();
     if(write.error)throw new HTTPError(503,'作者资料保存失败');
     return {profile:write.data||current.data,information_status:write.data?status:'changed_during_lookup',information_fields:write.data?Object.keys(patch):[],information_sources:sources.map(s=>({title:s.title,url:s.url}))};

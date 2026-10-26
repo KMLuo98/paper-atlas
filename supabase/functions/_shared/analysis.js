@@ -24,5 +24,5 @@ export function validateAnalysis(raw, previous = {}) {
     doi: str(raw.doi, 200).replace(/^https?:\/\/(dx\.)?doi\.org\//, ''), volume: str(raw.volume, 50), issue: str(raw.issue, 50), pages: str(raw.pages, 100),
     authors: Array.isArray(raw.authors) ? raw.authors.slice(0, 300).filter(a => a && str(a.name, 200)).map(a => ({name: str(a.name, 200), aliases:Array.isArray(a.aliases)?[...new Set(a.aliases.map(v=>str(v,200)).filter(Boolean))].slice(0,10):[], institution: str(a.institution, 500), email: str(a.email, 200), orcid: str(a.orcid, 100)})) : [],
     ...keywordFields(Array.isArray(raw.keyword_pairs)?raw.keyword_pairs.slice(0,10):[], Array.isArray(raw.search_terms) ? raw.search_terms : []), summary: cleanResearchSummary(str(raw.summary, 20000)),
-    references: Array.isArray(raw.references) ? raw.references.slice(0, 500).filter(r => r && typeof r === 'object' && (str(r.title) || str(r.doi))).map(r => ({title: str(r.title, 1000), doi: str(r.doi, 200)})) : []};
+    references: previous.references_edited_at&&Array.isArray(previous.references)?previous.references:Array.isArray(raw.references) ? raw.references.slice(0, 500).filter(r => r && typeof r === 'object' && (str(r.title) || str(r.doi))).map(r => ({title: str(r.title, 1000), doi: str(r.doi, 200)})) : []};
 }

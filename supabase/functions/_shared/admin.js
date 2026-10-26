@@ -1,3 +1,4 @@
+import {paperStoragePaths} from './paper-files.js';
 import {removeUserFiles} from './account.js';
 const str=(value,max=1000)=>typeof value==='string'?value.slice(0,max).trim():'';
 export async function adminAction({service,userId,action,body,limit,createAuth,HTTPError}){
@@ -60,8 +61,8 @@ export async function adminAction({service,userId,action,body,limit,createAuth,H
       }
       if(action==='admin_delete_paper'){
         if(body.confirmation!=='DELETE_PAPER')throw new HTTPError(400,'请确认永久删除论文');await verifyAdminPassword();
-        const id=str(body.paper_id,36);const {data:p,error}=await service.from('papers').select('id,file_path').eq('id',id).maybeSingle();if(error||!p)throw new HTTPError(404,'论文不存在');
-        const removed=await service.storage.from('papers').remove([p.file_path]);if(removed.error)throw new HTTPError(503,'论文文件删除失败');
+        const id=str(body.paper_id,36);const {data:p,error}=await service.from('papers').select('id,file_path,user_id,supplementary_files').eq('id',id).maybeSingle();if(error||!p)throw new HTTPError(404,'论文不存在');
+        const removed=await service.storage.from('papers').remove(paperStoragePaths(p,p.user_id));if(removed.error)throw new HTTPError(503,'论文文件删除失败');
         const deleted=await service.from('papers').delete().eq('id',id);if(deleted.error)throw new HTTPError(503,'文件已移除，记录删除失败，请重试');return ({ok:true});
       }
       throw new HTTPError(400,'未知管理操作');

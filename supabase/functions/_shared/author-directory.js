@@ -51,7 +51,7 @@ export function buildAuthorDirectory(papers, profiles = []) {
     const institutions = unique([...records.map(r => r.institution), ...ownPapers.flatMap(p => (p.authors || []).filter(a => records.some(r => sameAuthor(a, r))).map(a => a.institution))]);
     return {key, profile, identity_keys: unique([...records.map(r => r.id), ...(profile?.identity_keys || [])]), first_name, last_name, english_name: [first_name, last_name].filter(Boolean).join(' '),
       name_format: profile?.name_format || 'default', aliases, original_names: names, institution: profile?.institution ?? institutions[0] ?? '', institutions,
-      email: profile?.email ?? records.find(r => r.email)?.email ?? '', orcid: profile?.orcid || records.find(r => r.orcid)?.orcid || '', profile_url: profile?.profile_url || '',
+      email: profile?.email ?? records.find(r => r.email)?.email ?? '', orcid: profile?.orcid || records.find(r => r.orcid)?.orcid || '', profile_url: profile?.profile_url || '',scholar_url:profile?.scholar_url||'',researchgate_url:profile?.researchgate_url||'',academic_metrics:profile?.academic_metrics||{sources:[],best:{}},
       papers: ownPapers, paper_count: ownPapers.length, published_count: ownPapers.filter(publishedPaper).length,
       photo_path: profile?.photo_path || '', photo_source: profile?.photo_source || '', photo_source_url: profile?.photo_source_url || '',
       keywords: profile?.keywords || [], research_summary: profile?.research_summary || '', keywords_paper_ids: profile?.keywords_paper_ids || [], keywords_generated_at: profile?.keywords_generated_at || null};
@@ -83,7 +83,7 @@ export function authorIndexValue(person, sort, format) {
 export function researchPapers(person) {return person.papers.filter(p=>p.status==='ready'||p.summary||p.keyword_pairs?.length);}
 function fingerprint(value) {const str=JSON.stringify(value);let a=2166136261,b=5381;for(let i=0;i<str.length;i++){a=Math.imul(a^str.charCodeAt(i),16777619);b=Math.imul(b,33)^str.charCodeAt(i);}return (a>>>0).toString(16).padStart(8,'0')+(b>>>0).toString(16).padStart(8,'0');}
 export function authorEnrichmentKey(person, kind) {
-  if(kind==='information')return fingerprint(['author-info-v1',person.first_name,person.last_name,[...(person.aliases||[])].sort(),authorInstitutions(person),person.email||'',person.orcid||'',person.profile_url||'',person.papers.map(p=>[p.id,p.published_at||p.arxiv_date||null]).sort((a,b)=>a[0].localeCompare(b[0]))]);
+  if(kind==='information')return fingerprint(['author-info-v3',person.first_name,person.last_name,[...(person.aliases||[])].sort(),authorInstitutions(person),person.email||'',person.orcid||'',person.profile_url||'',person.scholar_url||'',person.researchgate_url||'',person.papers.map(p=>[p.id,p.published_at||p.arxiv_date||null]).sort((a,b)=>a[0].localeCompare(b[0]))]);
   if(kind==='photo')return fingerprint(['school-photo-names-v4',person.first_name,person.last_name,person.original_names,authorInstitutions(person),person.profile_url,person.papers.map(p=>[p.id,p.published_at||p.arxiv_date||null]).sort((a,b)=>a[0].localeCompare(b[0]))]);
   return fingerprint(researchPapers(person).map(p=>[p.id,p.title,p.summary||'',p.keyword_pairs||p.keywords||[]]).sort((a,b)=>a[0].localeCompare(b[0])));
 }

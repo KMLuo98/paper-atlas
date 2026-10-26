@@ -1,3 +1,4 @@
+import {paperStoragePaths} from '../_shared/paper-files.js';
 import {discoverAuthorInformation} from '../_shared/author-information.js';
 import {authorAction} from '../_shared/author-actions.js';
 import {discoverAuthorPhotos} from '../_shared/author-photos.js';
@@ -20,7 +21,7 @@ import { authorNetwork, citationNetwork, exportCitations, filename, normalize, s
 
 const env=(name:string)=>Deno.env.get(name)||'';
 const service=createClient(env('SUPABASE_URL'),env('SUPABASE_SERVICE_ROLE_KEY'),{auth:{persistSession:false,autoRefreshToken:false}});
-const metadataColumns='id,title,journal,journal_abbr,published_at,doi,volume,issue,pages,authors,keywords,keyword_pairs,keywords_edited_at,publication_status,tags,search_terms,references,summary,favorite,status,analysis_error,analysis_coverage,analyzed_at,created_at,updated_at,citation_count,citation_source,citation_url,citation_checked_at,arxiv_id,arxiv_date,preprint_url,publication_lookup_at,publication_lookup_status';
+const metadataColumns='supplementary_files,references_edited_at,id,title,journal,journal_abbr,published_at,doi,volume,issue,pages,authors,keywords,keyword_pairs,keywords_edited_at,publication_status,tags,search_terms,references,summary,favorite,status,analysis_error,analysis_coverage,analyzed_at,created_at,updated_at,citation_count,citation_source,citation_url,citation_checked_at,arxiv_id,arxiv_date,preprint_url,publication_lookup_at,publication_lookup_status';
 class HTTPError extends Error { constructor(public status:number,message:string,public retryAfter?:number){super(message);} }
 const str=(v:unknown,max=1000)=>typeof v==='string'?v.slice(0,max).trim():'';
 const sha=async(s:string)=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join('');
@@ -136,8 +137,8 @@ Deno.serve(async(req:Request)=>{
     if(action==='purge_trash'){
       if(body.confirmation!=='DELETE')throw new HTTPError(400,'请输入 DELETE 确认永久清除');
       if(body.paper_ids!==undefined&&(!Array.isArray(body.paper_ids)||body.paper_ids.some((id:unknown)=>typeof id!=='string')))throw new HTTPError(400,'文献 ID 无效');
-      let query=service.from('papers').select('id,file_path').eq('user_id',userId).not('deleted_at','is',null);if(body.paper_ids)query=query.in('id',body.paper_ids);const {data,error}=await query;if(error)throw new HTTPError(503,'读取回收站失败');
-      for(const paper of data||[]){if(!paper.file_path?.startsWith(userId+'/')||paper.file_path.includes('..'))throw new HTTPError(400,'文件路径无效');const removed=await service.storage.from('papers').remove([paper.file_path]);if(removed.error)throw new HTTPError(503,'原始文件清除失败');const deleted=await service.from('papers').delete().eq('id',paper.id).eq('user_id',userId).not('deleted_at','is',null);if(deleted.error)throw new HTTPError(503,'文献记录清除失败');}return json({ok:true,count:data?.length||0});
+      let query=service.from('papers').select('id,file_path,supplementary_files').eq('user_id',userId).not('deleted_at','is',null);if(body.paper_ids)query=query.in('id',body.paper_ids);const {data,error}=await query;if(error)throw new HTTPError(503,'读取回收站失败');
+      for(const paper of data||[]){if(!paper.file_path?.startsWith(userId+'/')||paper.file_path.includes('..'))throw new HTTPError(400,'文件路径无效');const removed=await service.storage.from('papers').remove(paperStoragePaths(paper,userId));if(removed.error)throw new HTTPError(503,'原始文件清除失败');const deleted=await service.from('papers').delete().eq('id',paper.id).eq('user_id',userId).not('deleted_at','is',null);if(deleted.error)throw new HTTPError(503,'文献记录清除失败');}return json({ok:true,count:data?.length||0});
     }
     if(action==='create_key'){await limit('keys:'+userId,5,3600);const name=str(body.name,60);if(!name)throw new HTTPError(400,'请填写令牌名称');const bytes=crypto.getRandomValues(new Uint8Array(32));const secret='pa_'+[...bytes].map(x=>x.toString(16).padStart(2,'0')).join('');const {error}=await service.from('api_keys').insert({user_id:userId,name,key_hash:await sha(secret),prefix:secret.slice(0,11)});if(error)throw new HTTPError(503,'令牌创建失败');return json({token:secret,expires_in_days:90},201);}
     if(action==='revoke_key'){const {error}=await service.from('api_keys').delete().eq('id',str(body.key_id,36)).eq('user_id',userId);if(error)throw new HTTPError(503,'撤销失败');return json({ok:true});}
