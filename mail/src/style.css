@@ -120,3 +120,13 @@ html{width:100%;min-width:0;overflow-x:clip;-webkit-text-size-adjust:100%;text-s
  .inbox-toolbar .filter-controls .filter-toggle{justify-content:center}
  .inbox-toolbar .filter-controls>.filter-toggle:last-child:nth-child(3){grid-column:1/-1}
 }
+/* Unread counters navigate without opening or marking a message as read. */
+.nav-item.inbox-nav{padding:0;gap:0}
+.inbox-nav-link{display:flex;align-items:center;gap:12px;flex:1;min-width:0;padding:10px 15px;color:inherit;font:inherit;text-align:left;border-radius:7px}
+.inbox-nav-link span{flex:1}
+.inbox-unread-count{flex-shrink:0;min-width:28px;min-height:28px;margin:5px 10px 5px 0;padding:3px 6px;background:#57795c;color:white;border-radius:5px;font-size:calc(10px + 2pt);font-weight:500}
+.inbox-unread-count:hover{background:#3e644c}
+.inbox-unread-count:focus-visible,.inbox-nav-link:focus-visible{outline:2px solid #57795c;outline-offset:2px}
+.mail-row.unread-located{animation:unread-locate 2.6s ease-out}
+@keyframes unread-locate{0%,30%{background-color:#fff0bd;box-shadow:inset 3px 0 #c8a657}}
+@media(prefers-reduced-motion:reduce){.mail-row.unread-located{animation:none;background-color:#fff0bd;box-shadow:inset 3px 0 #c8a657}}
