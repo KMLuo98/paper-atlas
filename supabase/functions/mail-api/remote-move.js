@@ -5,8 +5,9 @@ export async function moveImapMessage(client,message,uid,folder){
  const target=imapFolders(await client.list()).find(item=>item.kind===folder);
  if(!target)throw Error('原邮箱未提供'+({trash:'垃圾箱',archive:'归档',sent:'已发送',inbox:'收件箱'}[folder]||'目标文件夹')+'，请先在原邮箱确认文件夹');
  if(target.path===message.remote_folder)return {remote_folder:target.path,remote_id:message.remote_id};
+ client.mailClearError?.();
  const moved=await client.messageMove(uid,target.path,{uid:true});
- if(!moved)throw Error('原邮箱未确认移动，请同步后重试');
+ if(!moved)throw client.mailLastError?.()||Error('原邮箱未确认移动，请同步后重试');
  let newUid=moved.uidMap?.get(Number(uid)),newValid=moved.uidValidity;
  if(!validUid(newUid)||!newValid){
   // Some servers omit COPYUID. Locate the moved message without reusing its old UID.
