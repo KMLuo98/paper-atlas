@@ -114,3 +114,9 @@ html{width:100%;min-width:0;overflow-x:clip;-webkit-text-size-adjust:100%;text-s
  .mail-table-scroll[data-mail-layout=table] .row-actions{grid-area:auto}
  .mail-table-scroll[data-mail-layout=table] .row-actions .icon-btn{min-height:44px}
 }
+@media(max-width:700px){
+ .inbox-toolbar .filter-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%;flex-basis:100%}
+ .inbox-toolbar .filter-controls select,.inbox-toolbar .filter-controls .filter-toggle{width:100%;min-width:0;max-width:none}
+ .inbox-toolbar .filter-controls .filter-toggle{justify-content:center}
+ .inbox-toolbar .filter-controls>.filter-toggle:last-child:nth-child(3){grid-column:1/-1}
+}
