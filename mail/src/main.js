@@ -154,9 +154,9 @@ async function trashMessages(ids){
  if(S.messageDeleting)return;
  const rows=[...new Set(ids)].map(id=>S.current?.id===id?S.current:S.messages.find(m=>m.id===id)).filter(canTrashMessage);
  if(!rows.length)return;
- S.messageDeleting=true;const failed=[];let removed=0;
+ S.messageDeleting=true;const failed=[],notices=[];let removed=0;
  try{
-  for(const row of rows){try{await api('message_patch',{id:row.id,folder:'trash'});removed++;S.selected.delete(row.id);S.messages=S.messages.filter(m=>m.id!==row.id);S.total=Math.max(0,S.total-1);if(S.current?.id===row.id)S.current.folder='trash';}catch(e){failed.push({id:row.id,error:e});}}
+  for(const row of rows){try{const result=await api('message_patch',{id:row.id,folder:'trash'});if(result?.notice)notices.push(result.notice);removed++;S.selected.delete(row.id);S.messages=S.messages.filter(m=>m.id!==row.id);S.total=Math.max(0,S.total-1);if(S.current?.id===row.id)S.current.folder='trash';}catch(e){failed.push({id:row.id,error:e});}}
   cache().clear();
   if(removed){
    await bootstrap();
@@ -166,12 +166,12 @@ async function trashMessages(ids){
     if(S.page>0&&S.page*50>=S.total){S.page=Math.max(0,Math.ceil(S.total/50)-1);await loadList(false,true);}
     S.selected=new Set(failed.map(m=>m.id).filter(id=>S.messages.some(m=>m.id===id)));
    }
-   toast('已将 '+removed+' 封邮件移入垃圾箱');
+   toast(notices.length===removed&&removed===1?notices[0]:'已将 '+removed+' 封邮件移入垃圾箱'+(notices.length?'；其中 '+notices.length+' 封为已更新位置或保留的本站副本':''));
   }
   if(failed.length)error(Error(failed.length+' 封未删除：'+failed[0].error.message));
  }finally{S.messageDeleting=false;render();}
 }
-async function restoreMessage(id){const message=S.messages.find(m=>m.id===id);if(!message||message.folder!=='trash')return;await api('message_patch',{id,folder:message.direction==='sent'?'sent':'inbox'});cache().clear();await bootstrap();await loadList();toast('邮件已恢复');}
+async function restoreMessage(id){const message=S.messages.find(m=>m.id===id);if(!message||message.folder!=='trash')return;const result=await api('message_patch',{id,folder:message.direction==='sent'?'sent':'inbox'});cache().clear();await bootstrap();await loadList();toast(result?.notice||'邮件已恢复');}
 async function bulkPatch(patch){cache().clear();const ids=[...S.selected];let count=0;for(const id of ids){await api('message_patch',{id,...patch});count++;}await bootstrap();await loadList();toast(`已更新 ${count} 封邮件`);}
 async function handleAction(action,el){const id=el?.dataset.id;switch(action){
  case 'auth-login':authMode='login';loginView();break;case 'auth-register':authMode='register';loginView();break;
@@ -206,7 +206,7 @@ async function handleAction(action,el){const id=el?.dataset.id;switch(action){
  case 'bulk-read':await bulkPatch({is_read:true});break;
  case 'bulk-category':modal('批量更改分类',`<form id="bulk-category-form"><label>类别<select name="category_id"><option value="">未分类</option>${S.categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label><p class="muted">将更新选中的 ${S.selected.size} 封邮件，并保留为手动分类。</p><div class="modal-footer"><button class="primary" type="submit">保存分类</button></div></form>`);break;
  case 'star':{const m=S.current?.id===id?S.current:S.messages.find(x=>x.id===id);await patchMessage(id,{starred:!m.starred});break;}
- case 'move':if(el.dataset.folder==='trash'){await trashMessages([S.current.id]);break;}await api('message_patch',{id:S.current.id,folder:el.dataset.folder});cache().clear();toast('邮件已移动');await bootstrap();await goBack();break;
+ case 'move':if(el.dataset.folder==='trash'){await trashMessages([S.current.id]);break;}{const result=await api('message_patch',{id:S.current.id,folder:el.dataset.folder});cache().clear();toast(result?.notice||'邮件已移动');await bootstrap();await goBack();}break;
  case 'mark-unread':await patchMessage(S.current.id,{is_read:false});toast('已标为未读');break;
  case 'copy-remote-draft':{const m=S.current;await openCompose(null,{data:{account_id:m.account_id,to:m.to_list.map(x=>x.address).join(', '),cc:m.cc_list.map(x=>x.address).join(', '),subject:m.subject,body:m.text_body}});await saveDraft();break;}
  case 'reply':await openCompose(S.current);break;case 'compose':await openCompose();break;

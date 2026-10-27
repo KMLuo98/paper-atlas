@@ -64,7 +64,7 @@ export async function remotePatch(a:any,s:any,m:any,patch:any){if(!m.remote_id||
  if(Object.keys(p).length)await graph(s,'messages/'+encodeURIComponent(m.remote_id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)});
  if(patch.folder&&patch.folder!==m.folder){const target:any={archive:'archive',trash:'deleteditems',inbox:'inbox',sent:'sentitems'};if(target[patch.folder]){const r=await(await graph(s,'messages/'+encodeURIComponent(m.remote_id)+'/move',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({destinationId:target[patch.folder]})})).json();return {remote_id:r.id,remote_folder:patch.folder};}}return;
  }
- const c=await imap(a,s);let lock;try{lock=await c.getMailboxLock(m.remote_folder||'INBOX');const [valid,id]=m.remote_id.split('|').at(-1).split(':');if(String((c.mailbox as any).uidValidity)!==valid)throw Error('邮箱索引已更新，请重新同步');
+ const c=await imap(a,s);let lock;try{lock=await c.getMailboxLock(m.remote_folder||'INBOX');const [valid,id]=m.remote_id.split('|').at(-1).split(':');if(patch.folder&&patch.folder!==m.folder&&!('is_read'in patch)&&!('starred'in patch))return await moveImapMessage(c,m,id,patch.folder);if(String((c.mailbox as any).uidValidity)!==valid)throw Error('邮箱索引已更新，请重新同步');
  for(const [key,flag]of [['is_read','\\Seen'],['starred','\\Flagged']])if(key in patch){if(patch[key])await c.messageFlagsAdd(id,[flag],{uid:true});else await c.messageFlagsRemove(id,[flag],{uid:true});}
  if(patch.folder&&patch.folder!==m.folder)return await moveImapMessage(c,m,id,patch.folder);
  }catch(e){throw providerError(e,patch.folder?'移动邮件':'同步邮件状态',[s.password,s.access_token]);}finally{lock?.release();await c.logout().catch(()=>c.close());}}
