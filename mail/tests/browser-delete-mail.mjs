@@ -1,0 +1,26 @@
+// Synthetic mailbox only; real messages are never moved by this test.
+import assert from 'node:assert/strict';
+const {chromium}=await import(process.env.MAIL_PLAYWRIGHT_MODULE||'playwright');
+const browser=await chromium.launch({headless:true,...(process.env.MAIL_BROWSER_CHANNEL?{channel:process.env.MAIL_BROWSER_CHANNEL}:{})});
+const mock=`export const db={auth:{getSession:async()=>({data:{session:{user:{id:'delete-fixture',email:'qa@example.edu'}}}}),onAuthStateChange(){}}};export const login=async()=>{};export const register=async()=>{};export async function api(action,b={}){window.__calls.push({action,b});const d=window.__fixture;if(action==='bootstrap')return structuredClone(d);if(action==='list'){const messages=d.messages.filter(m=>m.folder===b.folder);return {messages:messages.slice(b.offset||0,(b.offset||0)+50),total:messages.length};}if(action==='message_patch'){if(b.id===window.__failDeleteId)throw Error('Synthetic move rejected');Object.assign(d.messages.find(m=>m.id===b.id),b);return {ok:true};}if(action==='get')return {message:d.messages.find(m=>m.id===b.id),translations:{}};return {ok:true,added:0};}`;
+const results=[];
+try{for(const width of [320,390,1440]){
+ const context=await browser.newContext({viewport:{width,height:900},isMobile:width<700,hasTouch:width<700}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(12000);
+ await context.addInitScript(()=>{
+  window.__calls=[];window.__fixture={accounts:[{id:'a',email:'qa@example.edu',label:'School',provider:'imap',enabled:false,color:'#638b82',config:{imap_host:'imap.exmail.qq.com'}}],settings:{sync_interval_minutes:5},contacts:[],categories:[],counts:[],drafts:[],profile:{username:'QA'},messages:['inbox-a','inbox-b','inbox-c','sent-a','drafts-a'].map(id=>({id,folder:id.split('-')[0],account_id:'a',direction:id.startsWith('inbox')?'received':'sent',from_email:'sender@example.edu',from_name:'Sender',to_list:[{address:'recipient@example.edu',name:'Recipient'}],subject:'Synthetic '+id,text_body:'Synthetic body',received_at:id.startsWith('drafts')?new Date(Date.now()+86400000).toISOString():'2026-10-27T00:00:00Z',is_read:true,preview:'Synthetic preview'}))};
+ });
+ await page.route('**/src/cloud.js',r=>r.fulfill({body:mock,contentType:'application/javascript'}));await page.goto(process.env.MAIL_TEST_URL||'http://127.0.0.1:5174/');await page.locator('.mail-row').first().waitFor();
+ const nav=async view=>{if(width<700)await page.locator('[data-action=toggle-nav]').first().click();await page.locator('[data-action=nav][data-view='+view+']').click();};
+ const checkLayout=async()=>{assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));const row=page.locator('.mail-row').first(),box=await row.boundingBox();for(const b of await row.locator('.row-actions button').all()){const rect=await b.boundingBox();assert.ok(rect.x>=box.x&&rect.x+rect.width<=box.x+box.width+1);}};
+ await checkLayout();await page.locator('[data-action=trash-message][data-id=inbox-a]').click();await page.waitForFunction(()=>!document.querySelector('[data-open="inbox-a"]'));
+ assert.equal(await page.evaluate(()=>window.__calls.filter(c=>c.action==='get').length),0);
+ await page.evaluate(()=>window.__failDeleteId='inbox-b');await page.locator('#select-all').check();await page.locator('[data-action=bulk-trash]').click();await page.locator('.toast.error').waitFor();assert.equal(await page.locator('.mail-row').count(),1);assert.equal(await page.locator('[data-open=inbox-b] .mail-check').isChecked(),true);
+ await page.evaluate(()=>window.__failDeleteId=null);await page.locator('[data-action=bulk-trash]').click();await page.waitForFunction(()=>!document.querySelector('.mail-row'));
+ await nav('sent');await page.locator('[data-open=sent-a]').waitFor();await checkLayout();await page.locator('[data-action=trash-message][data-id=sent-a]').click();await page.waitForFunction(()=>!document.querySelector('.mail-row'));
+ await nav('trash');await page.locator('[data-action=restore-message][data-id=sent-a]').click();await page.waitForFunction(()=>!document.querySelector('[data-open="sent-a"]'));
+ await nav('sent');await page.locator('[data-open=sent-a]').waitFor();await page.locator('[data-open=sent-a]').click();await page.locator('.reader-page').waitFor();await page.locator('.reader-toolbar [data-action=move][data-folder=trash]').click();await page.locator('.inbox-page').waitFor();assert.equal(await page.locator('.breadcrumb').innerText().then(t=>t.includes('已发送')),true);assert.equal(await page.locator('.mail-row').count(),0);
+ await nav('drafts');await page.locator('[data-open=drafts-a]').waitFor();assert.equal(await page.locator('[data-action=trash-message]').count(),0);assert.equal(await page.locator('.draft-schedule').count(),1);
+ assert.equal(await page.evaluate(()=>window.__calls.some(c=>['send','draft_save','draft_delete','delete','message_delete'].includes(c.action))),false);
+ assert.deepEqual(errors,[]);await page.screenshot({path:'test-results/mail-delete-'+width+'.png',fullPage:false});results.push({width,passed:true});await context.close();
+}}finally{await browser.close();}
+console.log(JSON.stringify(results));
