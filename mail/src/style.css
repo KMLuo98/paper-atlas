@@ -130,3 +130,12 @@ html{width:100%;min-width:0;overflow-x:clip;-webkit-text-size-adjust:100%;text-s
 .mail-row.unread-located{animation:unread-locate 2.6s ease-out}
 @keyframes unread-locate{0%,30%{background-color:#fff0bd;box-shadow:inset 3px 0 #c8a657}}
 @media(prefers-reduced-motion:reduce){.mail-row.unread-located{animation:none;background-color:#fff0bd;box-shadow:inset 3px 0 #c8a657}}
+.sidebar{font-size:calc(14px + 1pt)}
+.sidebar .brand>span{font-size:calc(21px + 1pt)}
+.sidebar .brand small,.sidebar .profile-chip small{font-size:calc(9px + 1pt)}
+.sidebar .compose-btn,.sidebar .nav-item{font-size:calc(14px + 1pt)}
+.sidebar .nav-item small,.sidebar .sidebar-hint{font-size:calc(11px + 1pt)}
+.sidebar .section-label,.sidebar .mailbox-link small,.sidebar .inbox-unread-count{font-size:calc(10px + 1pt)}
+.sidebar .mailbox-link{font-size:calc(13px + 1pt)}
+.sidebar .profile-chip strong{font-size:calc(12px + 1pt)}
+.sidebar .avatar{font-size:calc(9px + 1pt)}
