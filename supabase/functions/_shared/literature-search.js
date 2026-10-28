@@ -1,6 +1,7 @@
 import {parseSearchRSS,publicURL,htmlText} from './web-evidence.js';
 import {workDate} from './publication.js';
 import {journalFull} from './journals.js';
+import {enrichArxivResults} from './arxiv-search.js';
 const clean=(value,max=1000)=>htmlText(value).slice(0,max);
 async function readBounded(response){
  if(!response.ok){await response.body?.cancel();throw Error(`检索服务暂不可用（${response.status}）`);}
@@ -20,11 +21,11 @@ export async function literatureSearch({engine='crossref',query,offset=0},fetche
   const response=await fetcher(url,{headers:{Accept:'application/json','User-Agent':'PaperAtlas/1.2 (+https://kmluo98.github.io/paper-atlas/)'},signal:AbortSignal.timeout(18000)}),body=JSON.parse(await readBounded(response));
   if(!Array.isArray(body.message?.items))throw Error('Crossref 返回的检索结果无效');
   const results=body.message.items.map(crossrefResult).filter(item=>item?.title),total=Number.isInteger(body.message['total-results'])?body.message['total-results']:null;
-  return {engine,query:query.trim(),source:'Crossref',results,total,offset,page_size:pageSize,has_more:offset<990&&(total===null?body.message.items.length===pageSize:offset+pageSize<total)};
+  return {engine,query:query.trim(),source:'Crossref',...await enrichArxivResults(results,fetcher),total,offset,page_size:pageSize,has_more:offset<990&&(total===null?body.message.items.length===pageSize:offset+pageSize<total)};
  }
  const url=new URL('https://www.bing.com/search');url.searchParams.set('q',query.trim());url.searchParams.set('format','rss');url.searchParams.set('first',String(offset+1));
  const response=await fetcher(url,{headers:{Accept:'application/rss+xml, application/xml, text/xml'},signal:AbortSignal.timeout(18000)}),xml=await readBounded(response);
  if(!/<rss\b/i.test(xml))throw Error('Bing 公开检索暂不可用，请切换 Crossref 或在原站重试');
  const results=parseSearchRSS(xml).map(item=>({id:item.url,title:item.title,url:item.url,excerpt:item.excerpt,authors:[],journal:'',date:null,citation_count:null,source:'Bing'}));
- return {engine,query:query.trim(),source:'Bing',results,total:null,offset,page_size:pageSize,has_more:false};
+ return {engine,query:query.trim(),source:'Bing',...await enrichArxivResults(results,fetcher),total:null,offset,page_size:pageSize,has_more:false};
 }
