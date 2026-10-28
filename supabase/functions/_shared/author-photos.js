@@ -4,11 +4,14 @@ import {englishName} from './author-directory.js';
 import {imageCandidateKey,discoverPhotoCandidates} from '../mail-api/photo-sources.js';
 import {safeFetch,bounded,text,publicPhotoURL} from '../mail-api/photos.js';
 const fold=value=>String(value||'').normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
-export function authorSearchNames(person){return [...new Set([person.name,...(person.aliases||[])].filter(n=>typeof n==='string'&&n.trim()).map(n=>n.trim()))].sort((a,b)=>Number(/\p{Script=Han}/u.test(b))-Number(/\p{Script=Han}/u.test(a)));}
+const germanName=value=>String(value).replace(/[äöüÄÖÜß]/g,c=>({'ä':'ae','ö':'oe','ü':'ue','Ä':'Ae','Ö':'Oe','Ü':'Ue','ß':'ss'}[c]));
+export function authorSearchNames(person){return [...new Set([person.name,...(person.aliases||[])].filter(n=>typeof n==='string'&&n.trim()).flatMap(n=>[n.trim(),germanName(n).trim()]))].sort((a,b)=>Number(/\p{Script=Han}/u.test(b))-Number(/\p{Script=Han}/u.test(a)));}
 export function authorPhotoIdentity(person){const schools=authorAffiliations(person),school=schools[0];return {name:englishName([person.english_name,...person.aliases])||person.original_names[0]||'',organization:school?.school||person.institution||'',organization_aliases:school?.aliases||[],aliases:person.aliases||[],orcid:person.orcid||'',email:'',profile_url:person.profile_url||''};}
 function nameParts(value){let name=String(value||'').replace(/,?\s*(?:Ph\.?D\.?|M\.?Sc\.?|M\.?D\.?)$/i,'').replace(/^(?:professor|prof\.?|dr\.?|mr\.?|mrs\.?)\s+/i,'').split(/\s+[–—-]\s+|\|/)[0].trim();if(name.includes(',')){const [last,...first]=name.split(',');name=first.join(' ').trim()+' '+last.trim();}const words=name.split(/\s+/).map(w=>fold(w)).filter(Boolean);return {name,words,last:words.at(-1)||'',given:words.slice(0,-1).join(''),initials:name.split(/\s+/).slice(0,-1).flatMap(w=>w.split(/[-.]+/)).map(w=>fold(w)[0]||'').join('')};}
 export function scholarlyNameMatch(expected,candidate){
  if(!expected||!candidate)return false;
+ if(fold(germanName(expected))===fold(germanName(candidate)))return true;
+ const aGerman=germanName(expected),bGerman=germanName(candidate);if((aGerman!==expected||bGerman!==candidate)&&scholarlyNameMatch(aGerman,bGerman))return true;
  if(/[\p{Script=Han}]/u.test(expected))return fold(candidate).includes(fold(expected));
  const a=nameParts(expected),b=nameParts(candidate);if(!a.words.length||!b.words.length)return false;
  if(fold(a.name)===fold(b.name))return true;

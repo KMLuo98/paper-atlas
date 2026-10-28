@@ -1,5 +1,10 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {parseHTML} from 'linkedom';
-import {academicProfileURL,indexedScholarMetrics,parseAcademicMetrics,orcidPublicationCount,bestAcademicMetrics,academicInformationPatch,discoverAcademicProfiles} from '../supabase/functions/_shared/academic-profiles.js';
+import {academicProfileURL,indexedScholarMetrics,parseAcademicMetrics,orcidPublicationCount,bestAcademicMetrics,academicInformationPatch,discoverAcademicProfiles,wikidataAcademicLinks} from '../supabase/functions/_shared/academic-profiles.js';
+test('German Scholar domains and ORCID-linked Wikidata identities resolve without accepting a namesake',()=>{
+ assert.equal(academicProfileURL('https://scholar.google.de/citations?user=iwzqdyQAAAAJ').url,'https://scholar.google.com/citations?user=iwzqdyQAAAAJ');
+ const value=v=>[{mainsnak:{datavalue:{value:v}}}],entity={labels:{en:{value:'Jürgen Kurths'}},claims:{P496:value('0000-0002-5926-4276'),P1960:value('iwzqdyQAAAAJ')}},person={english_name:'Jürgen Kurths',orcid:'0000-0002-5926-4276'};
+ assert.equal(wikidataAcademicLinks(entity,person)[0].provider,'scholar');assert.equal(wikidataAcademicLinks(entity,{...person,orcid:'0000-0001-1111-1111'}).length,0);assert.equal(wikidataAcademicLinks(entity,{...person,orcid:''}).length,0);
+});
 test('verified author homepage supplies academic links while already complete providers are not fetched',async()=>{
  const scholar='https://scholar.google.com/citations?user=Alice123',rg='https://www.researchgate.net/profile/Alice-Smith',calls=[];
  const person={english_name:'Alice Smith',aliases:['Alice Smith'],original_names:['Alice Smith'],institution:'Example University',papers:[],profile_url:'https://example.edu/alice',researchgate_url:rg,academic_metrics:{best:{publications:{value:25},citations:{value:0},h_index:{value:12}}}};

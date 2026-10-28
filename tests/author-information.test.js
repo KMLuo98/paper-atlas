@@ -18,6 +18,7 @@ test('photo name queries cover every known spelling, deduplicate and prioritize 
  const names=authorSearchNames({name:'Jun-an Lu',aliases:['Junan Lu','陆君安','Lu Jun-An','Jun-an Lu']});
  assert.equal(names[0],'陆君安');assert.equal(names.length,4);assert(names.includes('Lu Jun-An'));assert(names.includes('Junan Lu'));
 });
+test('academic searches include German umlaut transliterations',()=>{assert(authorSearchNames({name:'Jürgen Kurths',aliases:[]}).includes('Juergen Kurths'));});
 test('AI profile and metrics extraction requires verifiable source text and metric labels',()=>{
  const source='https://scholar.google.com/citations?user=Alice123',rows=[{url:source,text:'Alice Smith Citations 1,234 h-index 18'}];
  const patch=authorInformationPatch({},{},{scholar_url:{value:source,source},metrics:[{provider:'scholar',source,evidence:'Citations 1,234',field:'citations',value:1234},{provider:'scholar',source,evidence:'h-index 18',field:'h_index',value:18},{provider:'scholar',source,evidence:'h-index 18',field:'publications',value:18}]},rows);
