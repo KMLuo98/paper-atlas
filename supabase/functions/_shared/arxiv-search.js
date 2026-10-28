@@ -13,10 +13,23 @@ export function matchArxiv(result,entries){
  const urls=[...new Set(candidates.map(row=>row.url))];return urls.length===1?urls[0]:'';
 }
 const caches=new WeakMap();
+export function dataciteArxivEntries(data){return (Array.isArray(data?.data)?data.data:[]).flatMap(item=>{
+ const a=item.attributes||{},url=arxivLink(a.url)||arxivLink('https://arxiv.org/abs/'+String(item.id||'').replace(/^10\.48550\/arxiv\./i,''));if(!url)return [];
+ const authors=(a.creators||[]).map(person=>[person.givenName,person.familyName].filter(Boolean).join(' ')||String(person.name||'').split(',').reverse().join(' ').trim()),linked=(a.relatedIdentifiers||[]).filter(r=>r.relatedIdentifierType==='DOI'&&['IsVersionOf','IsPreprintOf','IsIdenticalTo'].includes(r.relationType));
+ return (a.titles||[]).flatMap(t=>(linked.length?linked:[{}]).map(r=>({url,title:t.title,authors,doi:doi(r.relatedIdentifier)})));
+});}
 export async function enrichArxivResults(results,fetcher=fetch){
  let cache=caches.get(fetcher);if(!cache){cache=new Map();caches.set(fetcher,cache);}const now=Date.now(),key=row=>doi(row.doi)+'|'+canonical(row.title)+'|'+(row.authors||[]).join('|');
- const pending=results.filter(row=>!arxivLink(row.url)&&(!cache.has(key(row))||cache.get(key(row)).expires<now));
+ let pending=results.filter(row=>!arxivLink(row.url)&&(!cache.has(key(row))||cache.get(key(row)).expires<now));
  let unavailable=false;
+ // arXiv registers its DOIs with DataCite, whose title and creator records
+ // remain searchable even when the arXiv API is throttled or a journal DOI changed.
+ if(pending.length)try{
+  const url=new URL('https://api.datacite.org/dois');url.searchParams.set('prefix','10.48550');url.searchParams.set('page[size]','100');url.searchParams.set('query',pending.map(row=>'titles.title:"'+String(row.title).replace(/[^\p{L}\p{N}\s-]/gu,' ').replace(/\s+/g,' ').trim().slice(0,350)+'"').join(' OR '));
+  const response=await fetcher(url,{headers:{Accept:'application/vnd.api+json'},signal:AbortSignal.timeout(9000)});if(!response.ok)throw Error('DataCite unavailable');const data=await response.json();if(!Array.isArray(data.data))throw Error('Invalid DOI records');const entries=dataciteArxivEntries(data);
+  for(const row of pending){const match=matchArxiv(row,entries);if(match)cache.set(key(row),{url:match,expires:now+3600000});}
+  pending=pending.filter(row=>!cache.get(key(row))?.url);
+ }catch{/* Continue with arXiv and publication DOI mappings. */}
  if(pending.length)try{
   // One batched request per result page; no request per individual paper.
   const url=new URL('https://export.arxiv.org/api/query');url.searchParams.set('search_query',pending.map(row=>'ti:"'+String(row.title).replace(/[^\p{L}\p{N}\s-]/gu,' ').replace(/\s+/g,' ').trim().slice(0,350)+'"').join(' OR '));url.searchParams.set('max_results','100');
