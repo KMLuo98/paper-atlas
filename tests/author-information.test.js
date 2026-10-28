@@ -5,9 +5,14 @@ const url='https://example.edu/alice',id='0000-0002-1825-0097',sources=[{url,tex
 test('author information accepts sourced values and keeps existing manual fields',()=>{
  const raw={aliases:[field('王丽'),field('Invented Name')],email:field('alice@example.edu'),orcid:field(id),profile_url:field(url),institution:field('Example University')};
  const patch=authorInformationPatch({aliases:['Alice Smith']},{email:'manual@example.com'},raw,sources);
- assert.equal(patch.email,undefined);assert.equal(patch.orcid,id);assert.equal(patch.profile_url,url);assert.equal(patch.institution,'Example University');assert.deepEqual(patch.aliases,['Alice Smith','王丽']);
+ assert.equal(patch.email,undefined);assert.equal(patch.orcid,id);assert.equal(patch.profile_url,url);assert.equal(patch.institution,'Example University');assert.equal(patch.aliases,undefined);
  assert.equal(authorInformationPatch({orcid:id},{},raw,sources).orcid,undefined);
  assert.deepEqual(authorInformationPatch({},{},{email:{value:'alice@example.edu',source:'https://evil.org'}},sources),{});
+});
+test('only missing academic metrics are filled and existing zero values and profile links survive',()=>{
+ const source='https://scholar.google.com/citations?user=Alice123',base={scholar_url:source,academic_metrics:{sources:[],best:{citations:{value:0,provider:'scholar',url:source,checked_at:'2026-01-01'},publications:{value:25,provider:'orcid',url:'https://orcid.org/'+id}}}};
+ const patch=authorInformationPatch({},base,{},[{url:source,text:'Alice Smith',academic:{provider:'scholar',url:source,checked_at:'2026-10-28',metrics:{citations:999,publications:100,h_index:12,i10_index:18}}}]);
+ assert.equal(patch.scholar_url,undefined);assert.equal(patch.academic_metrics.best.citations.value,0);assert.equal(patch.academic_metrics.best.publications.value,25);assert.equal(patch.academic_metrics.best.h_index.value,12);assert.equal(patch.academic_metrics.best.i10_index.value,18);assert.equal(patch.academic_metrics.best.citations.checked_at,'2026-01-01');
 });
 test('photo name queries cover every known spelling, deduplicate and prioritize Chinese',()=>{
  const names=authorSearchNames({name:'Jun-an Lu',aliases:['Junan Lu','陆君安','Lu Jun-An','Jun-an Lu']});

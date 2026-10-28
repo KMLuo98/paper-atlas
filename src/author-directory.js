@@ -12,21 +12,22 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
   let owner = '', profiles = [], photos = new Map(), loadedAt = 0, loading = null, revision = 0;
   let maintenance=null, maintenanceTimer=null, repaintTimer=null, rescan=false, paused=false, listPaint=null, pendingRequest=null;
   let preferences = {view: 'cards', sort: 'name', format: 'given_family'}, query = '';
+  let directoryStamp='',directoryRows=[],affiliationCache=new WeakMap();
   const ownerId = () => state.user?.id || 'demo';
   function switchOwner() {
     if (owner === ownerId()) return;
-    clearAuthorPhotoCache(owner);if(maintenance)maintenance.stopped=true;maintenance=null;paused=false;pendingRequest=null;rescan=false;owner = ownerId(); profiles = []; photos.clear(); loadedAt = 0; loading = null; query = '';
+    clearAuthorPhotoCache(owner);if(maintenance)maintenance.stopped=true;maintenance=null;paused=false;pendingRequest=null;rescan=false;owner = ownerId(); profiles = []; photos.clear(); loadedAt = 0; loading = null; query = '';directoryStamp='';directoryRows=[];affiliationCache=new WeakMap();
     try {preferences = {...{view: 'cards', sort: 'name', format: 'given_family'}, ...JSON.parse(localStorage.getItem('pa-author-view-' + owner) || '{}')};} catch {}
   }
   function persist() {try {localStorage.setItem('pa-author-view-' + owner, JSON.stringify(preferences));} catch {}}
   async function signPhotos() {
     const paths = [...new Set(profiles.map(p => p.photo_path).filter(p => p?.startsWith(owner + '/')))];
-    const id=owner,next=await cachedAuthorPhotos(db,id,paths);if(ownerId()===id)photos=next;
+    const id=owner,next=await cachedAuthorPhotos(db,id,paths);if(ownerId()===id){photos=next;document.querySelectorAll('[data-author-photo]').forEach(node=>{const url=photos.get(node.dataset.authorPhoto);if(url&&!node.querySelector('img'))node.innerHTML=`<img src="${e(url)}" alt="" loading="lazy" referrerpolicy="no-referrer">`;});const preview=document.querySelector('#author-photo-preview');if(preview?.querySelector('img'))preview.disabled=false;}
   }
 
   async function load(force = false) {
     switchOwner(); if (state.demo) return;
-    if (!force && loadedAt && Date.now() - loadedAt < 60000) return;
+    if (!force && loadedAt) {if(Date.now()-loadedAt>300000&&!loading)load(true).then(()=>{if(document.querySelector('#authors-results'))listPaint?.();}).catch(()=>{});return;}
     if (loading) return loading;
     const id = owner;
     loading = (async () => {
@@ -36,21 +37,21 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
         if (r.error) throw r.error; rows.push(...r.data); if (r.data.length < 250) break;
       }
       if (ownerId() !== id) return;
-      profiles = rows; await signPhotos(); if (ownerId() === id) loadedAt = Date.now();
+      profiles = rows; loadedAt = Date.now();signPhotos().catch(()=>{});
     })();
     try {await loading;} finally {if (owner === id) loading = null;}
   }
-  const people = () => buildAuthorDirectory(state.papers, profiles);
+  const people = () => {const stamp=JSON.stringify([state.papers.map(p=>[p.id,p.updated_at,p.deleted_at,p.title,p.authors,p.published_at,p.arxiv_date,p.status,p.journal,p.summary,p.keyword_pairs]),profiles]);if(stamp!==directoryStamp){directoryRows=buildAuthorDirectory(state.papers,profiles);directoryStamp=stamp;affiliationCache=new WeakMap();}return directoryRows;};
   const nameOf = person => formattedAuthorName(person, preferences.format) || l('英文名待补充', 'English name needed');
   const routeFor = person => 'author/' + encodeURIComponent(person.key);
   function photo(person, large = false) {
     const url = photos.get(person.photo_path), initials = [person.first_name, person.last_name].filter(Boolean).map(n => [...n][0]).join('').toUpperCase() || '?';
-    return `<span class="author-avatar ${large ? 'large' : ''}">${url ? `<img src="${e(url)}" alt="${e(nameOf(person))}" loading="lazy" referrerpolicy="no-referrer">` : e(initials)}</span>`;
+    return `<span class="author-avatar ${large ? 'large' : ''}" data-author-photo="${e(person.photo_path||'')}">${url ? `<img src="${e(url)}" alt="${e(nameOf(person))}" loading="lazy" referrerpolicy="no-referrer">` : e(initials)}</span>`;
   }
   function academicStats(person){const best=person.academic_metrics?.best||{};return '<div class="author-academic-stats">'+[['publications',l('公开论文数','Public papers')],['citations',l('引用数','Citations')],['h_index','h-index'],['i10_index','i10-index']].map(([key,label])=>{const m=best[key],value=Number.isSafeInteger(m?.value)?m.value:'—',source=m?({scholar:'Google Scholar',researchgate:'ResearchGate',orcid:'ORCID'}[m.provider]||m.provider)+(m.method==='indexed_snippet'?' · '+l('检索摘录','Search excerpt'):'')+' · '+(m.checked_at||'').slice(0,10):'',url=safeURL(m?.url);return '<div><span>'+label+'</span><strong>'+e(value)+'</strong>'+(url?'<a href="'+e(url)+'" target="_blank" rel="noopener" title="'+e(source)+'">'+e(source)+'</a>':'')+'</div>';}).join('')+'</div>';}
   function formatOptions(value, allowDefault = false) {return `${allowDefault ? `<option value="default" ${value === 'default' ? 'selected' : ''}>${l('跟随作者库设置', 'Use directory setting')}</option>` : ''}${formats().map(([id, label]) => `<option value="${id}" ${value === id ? 'selected' : ''}>${label}</option>`).join('')}`;}
   function institutionMarkup(person,{detail=false}={}) {
-    const rows=detail?authorAffiliations(person):recentAuthorAffiliations(person,3),language=getLanguage();
+    let all=affiliationCache.get(person);if(!all){all=authorAffiliations(person);affiliationCache.set(person,all);}const rows=detail?all:all.slice(0,3),language=getLanguage();
     if(!rows.length)return e(l('未识别','Unidentified'));
     const month=date=>date?date.slice(0,7).replace('-','.'):l('日期未标注','Date unknown');
     return rows.map(row=>{const label=[row.school,countryName(row.country,language)].filter(Boolean).join(' · '),range=row.first_seen&&row.first_seen!==row.last_seen?month(row.first_seen)+' – '+month(row.last_seen):month(row.last_seen),title=row.manual?l('手动补充，未指定论文时间','Manual addition; publication date unspecified'):l('论文署名记录：','Paper affiliation records: ')+range;
@@ -119,9 +120,11 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
   }
   function editPerson(person) {
     const d = modal(l('编辑作者信息', 'Edit author profile'), `<form id="author-edit-form"><div class="author-edit-fields"><label>${l('名 / Given name', 'Given name')}<input name="first_name" maxlength="200" value="${e(person.first_name)}"></label><label>${l('姓 / Family name', 'Family name')}<input name="last_name" maxlength="200" value="${e(person.last_name)}"></label><label>${l('姓名格式', 'Name format')}<select name="name_format">${formatOptions(person.name_format, true)}</select></label><label>ORCID<input name="orcid" value="${e(person.orcid)}" placeholder="0000-0000-0000-0000"></label></div><label>${l('其他姓名写法（一行一个）', 'Other names (one per line)')}<textarea name="aliases" rows="5">${e(person.aliases.join('\n'))}</textarea></label><label>${l('机构', 'Institution')}<textarea name="institution" rows="2" maxlength="1500">${e(person.institution)}</textarea></label><label>${l('邮箱', 'Email')}<input name="email" type="email" value="${e(person.email)}"></label><label>${l('作者主页（HTTPS）', 'Homepage (HTTPS)')}<input name="profile_url" type="url" value="${e(person.profile_url)}"></label><label>Google Scholar<input name="scholar_url" type="url" value="${e(person.scholar_url||'')}" placeholder="https://scholar.google.com/citations?user=…"></label><label>ResearchGate<input name="researchgate_url" type="url" value="${e(person.researchgate_url||'')}" placeholder="https://www.researchgate.net/profile/…"></label><label>${l('学术关键词（一行一个，可填写 中文 | English）', 'Research keywords (one per line; Chinese | English)')}<textarea name="research_keywords" rows="5">${e(person.keywords.map(k => k.zh + (k.en ? ' | ' + k.en : '')).join('\n'))}</textarea></label><div class="actions"><button id="author-edit-match" type="button">${l('自动匹配信息','Match information')}</button><button class="primary" type="submit">${l('保存作者信息', 'Save profile')}</button></div></form>`, {wide: true});
+    const academicPanel=document.createElement('section');academicPanel.id='author-edit-academic';const paintAcademic=()=>{academicPanel.innerHTML=`<h3>${l('学术主页与指标','Academic profiles and metrics')}</h3><div>${['scholar_url','researchgate_url'].map(field=>{const url=safeURL(person[field]);return `<p>${field==='scholar_url'?'Google Scholar':'ResearchGate'}: ${url?`<a href="${e(url)}" target="_blank" rel="noopener">${l('打开主页','Open profile')} ↗</a>`:'—'}</p>`;}).join('')}</div>${academicStats(person)}<p id="author-edit-match-status" role="status"></p>`;};d.el.querySelector('.actions').before(academicPanel);paintAcademic();
     d.el.querySelector('#author-edit-match').onclick=event=>busy(event.currentTarget,async()=>{
       const id=ownerId();let result=await api('author_match_information',{author_key:person.key,automatic:false});if(id!==ownerId())return;person=await updateProfile(result)||person;if((result.information_fields||[]).some(field=>['aliases','orcid'].includes(field))){result=await api('author_match_information',{author_key:person.key,automatic:false});if(id!==ownerId())return;person=await updateProfile(result)||person;}
-      const form=d.el.querySelector('form');for(const field of ['first_name','last_name','institution','email','orcid','profile_url','scholar_url','researchgate_url']){const input=form.querySelector('[name='+field+']');if(input&&!input.value)input.value=person[field]||'';}const aliases=form.querySelector('[name=aliases]');aliases.value=[...new Set([...aliases.value.split(/\r?\n/),...person.aliases])].filter(Boolean).join('\n');toast(l('匹配完成，已保留手动填写的信息','Matching complete; manual entries preserved'));
+      if(!person.keywords?.length&&researchPapers(person).length){const r=await api('author_keywords',{author_key:person.key,automatic:true}).catch(()=>null);if(id!==ownerId())return;if(r?.profile)person=await updateProfile(r)||person;}if(!person.photo_path){const r=await api('author_match_photo',{author_key:person.key,automatic:true}).catch(()=>null);if(id!==ownerId())return;if(r?.profile)person=await updateProfile(r)||person;}
+      const form=d.el.querySelector('form');for(const field of ['first_name','last_name','institution','email','orcid','profile_url','scholar_url','researchgate_url']){const input=form.querySelector('[name='+field+']');if(input&&!input.value)input.value=person[field]||'';}const aliases=form.querySelector('[name=aliases]');if(!aliases.value.trim())aliases.value=person.aliases.join('\n');const keywords=form.querySelector('[name=research_keywords]');if(!keywords.value.trim())keywords.value=person.keywords.map(k=>k.zh+(k.en?' | '+k.en:'')).join('\n');paintAcademic();const missing=['scholar_url','researchgate_url'].filter(f=>!person[f]).length+['publications','citations','h_index','i10_index'].filter(f=>!Number.isSafeInteger(person.academic_metrics?.best?.[f]?.value)).length;d.el.querySelector('#author-edit-match-status').textContent=missing?l('已补全可核实的空缺；仍有 ','Filled verifiable gaps; ')+missing+l(' 项学术主页或指标未取得可靠来源，保持空白。',' academic profile or metric fields remain without a verified source.'):l('学术主页与指标已齐全，已有信息保持不变。','Academic profiles and metrics are complete; existing information was preserved.');toast(l('空缺信息匹配已完成','Missing information lookup complete'));
     });
     d.el.querySelector('form').onsubmit = event => {event.preventDefault();return busy(event.currentTarget.querySelector('[type=submit]'), async () => {
       const data = Object.fromEntries(new FormData(event.currentTarget));data.aliases = data.aliases.split(/\r?\n/).map(n => n.trim()).filter(Boolean);data.keywords = data.research_keywords.split(/\r?\n/).map(line => {const [zh, ...en] = line.split('|');return {zh: zh.trim(), en: en.join('|').trim()};}).filter(k => k.zh);delete data.research_keywords;
@@ -171,9 +174,9 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
   async function startMaintenance({photosOnly=false,information=false,force=false,authorKeys=null}={}){
     if(!state.user||state.demo||state.isAdmin)return;
     if(maintenance?.running){if(force&&(photosOnly||information)){pendingRequest={photosOnly,information,force,authorKeys};maintenance.stopped=true;}rescan=true;return;}
-    if(paused&&!force)return;paused=false;const prior=JSON.stringify(profiles.map(p=>[p.id,p.updated_at]));await load(true);const id=ownerId();
+    if(paused&&!force)return;paused=false;const prior=JSON.stringify(profiles.map(p=>[p.id,p.updated_at]));await load();const id=ownerId();
     if(prior!==JSON.stringify(profiles.map(p=>[p.id,p.updated_at]))){if(document.querySelector('#authors-results'))listPaint?.();else if(location.hash.startsWith('#/author/')&&!document.querySelector('.dialog-backdrop')){const route=location.hash,key=decodeURIComponent(route.slice('#/author/'.length));renderDetail(key,()=>location.hash===route).catch(error=>toast(error.message));}}
-    const selectedPeople=people().filter(p=>!authorKeys||authorKeys.includes(p.key));const tasks=authorEnrichmentTasks(selectedPeople,{photosOnly,force:information?false:force});if(information)tasks.unshift(...selectedPeople.map(person=>({kind:'information',author_key:person.key,identity_keys:person.identity_keys})));if(!tasks.length){if(profiles.some(p=>p.photo_lookup_status==='running'||p.keywords_lookup_status==='running'))maintenanceTimer=setTimeout(()=>startMaintenance().catch(error=>toast(error.message)),10000);return;}
+    const selectedPeople=people().filter(p=>!authorKeys||authorKeys.includes(p.key));const tasks=authorEnrichmentTasks(selectedPeople,{photosOnly,force:information?false:force}).filter(task=>!information||task.kind!=='keywords'||!selectedPeople.find(p=>p.key===task.author_key)?.keywords?.length);if(information)tasks.unshift(...selectedPeople.map(person=>({kind:'information',author_key:person.key,identity_keys:person.identity_keys})));if(!tasks.length){if(profiles.some(p=>p.photo_lookup_status==='running'||p.keywords_lookup_status==='running'))maintenanceTimer=setTimeout(()=>startMaintenance().catch(error=>toast(error.message)),10000);return;}
     const job={running:true,stopped:false,total:tasks.length,completed:0,found:0,information:0,keywords:0,errors:0};maintenance=job;paintMaintenance();let next=0,resumeAt=0;
     const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
     async function worker(){while(next<tasks.length&&!job.stopped&&id===ownerId()){

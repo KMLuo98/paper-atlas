@@ -52,15 +52,15 @@ export function citationNetwork(papers) {
   }
   return {nodes:papers.map(p=>({id:p.id,label:p.title,short_label:journalShort(p),paper:p})),edges};
 }
-export function authorNetwork(papers) {
+export function authorNetwork(papers,{includeEdges=true}={}) {
   const authors=new Map(),pairs=new Map(),unique=[...new Map(papers.map(p=>[p.id,p])).values()],paperAuthors=new Map();
   for(const {id,orcid,members} of resolveAuthorRecords(unique)){
     const aliases=[...new Set(members.flatMap(r=>[r.author.name,...(Array.isArray(r.author.aliases)?r.author.aliases:[])]).filter(Boolean))];
     const a=members[0].author;
-    authors.set(id,{...a,id,orcid,aliases,label:a.name,institution:members.find(r=>r.author.institution)?.author.institution||'',email:members.find(r=>r.author.email)?.author.email||'',papers:[...new Set(members.map(r=>r.paperId))]});
+    authors.set(id,{...a,id,orcid,aliases,label:a.name,institution:members.find(r=>r.author.institution)?.author.institution||'',institutions:[...new Set(members.map(r=>r.author.institution).filter(Boolean))],email:members.find(r=>r.author.email)?.author.email||'',papers:[...new Set(members.map(r=>r.paperId))]});
     members.forEach(r=>{const ids=paperAuthors.get(r.paperId)||new Set();ids.add(id);paperAuthors.set(r.paperId,ids);});
   }
-  for(const p of unique){
+  if(includeEdges)for(const p of unique){
     const seen=paperAuthors.get(p.id)||new Set();
     const ids=[...seen].sort();
     for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++){

@@ -24,7 +24,7 @@ export function formattedAuthorName(author, format = 'given_family') {
 }
 export function buildAuthorDirectory(papers, profiles = []) {
   papers = [...new Map(papers.filter(p => !p.deleted_at).map(p => [p.id, p])).values()];
-  const raw = authorNetwork(papers), paperMap = new Map(papers.map(p => [p.id, p])), grouped = new Map();
+  const raw = authorNetwork(papers,{includeEdges:false}), paperMap = new Map(papers.map(p => [p.id, p])), grouped = new Map();
   const identityIndex=new Map(),orcidIndex=new Map(),nameIndex=new Map();
   const index=(map,key,profile)=>{if(!key)return;if(!map.has(key))map.set(key,new Set());map.get(key).add(profile);};
   for(const profile of profiles){for(const key of profile.identity_keys||[])index(identityIndex,key,profile);index(orcidIndex,normalizeORCID(profile.orcid),profile);for(const key of authorNameKeys({name:[profile.first_name,profile.last_name].filter(Boolean).join(' '),aliases:profile.aliases||[]}))index(nameIndex,key,profile);}
@@ -48,7 +48,7 @@ export function buildAuthorDirectory(papers, profiles = []) {
     const inferred = splitAuthorName(englishName(names)), first_name = profile ? profile.first_name : inferred.first_name, last_name = profile ? profile.last_name : inferred.last_name;
     const aliases = unique([...names, ...(profile?.aliases || []), [first_name, last_name].filter(Boolean).join(' ')]);
     const ownPapers = unique(records.flatMap(r => r.papers || [])).map(id => paperMap.get(id)).filter(Boolean).sort((a, b) => String(b.published_at || b.created_at || '').localeCompare(String(a.published_at || a.created_at || '')));
-    const institutions = unique([...records.map(r => r.institution), ...ownPapers.flatMap(p => (p.authors || []).filter(a => records.some(r => sameAuthor(a, r))).map(a => a.institution))]);
+    const institutions = unique(records.flatMap(r => r.institutions || [r.institution]));
     return {key, profile, identity_keys: unique([...records.map(r => r.id), ...(profile?.identity_keys || [])]), first_name, last_name, english_name: [first_name, last_name].filter(Boolean).join(' '),
       name_format: profile?.name_format || 'default', aliases, original_names: names, institution: profile?.institution ?? institutions[0] ?? '', institutions,
       email: profile?.email ?? records.find(r => r.email)?.email ?? '', orcid: profile?.orcid || records.find(r => r.orcid)?.orcid || '', profile_url: profile?.profile_url || '',scholar_url:profile?.scholar_url||'',researchgate_url:profile?.researchgate_url||'',academic_metrics:profile?.academic_metrics||{sources:[],best:{}},

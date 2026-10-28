@@ -1,5 +1,5 @@
 import {academicProfileURL,bestAcademicMetrics} from './academic-profiles.js';
-import {authorInformationPrompt,authorInformationPatch} from './author-information.js';
+import {authorInformationPrompt,authorInformationPatch,missingAuthorInformation} from './author-information.js';
 import {authorPhotoIdentity} from './author-photos.js';
 import {buildAuthorDirectory, researchPapers, authorEnrichmentKey,authorPhotoInputsChanged} from './author-directory.js';
 import {normalizeORCID} from './author-identity.js';
@@ -77,11 +77,12 @@ export async function authorAction({service, userId, body, allPapers, model, lim
     return save({...patch, identity_keys: updated?.identity_keys || person.identity_keys});
   }
   if(body.action==='author_match_information'){
+    const missing=missingAuthorInformation(person);if(!missing.length)return {profile:base,skipped:true,information_status:'complete',information_missing:[]};
     await limit('author-info:'+userId,30,60);
     const key=authorEnrichmentKey(person,'information');
     if(body.automatic===true&&base.information_lookup_key===key&&base.information_lookup_status)return {profile:base,skipped:true,information_status:base.information_lookup_status};
     const sources=await discoverInformation(person);if(!sources.length){const saved=await save({information_lookup_key:key,information_lookup_status:'not_found',information_lookup_at:new Date().toISOString()});return {...saved,information_status:'not_found'};}
-    let raw={};try{raw=await model(authorInformationPrompt+` Also extract scholar_url and researchgate_url as {value,source}. Extract metrics:[{provider,source,evidence,field,value}] with fields publications,citations,h_index,i10_index. Evidence must quote the explicit metric label and integer verbatim from the provided source. Never estimate metrics.`,{author:{names:person.aliases,orcid:person.orcid,institutions:person.institutions},sources},true);}catch(error){if(!sources.some(s=>s.academic))throw error;}
+    let raw={};try{raw=await model(authorInformationPrompt+` Only fill the listed missing_fields; existing fields must not be returned or replaced. Also extract first_name, last_name, scholar_url and researchgate_url as {value,source}. Extract metrics:[{provider,source,evidence,field,value}] with fields publications,citations,h_index,i10_index. Evidence must quote the explicit metric label and integer verbatim from the provided source. Never estimate metrics.`,{missing_fields:missing,author:{names:person.aliases,orcid:person.orcid,institutions:person.institutions},sources},true);}catch(error){if(!sources.some(s=>s.academic))throw error;}
     await ensureProfile();
     const current=await service.from('author_profiles').select('*').eq('id',base.id).eq('user_id',userId).single();if(current.error)throw new HTTPError(503,'作者资料读取失败');
     const patch=authorInformationPatch(person,current.data,raw,sources);
@@ -89,7 +90,7 @@ export async function authorAction({service, userId, body, allPapers, model, lim
     const changed=Object.keys(patch).length>0,status=changed?'updated':'unchanged',nextKey=key;
     const write=await service.from('author_profiles').update({...patch,information_lookup_key:nextKey,information_lookup_status:status,information_lookup_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',base.id).eq('user_id',userId).eq('updated_at',current.data.updated_at).select('*').maybeSingle();
     if(write.error)throw new HTTPError(503,'作者资料保存失败');
-    return {profile:write.data||current.data,information_status:write.data?status:'changed_during_lookup',information_fields:write.data?Object.keys(patch):[],information_sources:sources.map(s=>({title:s.title,url:s.url}))};
+    return {profile:write.data||current.data,information_status:write.data?status:'changed_during_lookup',information_fields:write.data?Object.keys(patch):[],information_missing:missingAuthorInformation({...person,...(write.data||current.data)}),information_sources:sources.map(s=>({title:s.title,url:s.url}))};
   }
   if (body.action === 'author_keywords') {
     await limit('author-keywords:' + userId, 30, 60);

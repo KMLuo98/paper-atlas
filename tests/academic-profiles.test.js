@@ -1,5 +1,11 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {parseHTML} from 'linkedom';
-import {academicProfileURL,indexedScholarMetrics,parseAcademicMetrics,orcidPublicationCount,bestAcademicMetrics,academicInformationPatch} from '../supabase/functions/_shared/academic-profiles.js';
+import {academicProfileURL,indexedScholarMetrics,parseAcademicMetrics,orcidPublicationCount,bestAcademicMetrics,academicInformationPatch,discoverAcademicProfiles} from '../supabase/functions/_shared/academic-profiles.js';
+test('verified author homepage supplies academic links while already complete providers are not fetched',async()=>{
+ const scholar='https://scholar.google.com/citations?user=Alice123',rg='https://www.researchgate.net/profile/Alice-Smith',calls=[];
+ const person={english_name:'Alice Smith',aliases:['Alice Smith'],original_names:['Alice Smith'],institution:'Example University',papers:[],profile_url:'https://example.edu/alice',researchgate_url:rg,academic_metrics:{best:{publications:{value:25},citations:{value:0},h_index:{value:12}}}};
+ const rows=await discoverAcademicProfiles(person,parseHTML,{missingOnly:true,resolve:async()=>['8.8.8.8'],fetcher:async value=>{const url=new URL(value);calls.push(url.href);if(url.href===person.profile_url)return new Response('<h1>Alice Smith</h1><a href="'+scholar+'">Scholar</a><a href="'+rg+'">RG</a>');if(url.hostname==='scholar.google.com'&&url.pathname==='/citations')return new Response('<h1>Alice Smith</h1><table id="gsc_rsb_st"><tr><td>i10-index</td><td>18</td></tr></table>');return new Response('<rss></rss>');}});
+ assert(!calls.includes(rg));const patch=academicInformationPatch(person,rows,{missingOnly:true});assert.equal(patch.scholar_url,scholar);assert.equal(patch.academic_metrics.best.i10_index.value,18);assert.equal(patch.academic_metrics.best.citations.value,0);assert.equal(patch.researchgate_url,undefined);
+});
 test('academic URLs identify actual author profiles and discard tracking, publications and spoofed hosts',()=>{
  assert.deepEqual(academicProfileURL('https://scholar.google.com/citations?hl=en&user=abcdEFG'),{provider:'scholar',url:'https://scholar.google.com/citations?user=abcdEFG'});
  assert.equal(academicProfileURL('https://www.researchgate.net/profile/Alice-Smith/').provider,'researchgate');
