@@ -139,3 +139,12 @@ html{width:100%;min-width:0;overflow-x:clip;-webkit-text-size-adjust:100%;text-s
 .sidebar .mailbox-link{font-size:calc(13px + 1pt)}
 .sidebar .profile-chip strong{font-size:calc(12px + 1pt)}
 .sidebar .avatar{font-size:calc(9px + 1pt)}
+.recipient-field{position:relative;display:flex;flex-direction:column;gap:9px;min-width:0;margin-bottom:20px}
+.recipient-options{position:absolute;top:100%;left:0;right:0;z-index:25;max-height:270px;overflow-y:auto;overscroll-behavior:contain;background:#fff;border:1px solid #dfe4dc;border-radius:8px;box-shadow:0 8px 24px #273c3320;padding:4px}
+.recipient-options[hidden]{display:none}
+.recipient-option{padding:9px 10px;border-radius:5px;cursor:pointer;overflow-wrap:anywhere;line-height:1.5}
+.recipient-option:hover,.recipient-option[aria-selected=true]{background:#e8eee5}
+.recipient-option strong,.recipient-option small,.recipient-option span{display:block}
+.recipient-option strong{font-size:14px;font-weight:500}
+.recipient-option small,.recipient-option span{font-size:12px;color:#75816e}
+@media(max-width:700px){.recipient-options{max-height:220px}.recipient-option{min-height:52px}}
