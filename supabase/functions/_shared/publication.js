@@ -13,7 +13,8 @@ export function publicationAuthorORCIDs(authors,work){
  });
 }
 const canonical=value=>String(value||'').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
-export function arxivID(p){const explicit=String(p.arxiv_id||'').match(/^(\d{4}\.\d{4,5}|[a-z-]+\/\d{7})(?:v\d+)?$/i);if(explicit)return explicit[1];const text=[p.doi,p.preprint_url,p.original_filename,(p.full_text||'').slice(0,3000)].join(' ');return text.match(/(?:arxiv(?:\.org\/(?:abs|pdf)\/|[:_\s/]+)|10\.48550\/arxiv\.)(\d{4}\.\d{4,5}|[a-z-]+\/\d{7})(?:v\d+)?/i)?.[1]||(/^(\d{4}\.\d{4,5})/.exec(p.original_filename||'')?.[1]||'');}
+export const normalizeDOI=value=>String(value||'').trim().replace(/^https?:\/\/(?:dx\.)?doi\.org\//i,'').replace(/^doi:\s*/i,'').trim();
+export function arxivID(p){const fromDOI=normalizeDOI(p.doi).match(/^10\.48550\/arxiv\.(\d{4}\.\d{4,5}|[a-z-]+\/\d{7})(?:v\d+)?$/i);if(fromDOI)return fromDOI[1];const explicit=String(p.arxiv_id||'').match(/^(\d{4}\.\d{4,5}|[a-z-]+\/\d{7})(?:v\d+)?$/i);if(explicit)return explicit[1];const text=[p.doi,p.preprint_url,p.original_filename,(p.full_text||'').slice(0,3000)].join(' ');return text.match(/(?:arxiv(?:\.org\/(?:abs|pdf)\/|[:_\s/]+)|10\.48550\/arxiv\.)(\d{4}\.\d{4,5}|[a-z-]+\/\d{7})(?:v\d+)?/i)?.[1]||(/^(\d{4}\.\d{4,5})/.exec(p.original_filename||'')?.[1]||'');}
 export function exactPublishedMatch(p,work){
  if(work?.type!=='journal-article'||!work['container-title']?.[0]||!work.DOI)return false;
  const authors=Array.isArray(work.author)?work.author:[];
@@ -25,11 +26,12 @@ export function exactPublishedMatch(p,work){
 }
 export function workDate(work){for(const kind of ['published-online','published-print','published','issued']){const d=work[kind]?.['date-parts']?.[0];if(d?.[0]>1000)return `${d[0]}-${String(d[1]||1).padStart(2,'0')}-${String(d[2]||1).padStart(2,'0')}`;}return null;}
 export async function lookupPublication(p,fetcher=fetch){
- const checked=new Date().toISOString(),id=arxivID(p),patch={publication_lookup_at:checked,publication_lookup_status:'not_found'};let work=null,arxivDate=p.arxiv_date||null,doi=String(p.doi||'').replace(/^https?:\/\/doi\.org\//,'');
+ const checked=new Date().toISOString(),id=arxivID(p),patch={publication_lookup_at:checked,publication_lookup_status:'not_found'};let work=null,arxivDate=p.arxiv_date||null,doi=normalizeDOI(p.doi),verifiedArxiv=false;
  const request=async url=>{const r=await fetcher(url,{headers:{'User-Agent':'PaperAtlas/1.2 (private research library)'},signal:AbortSignal.timeout(10000)});if(!r.ok)throw Error('Metadata service unavailable');return r;};
  const notes=[];
  if(id){patch.arxiv_id=id;patch.preprint_url=`https://arxiv.org/abs/${id}`;
-  try{const xml=await(await request(`https://export.arxiv.org/api/query?id_list=${encodeURIComponent(id)}`)).text(),entry=xml.match(/<entry\b[^>]*>([\s\S]*?)<\/entry>/)?.[1]||xml;
+  try{const result=await(await request('https://api.datacite.org/dois/'+encodeURIComponent('10.48550/arXiv.'+id))).json(),record=result.data?.attributes;if(String(result.data?.id||'').toLowerCase()!==('10.48550/arxiv.'+id).toLowerCase()||!record)throw Error('Invalid DOI metadata');const title=record.titles?.[0]?.title,authors=(record.creators||[]).map(a=>({name:[a.givenName,a.familyName].filter(Boolean).join(' ')||String(a.name||'').split(',').reverse().join(' ')}));if(canonical(title)===canonical(p.title)||normalizeDOI(p.doi).toLowerCase()===('10.48550/arxiv.'+id).toLowerCase()&&(p.authors||[]).some(a=>authors.some(b=>sameAuthor(a,b)))){const dates=(record.dates||[]).filter(d=>d.dateType==='Submitted').map(d=>String(d.date).slice(0,10)).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&!Number.isNaN(Date.parse(d))&&new Date(d).toISOString().slice(0,10)===d).sort();arxivDate=dates[0]||arxivDate;verifiedArxiv=!!dates.length;const link=(record.relatedIdentifiers||[]).find(r=>r.relatedIdentifierType==='DOI'&&['IsVersionOf','IsPreprintOf','IsIdenticalTo'].includes(r.relationType)&&!/^10\.48550\//i.test(r.relatedIdentifier));if(link){doi=normalizeDOI(link.relatedIdentifier);p={...p,verified_titles:[title],verified_publication_doi:doi};}}}catch{/* The arXiv API remains an independent fallback. */}
+  if(!verifiedArxiv)try{const xml=await(await request(`https://export.arxiv.org/api/query?id_list=${encodeURIComponent(id)}`)).text(),entry=xml.match(/<entry\b[^>]*>([\s\S]*?)<\/entry>/)?.[1]||xml;
    const decode=value=>String(value||'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/\s+/g,' ').trim();
    const title=decode(entry.match(/<title[^>]*>([\s\S]*?)<\/title>/)?.[1]),arxivDOI=decode(entry.match(/<arxiv:doi[^>]*>([^<]+)<\/arxiv:doi>/)?.[1]),authors=[...entry.matchAll(/<author\b[^>]*>[\s\S]*?<name[^>]*>([^<]+)<\/name>[\s\S]*?<\/author>/g)].map(m=>({name:decode(m[1])}));
    const tokens=value=>String(value||'').toLowerCase().match(/[\p{L}\p{N}]+/gu)||[],original=tokens(p.title),current=tokens(title);
