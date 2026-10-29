@@ -6,7 +6,7 @@ import {parseHTML} from 'npm:linkedom@0.18.13';
 import {collectPublicEvidence} from '../_shared/web-evidence.js';
 import {literatureSearch} from '../_shared/literature-search.js';
 import {chatAction} from '../_shared/chat.js';
-import {lookupPublication,arxivID} from '../_shared/publication.js';
+import {lookupPublication,arxivID,lookupDOIMetadata} from '../_shared/publication.js';
 import {passwordError} from '../_shared/password.js';
 import {relationshipPrompt,validateRelationship} from '../_shared/relationship.js';
 import {normalizeORCID,sameAuthor} from '../_shared/author-identity.js';
@@ -123,6 +123,10 @@ Deno.serve(async(req:Request)=>{
       const verified=await auth.auth.signInWithPassword({email:owner.user.email,password:body.current_password});if(verified.error||verified.data.user?.id!==userId)throw new HTTPError(401,'当前密码不正确');
       const updated=await auth.auth.updateUser({password:body.new_password});if(updated.error)throw new HTTPError(400,'密码更新失败，请检查密码强度或重新登录');
       await auth.auth.signOut({scope:'global'});return json({ok:true,reauthenticate:true});
+    }
+    if(action==='lookup_doi'){
+      await ownPaper(body.paper_id,'id');await limit('metadata-doi:'+userId,30,60);
+      return json(await lookupDOIMetadata(str(body.doi,501)));
     }
     if(action==='refresh_publication'||action==='refresh_publications'){
       await limit('metadata:'+userId,30,60);
