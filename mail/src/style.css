@@ -148,3 +148,18 @@ html{width:100%;min-width:0;overflow-x:clip;-webkit-text-size-adjust:100%;text-s
 .recipient-option strong{font-size:14px;font-weight:500}
 .recipient-option small,.recipient-option span{font-size:12px;color:#75816e}
 @media(max-width:700px){.recipient-options{max-height:220px}.recipient-option{min-height:52px}}
+.compose-editor{position:relative}
+.compose-editor.attachment-dragging{outline:2px dashed #57795c;outline-offset:-3px;background:#f3f7ef}
+.compose-editor.attachment-dragging:after{content:'松开鼠标，添加附件';position:absolute;top:12px;left:12px;right:12px;padding:16px;text-align:center;background:#e8eee5;color:#315f53;border:1px dashed #57795c;border-radius:7px;pointer-events:none;z-index:30}
+.attachment-drop-hint{padding:10px 0 0;color:#879380;font-size:12px}
+.attachment-name{padding:2px 0;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;text-decoration:underline;text-underline-offset:3px}
+.attachment-item{display:flex;align-items:center;gap:6px;min-width:0}
+.attachment-item>.attachment{flex:1;min-width:0}
+.attachment-preview-modal{width:min(1000px,calc(100vw - 32px))!important}
+.attachment-preview-tools{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding-bottom:12px}
+.attachment-preview-status{flex:1;color:#7f897c;font-size:13px;min-width:100px}
+.attachment-preview-body{max-height:70dvh;min-height:120px;overflow:auto;text-align:center;overscroll-behavior:contain;background:#f5f6f2;padding:12px;border-radius:6px}
+.attachment-preview-body img{max-width:100%;max-height:65dvh;object-fit:contain}
+.attachment-preview-body pre{text-align:left;white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.7;margin:0}
+.attachment-pdf-nav{display:flex;align-items:center;gap:8px}
+@media(max-width:700px){.attachment-preview-modal{width:100%!important}.attachment-preview-body{max-height:65dvh}.attachment-pdf-nav .secondary{padding:7px 10px}}
