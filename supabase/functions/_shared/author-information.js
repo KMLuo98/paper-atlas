@@ -1,5 +1,5 @@
 import {discoverAcademicProfiles,academicInformationPatch,academicProfileURL} from './academic-profiles.js';
-import {gatherPersonEvidence} from '../mail-api/people-search.js';
+import {gatherPersonEvidence,engineResults} from '../mail-api/people-search.js';
 import {safeFetch,bounded,text,publicPhotoURL} from '../mail-api/photos.js';
 import {photoIdentityEvidence,authorPhotoIdentity,authorSearchNames} from './author-photos.js';
 import {normalizeORCID,sameAuthor} from './author-identity.js';
@@ -10,6 +10,7 @@ export const authorInformationPrompt=`从已核对身份的公开资料提取作
 export async function discoverAuthorInformation(person,parseHTML,options={}){
  options={deadline:Date.now()+65000,missingOnly:true,...options};const identity=authorPhotoIdentity(person),names=authorSearchNames(identity),rows=[];
  const academics=discoverAcademicProfiles(person,parseHTML,options).catch(()=>[]);
+ const snapshots=(async()=>{if(['h_index','i10_index'].every(field=>Number.isSafeInteger(person.academic_metrics?.best?.[field]?.value)))return [];const found=[];await Promise.allSettled(names.filter(name=>/\p{Script=Latin}/u.test(name)).slice(0,2).flatMap(name=>{const query='"'+name+'" '+identity.organization+' "Google Scholar" ("h-index" OR "i10-index")';return ['https://www.google.com/search?'+new URLSearchParams({q:query,num:'6'}),'https://www.bing.com/search?'+new URLSearchParams({q:query,count:'10'})].map(async url=>{const {response}=await safeFetch(url,'text/html',options);if(!response.ok){await response.body?.cancel();return;}const html=text(await bounded(response,900000));for(const hit of engineResults(html,url,parseHTML,{name}))if(photoIdentityEvidence(identity,{headings:[hit.title],text:hit.snippet,orcids:(hit.snippet||'').match(/\d{4}-\d{4}-\d{4}-\d{3}[\dX]/gi)||[]}))found.push({url:hit.url,title:hit.title,text:hit.snippet});});}));return found;})();
  const publications=Promise.allSettled((person.papers||[]).filter(p=>p.doi&&!/^10\.48550/i.test(p.doi)).slice(0,3).map(async p=>{
   const url='https://api.crossref.org/works/'+encodeURIComponent(p.doi),response=await (options.fetcher||fetch)(url,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(8000)});if(!response.ok)return;const work=(await response.json()).message;if(!exactPublishedMatch(p,work))return;
   const authors=(work.author||[]).filter(a=>sameAuthor({name:identity.name,aliases:identity.aliases,orcid:identity.orcid},{name:[a.given,a.family].filter(Boolean).join(' '),orcid:a.ORCID}));if(authors.length!==1)return;
@@ -19,7 +20,7 @@ export async function discoverAuthorInformation(person,parseHTML,options={}){
  for(let i=0;i<names.length;i+=2){const batch=await Promise.allSettled(names.slice(i,i+2).map(name=>gatherPersonEvidence({...identity,name},parseHTML,{...options,deadline:Math.min(options.deadline,Date.now()+44000)})));for(const r of batch)if(r.status==='fulfilled')rows.push(...r.value.rows);}
  const id=normalizeORCID(person.orcid);
  if(/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(id))try{const url=`https://pub.orcid.org/v3.0/${id}/person`,{response}=await safeFetch(url,'application/json',options),profile=JSON.parse(text(await bounded(response,300000)));rows.push({url:'https://orcid.org/'+id,title:identity.name,text:identity.name+'\n'+id+'\n'+JSON.stringify(profile),trusted_orcid:true});}catch{/* Other sources remain usable. */}
- await publications;rows.push(...await academics);return [...new Map(rows.filter(r=>r.academic||r.trusted_publication||r.trusted_orcid||photoIdentityEvidence(identity,{headings:[r.candidate_name||r.title],text:r.text,orcids:(r.text||'').match(/\d{4}-\d{4}-\d{4}-\d{3}[\dX]/gi)||[]})).map(r=>[r.url,r])).values()].map(r=>({url:r.url,title:r.title,text:r.text,...(r.academic?{academic:r.academic}:{})}));
+ await publications;const academicRows=await academics;rows.push(...academicRows,...await snapshots);const sources=[...new Map(rows.filter(r=>r.academic||r.trusted_publication||r.trusted_orcid||photoIdentityEvidence(identity,{headings:[r.candidate_name||r.title],text:r.text,orcids:(r.text||'').match(/\d{4}-\d{4}-\d{4}-\d{3}[\dX]/gi)||[]})).map(r=>[r.url,r])).values()].map(r=>({url:r.url,title:r.title,text:r.text,...(r.academic?{academic:r.academic}:{})}));sources.diagnostics=academicRows.diagnostics||[];return sources;
 }
 export function authorInformationPatch(person,base,raw,sources){
  const byURL=new Map(sources.map(s=>[s.url,s])),allowed=(field)=>{const value=typeof field?.value==='string'?field.value.trim():'',row=byURL.get(field?.source);return value&&row&&compact(row.text+' '+row.url).includes(compact(value))?value:'';},patch={};
@@ -37,10 +38,11 @@ export function authorInformationPatch(person,base,raw,sources){
  for(const field of ['scholar_url','researchgate_url']){const parsed=academicProfileURL(allowed(raw?.[field]));if(parsed&&parsed.provider===(field==='scholar_url'?'scholar':'researchgate')&&!base[field]&&!person[field])patch[field]=parsed.url;}
  const labels={publications:/publications|articles|论文|出版物/i,citations:/citations|cited by|引用|被引/i,h_index:/h[-‐‑– ]?index|h指数/i,i10_index:/i10[-‐‑– ]?index|i10指数/i};
  for(const m of (Array.isArray(raw?.metrics)?raw.metrics:[]).slice(0,30)){
-  const row=byURL.get(m.source),parsed=academicProfileURL(m.source),provider=parsed?.provider||(m.source==='https://orcid.org/'+normalizeORCID(person.orcid)?'orcid':'');
+  const row=byURL.get(m.source),parsed=academicProfileURL(m.source),snapshotProvider=typeof m.evidence==='string'&&/Google Scholar|谷歌学术/i.test(m.evidence)?'scholar':typeof m.evidence==='string'&&/ResearchGate/i.test(m.evidence)?'researchgate':'',provider=parsed?.provider||(m.source==='https://orcid.org/'+normalizeORCID(person.orcid)?'orcid':'')||snapshotProvider;
   if(!row||provider!==m.provider||!labels[m.field]||!Number.isSafeInteger(m.value)||m.value<0||m.value>1e10||typeof m.evidence!=='string'||!row.text.includes(m.evidence)||!labels[m.field].test(m.evidence))continue;
-  if(!(m.evidence.match(/\d[\d,]*/g)||[]).some(n=>Number(n.replace(/,/g,''))===m.value))continue;
-  academicSources.push({academic:{provider,url:parsed?.url||m.source,metrics:{[m.field]:m.value},checked_at:stamp,metric_methods:{[m.field]:'indexed_snippet'}}});
+  const normalized=m.evidence.replace(/(?<=\d),(?=\d{3}(?:\D|$))/g,''),label='(?:'+labels[m.field].source+')',number=String(m.value);if(!new RegExp(label+'\\s*[:=：(]?\\s*'+number+'(?![\\d.,])','i').test(normalized)&&!new RegExp('(?:^|[^\\d.,])'+number+'\\s*'+label,'i').test(normalized))continue;
+  if(!publicPhotoURL(m.source))continue;
+  academicSources.push({academic:{provider,url:parsed?.url||m.source,metrics:{[m.field]:m.value},checked_at:stamp,metric_methods:{[m.field]:parsed?'indexed_snippet':'public_snapshot'}}});
  }
  return {...patch,...academicInformationPatch({...person,...base},academicSources,{missingOnly:true})};
 }

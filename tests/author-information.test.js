@@ -24,3 +24,8 @@ test('AI profile and metrics extraction requires verifiable source text and metr
  const patch=authorInformationPatch({},{},{scholar_url:{value:source,source},metrics:[{provider:'scholar',source,evidence:'Citations 1,234',field:'citations',value:1234},{provider:'scholar',source,evidence:'h-index 18',field:'h_index',value:18},{provider:'scholar',source,evidence:'h-index 18',field:'publications',value:18}]},rows);
  assert.equal(patch.scholar_url,source);assert.equal(patch.academic_metrics.best.citations.value,1234);assert.equal(patch.academic_metrics.best.h_index.value,18);assert.equal(patch.academic_metrics.best.publications,undefined);
 });
+test('verified public snapshots can supply h and i10 without turning the snapshot page into a Scholar profile',()=>{
+ const source='https://example.edu/alice',evidence='Google Scholar h-index 18 i10-index 22',rows=[{url:source,text:'Alice Smith Example University '+evidence}];
+ const patch=authorInformationPatch({},{},{metrics:[{provider:'scholar',source,evidence,field:'h_index',value:18},{provider:'scholar',source,evidence,field:'i10_index',value:22}]},rows);
+ assert.equal(patch.academic_metrics.best.h_index.value,18);assert.equal(patch.academic_metrics.best.i10_index.value,22);assert.equal(patch.academic_metrics.best.h_index.url,source);assert.equal(patch.academic_metrics.best.h_index.method,'public_snapshot');assert.equal(patch.scholar_url,undefined);
+});
