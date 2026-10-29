@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {sentLocalKey,sameSentCopy} from '../../supabase/functions/mail-api/sent-identity.js';
+const key='3c141586-aea4-49dd-b3d1-c735d493f2f3',local={folder:'sent',remote_id:'local:'+key,message_id:'<'+key+'@mail-atlas.local>',from_email:'qa@example.edu',to_list:[{address:'someone@example.edu',name:'Name'}],cc_list:[],subject:'Same subject',text_body:'Actual body',received_at:'2026-10-29T00:48:26Z'},remote={...local,message_id:'<05A96488656A469F+'+key+'@mail-atlas.local>',remote_id:'Sent Messages|123:364'};
+test('provider-decorated Message-ID maps back to the original application send key',()=>{assert.equal(sentLocalKey(local.message_id),key);assert.equal(sentLocalKey(remote.message_id),key);assert.equal(sameSentCopy(local,remote),true);assert.equal(sameSentCopy(local,{...remote,to_list:[{address:'SOMEONE@example.edu',name:'Changed display name'}]}),true);});
+test('similar subjects or bodies cannot merge unrelated sends, folders, recipients or dates',()=>{
+ for(const change of [{message_id:'<aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa@mail-atlas.local>'},{message_id:remote.message_id.replace('@mail-atlas.local','@other.example')},{to_list:[{address:'other@example.edu'}]},{cc_list:[{address:'cc@example.edu'}]},{from_email:'other@example.edu'},{text_body:'Different body'},{subject:'Other subject'},{received_at:'2026-10-29T01:00:00Z'}])assert.equal(sameSentCopy(local,{...remote,...change}),false);
+ assert.equal(sameSentCopy({...local,folder:'drafts'},remote),false);assert.equal(sameSentCopy({...local,remote_id:'Sent|1:2'},remote),false);
+ for(const id of ['<prefix+'+key+'@mail-atlas.local>','forwarded '+local.message_id,'<'+key+'@mail-atlas.local.evil>','<ordinary@example.edu>',''])assert.equal(sentLocalKey(id),'');
+});

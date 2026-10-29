@@ -51,7 +51,7 @@ function download(content,name,type='text/plain;charset=utf-8'){const blob=conte
 const from64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const to64=async file=>{const a=new Uint8Array(await file.arrayBuffer());let s='';for(let i=0;i<a.length;i+=16384)s+=String.fromCharCode(...a.subarray(i,i+16384));return btoa(s);};
 let listCache;
-const cache=()=>listCache||(listCache=new MailListCache(sessionStorage,'mail-list-'+S.user.id));
+const cache=()=>listCache||(listCache=new MailListCache(sessionStorage,'mail-list-v2-'+S.user.id));
 const help=text=>`<span class="help-tip" tabindex="0" role="note" aria-label="${esc(text)}">?<span>${esc(text)}</span></span>`;
 const account=id=>S.accounts.find(x=>x.id===id),category=id=>S.categories.find(x=>x.id===id),contact=email=>S.contacts.find(x=>contactEmails(x).includes(String(email).toLowerCase()));
 const badge=a=>a?`<span class="account-badge" style="--tag:${esc(a.color)}"><span></span>${esc(a.label)}</span>`:'—';
