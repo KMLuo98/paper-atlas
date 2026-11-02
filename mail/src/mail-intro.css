@@ -12,7 +12,10 @@
 .intro-provider-cloud{display:contents}
 .intro-provider{position:absolute;top:-6px;left:87px;width:46px;height:46px;display:grid;place-items:center;background:#fff;border:1px solid #e4e9de;border-radius:12px;box-shadow:0 7px 15px #3d624c20;z-index:3;opacity:0;animation:intro-gather 6s ease-in-out var(--delay) infinite both}
 .mail-launch.is-finishing .intro-provider{animation:none;opacity:0}
-.intro-provider svg{width:38px;height:38px}
+.intro-provider{width:65.05px;height:65.05px;left:77.475px;top:-15.525px;border-radius:17px}
+.intro-provider svg{width:53.74px;height:53.74px}
+.mail-launch.is-quick .intro-envelope-flap{animation-duration:.12s}
+.mail-launch.is-quick{animation:intro-curtain .14s ease-out both}
 @keyframes intro-gather{0%{opacity:0;transform:translate(var(--from-x),var(--from-y)) rotate(var(--tilt)) scale(.7)}4%,8%{opacity:1;transform:translate(var(--from-x),var(--from-y)) rotate(var(--tilt)) scale(1)}22%{opacity:1;transform:translate(0,-22px) rotate(0) scale(.8)}28%,100%{opacity:0;transform:translate(0,82px) rotate(0) scale(.25)}}
 .intro-envelope-glow{position:absolute;inset:-80px;border-radius:50%;background:radial-gradient(circle,#fffbdc 0,#e8efcf66 35%,transparent 68%);opacity:0;z-index:0}
 .intro-envelope-shine{position:absolute;inset:0;border-radius:12px;background:linear-gradient(115deg,transparent 25%,#fff9dcdd 48%,transparent 70%);opacity:0;z-index:8;pointer-events:none}
