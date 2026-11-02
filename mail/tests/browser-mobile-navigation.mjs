@@ -57,7 +57,7 @@ try{
    await page.evaluate(()=>scrollTo(0,0));
    await page.locator('.reader-toolbar [data-action=reply]').click();await page.locator('#compose-body').fill('A reply that must survive back navigation.');
    await page.evaluate(()=>window.__failDraft=true);
-   await swipe({y:100});await page.locator('.toast.error').waitFor();assert.equal(await page.locator('#compose-body').inputValue(),'A reply that must survive back navigation.');
+   await swipe({y:100});await page.locator('.toast.error').waitFor();assert.equal(await page.locator('#compose-body').innerText(),'A reply that must survive back navigation.');
    await page.evaluate(()=>window.__failDraft=false);
    await swipe({y:100});await page.locator('.reader-page').waitFor();
    assert.equal(await page.evaluate(()=>window.__draft.body),'A reply that must survive back navigation.');
