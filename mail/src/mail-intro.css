@@ -7,31 +7,28 @@
 .intro-envelope-flap{position:absolute;top:0;left:0;width:220px;height:95px;transform-origin:50% 0;transform-style:preserve-3d;z-index:6;animation:intro-flap .4s cubic-bezier(.45,0,.25,1) both}
 .intro-envelope-flap svg{width:100%;height:100%}
 @keyframes intro-flap{0%{transform:rotateX(0);z-index:6}100%{transform:rotateX(180deg);z-index:2}}
-.mail-launch.is-finishing .intro-envelope-flap{animation:intro-close .18s ease-out both}
+.mail-launch.is-finishing .intro-envelope-flap{animation:intro-close .3s ease-out both}
 @keyframes intro-close{from{transform:rotateX(180deg);z-index:6}to{transform:rotateX(0);z-index:6}}
 .intro-provider-cloud{display:contents}
-.intro-provider{position:absolute;top:-6px;left:87px;width:46px;height:46px;display:grid;place-items:center;background:#fff;border:1px solid #e4e9de;border-radius:12px;box-shadow:0 7px 15px #3d624c20;z-index:3;opacity:0;animation:intro-gather 1.5s cubic-bezier(.3,.05,.3,1) var(--delay) infinite both}
+.intro-provider{position:absolute;top:-6px;left:87px;width:46px;height:46px;display:grid;place-items:center;background:#fff;border:1px solid #e4e9de;border-radius:12px;box-shadow:0 7px 15px #3d624c20;z-index:3;opacity:0;animation:intro-gather 6s ease-in-out var(--delay) infinite both}
 .mail-launch.is-finishing .intro-provider{animation:none;opacity:0}
 .intro-provider svg{width:38px;height:38px}
-@keyframes intro-gather{0%{opacity:0;transform:translate(var(--from-x),var(--from-y)) rotate(var(--tilt)) scale(.7)}18%,34%{opacity:1;transform:translate(var(--from-x),var(--from-y)) rotate(var(--tilt)) scale(1)}76%{opacity:1;transform:translate(0,-22px) rotate(0) scale(.8)}100%{opacity:0;transform:translate(0,82px) rotate(0) scale(.25)}}
+@keyframes intro-gather{0%{opacity:0;transform:translate(var(--from-x),var(--from-y)) rotate(var(--tilt)) scale(.7)}4%,8%{opacity:1;transform:translate(var(--from-x),var(--from-y)) rotate(var(--tilt)) scale(1)}22%{opacity:1;transform:translate(0,-22px) rotate(0) scale(.8)}28%,100%{opacity:0;transform:translate(0,82px) rotate(0) scale(.25)}}
 .intro-envelope-glow{position:absolute;inset:-80px;border-radius:50%;background:radial-gradient(circle,#fffbdc 0,#e8efcf66 35%,transparent 68%);opacity:0;z-index:0}
 .intro-envelope-shine{position:absolute;inset:0;border-radius:12px;background:linear-gradient(115deg,transparent 25%,#fff9dcdd 48%,transparent 70%);opacity:0;z-index:8;pointer-events:none}
 .intro-star{position:absolute;color:#d7b365;opacity:0;pointer-events:none}.star-one{left:24%;top:45%;font-size:23px}.star-two{left:78%;top:53%;font-size:17px}.star-three{left:72%;top:31%;font-size:14px}
 .mail-launch-caption{display:flex;align-items:center;flex-direction:column;gap:10px;margin-top:20px;line-height:1.5;text-align:center}
 .mail-launch-caption strong{font-size:25px;letter-spacing:.3px;font-weight:600}.mail-launch-caption span{font-size:13px;color:#87947e;letter-spacing:1px}
-.mail-launch-skip{position:absolute;right:max(22px,env(safe-area-inset-right));bottom:max(22px,env(safe-area-inset-bottom));border:1px solid #dfe6d7;border-radius:20px;background:#ffffffa6;color:#85917c;padding:7px 14px;font-size:12px;cursor:pointer}
-.mail-launch-skip:focus-visible{outline:2px solid #57795c;outline-offset:3px}
 .mail-launch.is-leaving .intro-envelope-glow{animation:intro-glow .8s ease-out both}
 .mail-launch.is-leaving .intro-envelope-shine{animation:intro-shine .6s ease-out both}
 .mail-launch.is-leaving .intro-star{animation:intro-spark .65s ease-out both}
-.mail-launch.is-leaving .mail-launch-stage{animation:intro-open-workspace .8s cubic-bezier(.25,.1,.3,1) both}
-.mail-launch.is-leaving .mail-launch-caption,.mail-launch.is-leaving .mail-launch-skip{transition:opacity .3s;opacity:0}
-.mail-launch.is-leaving{animation:intro-curtain .8s ease-out both;pointer-events:none}
+.mail-launch.is-leaving .mail-launch-stage{animation:intro-open-workspace .95s cubic-bezier(.25,.1,.3,1) both}
+.mail-launch.is-leaving .mail-launch-caption{transition:opacity .3s;opacity:0}
+.mail-launch.is-leaving{animation:intro-curtain .95s ease-out both;pointer-events:none}
 @keyframes intro-glow{0%{opacity:0;transform:scale(.6)}30%{opacity:.95;transform:scale(1)}100%{opacity:0;transform:scale(1.8)}}
 @keyframes intro-shine{0%{opacity:0;transform:translateX(-45%)}35%{opacity:.9}100%{opacity:0;transform:translateX(45%)}}
 @keyframes intro-spark{0%{opacity:0;transform:scale(.3) rotate(-25deg)}35%{opacity:1;transform:scale(1.2) rotate(0)}100%{opacity:0;transform:scale(.7) translateY(-15px)}}
-@keyframes intro-open-workspace{0%,18%{transform:scale(1);opacity:1}100%{transform:scale(2.7);opacity:0}}
-@keyframes intro-curtain{0%,24%{opacity:1}100%{opacity:0}}
-.mail-launch.fast-finish.is-leaving,.mail-launch.fast-finish.is-leaving .mail-launch-stage,.mail-launch.fast-finish.is-leaving .intro-envelope-glow,.mail-launch.fast-finish.is-leaving .intro-envelope-shine,.mail-launch.fast-finish.is-leaving .intro-star{animation-duration:.4s}
+@keyframes intro-open-workspace{0%{transform:scale(1);opacity:1}45%{transform:scale(1.9);opacity:1}100%{transform:scale(4);opacity:0}}
+@keyframes intro-curtain{0%,45%{opacity:1}100%{opacity:0}}
 @media(max-width:480px){.intro-envelope{--intro-scale:.8}.mail-launch-caption{margin-top:10px}.mail-launch-caption strong{font-size:23px}.mail-launch-caption span{font-size:12px}}
 @media(prefers-reduced-motion:reduce){.mail-launch .intro-envelope-flap,.mail-launch .intro-provider{animation:none}.mail-launch .intro-provider{opacity:0}.mail-launch.is-leaving,.mail-launch.is-leaving *{animation:none!important;transition:none!important}.mail-launch.is-leaving{opacity:0}}
