@@ -27,15 +27,15 @@ export async function syncImapFolder(client,folder,state,accept,{older=false,lim
  const last=same?Number(state.last_uid||0):0,oldest=same?Number(state.oldest_uid||0):0;
  const history=older&&!!oldest,refreshDrafts=folder.kind==='drafts';let found;if(history){if(oldest<=1)return {...state,has_older:false,_flags:[],_processed:0};found=await client.search({uid:'1:'+(oldest-1)},{uid:true});}
  else if(last&&!refreshDrafts)found=await client.search({uid:(last+1)+':*'},{uid:true});else found=await client.search({all:true},{uid:true});
- if(!Array.isArray(found))throw Error('服务器未返回有效的邮件索引，请稍后重试');
+ if(!Array.isArray(found)||found.some(x=>!Number.isSafeInteger(Number(x))||Number(x)<=0))throw Error('服务器未返回有效的邮件索引，请稍后重试');
  const candidates=found.map(Number).filter(x=>Number.isSafeInteger(x)&&x>0&&(history?x<oldest:refreshDrafts||!last||x>last)).sort((a,b)=>a-b);
  const ids=history?candidates.slice(-limit).reverse():!last||refreshDrafts?candidates.slice(-limit):candidates.slice(0,limit);
- Object.assign(state,{uid_validity:valid,last_uid:last,oldest_uid:oldest,total:Number(box.exists)||0});
+ Object.assign(state,{uid_validity:valid,last_uid:last,oldest_uid:refreshDrafts&&!history&&oldest&&!found.includes(oldest)?0:oldest,total:Number(box.exists)||0});
  for(const id of ids){if(Date.now()>=deadline)break;const meta=await client.fetchOne(id,{size:true},{uid:true});if(!meta)continue;if(meta.size>25000000)throw Error('此文件夹有超过25MB的邮件，无法继续导入');const item=await client.fetchOne(id,{source:true,flags:true},{uid:true});if(!item?.source)continue;
  await accept(folder.path+'|'+valid+':'+id,item.source instanceof Uint8Array?item.source:new Uint8Array(item.source),{read:item.flags.has('\\Seen'),starred:item.flags.has('\\Flagged'),answered:item.flags.has('\\Answered')},folder.path,folder.kind);
  state.last_uid=Math.max(state.last_uid,id);state.oldest_uid=state.oldest_uid?Math.min(state.oldest_uid,id):id;processed++;}
- state.has_older=history?candidates.length>processed:state.oldest_uid>1;state.last_sync=new Date().toISOString();state.error=null;
+ state.has_older=history||refreshDrafts?candidates.length>processed:state.oldest_uid>1;state.last_sync=new Date().toISOString();state.error=null;
  if(box.exists&&Date.now()<deadline)for await(const item of client.fetch(Math.max(1,Number(box.exists)-49)+':*',{uid:true,flags:true}))flags.push({remote_id:folder.path+'|'+valid+':'+item.uid,is_read:item.flags.has('\\Seen'),starred:item.flags.has('\\Flagged'),is_answered:item.flags.has('\\Answered')});
- return {...state,_flags:flags,_processed:processed};
+ return {...state,_flags:flags,_processed:processed,...(refreshDrafts&&!history?{_draft_snapshot:{path:folder.path,uid_validity:valid,ids:found.map(id=>folder.path+'|'+valid+':'+id),complete:true}}:{})};
  }finally{lock.release();}
 }

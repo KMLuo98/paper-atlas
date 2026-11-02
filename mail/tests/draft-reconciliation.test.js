@@ -1,0 +1,15 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {staleDraftIDs,graphDraftInventory} from '../../supabase/functions/mail-api/draft-reconciliation.js';
+import {syncImapFolder} from '../../supabase/functions/mail-api/folders.js';
+const snapshot={path:'Drafts',uid_validity:'123',ids:['Drafts|123:2'],complete:true};
+const rows=[{id:'keep',folder:'drafts',remote_folder:'Drafts',remote_id:'Drafts|123:2'},{id:'stale',folder:'drafts',remote_folder:'Drafts',remote_id:'Drafts|123:1'},{id:'old-validity',folder:'drafts',remote_folder:'Drafts',remote_id:'Drafts|99:1'},{id:'local',folder:'drafts',remote_folder:'Drafts',remote_id:'local:copy'},{id:'sent',folder:'sent',remote_folder:'Drafts',remote_id:'Drafts|123:9'},{id:'other-folder',folder:'drafts',remote_folder:'OtherDrafts',remote_id:'OtherDrafts|123:1'}];
+test('only confirmed absent drafts in the exact folder and current UID generation are retired',()=>{assert.deepEqual(staleDraftIDs(rows,snapshot),['stale']);assert.deepEqual(staleDraftIDs(rows,{...snapshot,ids:[]}),['keep','stale']);for(const changed of [{complete:false},{ids:null},{ids:['malformed']},{ids:['Drafts|123:NaN']}])assert.deepEqual(staleDraftIDs(rows,{...snapshot,...changed}),[]);});
+test('IMAP inventories cover every draft even when only a batch of bodies can be loaded',async()=>{
+ const c={mailbox:{uidValidity:123n,exists:3},getMailboxLock:async()=>({release(){}}),search:async()=>[1,2,3],fetchOne:async(id,q)=>q.size?{size:10}:{source:new Uint8Array([1]),flags:new Set()},async*fetch(){}};
+ const result=await syncImapFolder(c,{path:'Drafts',kind:'drafts'},{uid_validity:'123',last_uid:99,oldest_uid:99},async()=>{},{limit:1});assert.deepEqual(result._draft_snapshot.ids,['Drafts|123:1','Drafts|123:2','Drafts|123:3']);assert.equal(result.oldest_uid,3);assert.equal(result.has_older,true);assert.deepEqual(staleDraftIDs(rows,result._draft_snapshot),[]);
+ c.search=async()=>[];c.mailbox.exists=0;const empty=await syncImapFolder(c,{path:'Drafts',kind:'drafts'},{},async()=>{});assert.equal(empty._draft_snapshot.complete,true);assert.equal(empty.has_older,false);
+ c.search=async()=>null;await assert.rejects(syncImapFolder(c,{path:'Drafts',kind:'drafts'},{},async()=>{}),/有效的邮件索引/);
+});
+test('Graph reads every ID page and incomplete or failed inventories cannot authorize removals',async()=>{
+ const responses=[{value:[{id:'one'}],'@odata.nextLink':'page2'},{value:[{id:'two'}]}],calls=[];const graph=async(_s,path)=>{calls.push(path);return {json:async()=>responses.shift()};};const complete=await graphDraftInventory(graph,{}, {path:'draft-folder'},Date.now()+5000);assert.equal(complete.complete,true);assert.deepEqual(complete.ids,['one','two']);assert.equal(calls.length,2);const incomplete=await graphDraftInventory(graph,{}, {path:'draft-folder'},0);assert.equal(incomplete.complete,false);assert.deepEqual(staleDraftIDs(rows,incomplete),[]);await assert.rejects(graphDraftInventory(async()=>({json:async()=>({})}),{}, {path:'draft-folder'},Date.now()+5000),/完整的草稿索引/);
+});

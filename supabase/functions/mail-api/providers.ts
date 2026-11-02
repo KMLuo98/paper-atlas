@@ -1,3 +1,4 @@
+import {graphDraftInventory} from './draft-reconciliation.js';
 import {replyHeaders} from './reply-headers.js';
 import {moveImapMessage} from './remote-move.js';
 import {attachmentSize,attachmentBase64} from './mime-content.js';
@@ -44,7 +45,7 @@ async function syncGraphFolder(a:any,s:any,f:any,state:any,accept:any,older:bool
  const initial=!state.last_received;return {...state,...(initial?{older_link:d['@odata.nextLink']||null,has_older:!!d['@odata.nextLink']}:{}),next_link:initial?null:d['@odata.nextLink']||null,pending_latest:!initial&&d['@odata.nextLink']?latest:null,last_received:!initial&&d['@odata.nextLink']?state.last_received:latest,last_sync:new Date().toISOString(),error:null,_processed:(d.value||[]).length};
 }
 export async function syncRemote(a:any,s:any,accept:(id:string,raw:Uint8Array|null,flags:any,remoteFolder?:string,folderKind?:string)=>Promise<void>,older=false,target:any={}){
- const root={...(a.sync_state||{})},states={...(root.folder_states||{})},allFlags:any[]=[],errors:string[]=[];let client:any=null,processed=0;
+ const root={...(a.sync_state||{})},states={...(root.folder_states||{})},allFlags:any[]=[],draftSnapshots:any[]=[],errors:string[]=[];let client:any=null,processed=0;
  try{
  const folders=a.provider==='outlook'?await graphFolders(a,s):imapFolders(await (client=await imap(a,s)).list());
  // Upgrade the original inbox-only cursor without downloading it a second time.
@@ -52,11 +53,11 @@ export async function syncRemote(a:any,s:any,accept:(id:string,raw:Uint8Array|nu
  root.folder_states=states;const selected=selectSyncFolders(folders,root,target.folder||'',target.remote_path||'',older);const deadline=Date.now()+85000;
  for(const f of selected){if(processed>=30||Date.now()>=deadline)break;const key=folderKey(f.path),state=priorFolderState(root,f);try{
  const result=a.provider==='outlook'?await syncGraphFolder(a,s,f,state,accept,older,Math.min(20,30-processed)):await syncImapFolder(client,f,state,accept,{older,limit:Math.min(selected.length>1?15:30,30-processed),deadline});
- const {_flags=[],_processed=0,...saved}=result;states[key]=saved;allFlags.push(..._flags);processed+=_processed;
+ const {_flags=[],_processed=0,_draft_snapshot,...saved}=result;if(_draft_snapshot)draftSnapshots.push(_draft_snapshot);if(a.provider==='outlook'&&f.kind==='drafts'&&!older)draftSnapshots.push(await graphDraftInventory(graph,s,f,deadline));states[key]=saved;allFlags.push(..._flags);processed+=_processed;
  }catch(e){const safe=providerError(e,'同步'+f.name,[s.password,s.access_token]);states[key]={...state,error:safe.message,last_attempt:new Date().toISOString()};errors.push(safe.message);}}
  const inventory=folders.map((f:any)=>{const state=priorFolderState(root,f);return {...f,last_sync:state.last_sync||null,has_older:!!state.has_older,error:state.error||null,...(state.total!==undefined?{total:state.total}:{})};});
  const inbox=folders.find((f:any)=>f.kind==='inbox');const inboxState=inbox?states[folderKey(inbox.path)]:null;
- return {...root,...(inboxState?{uid_validity:inboxState.uid_validity,last_uid:inboxState.last_uid,oldest_uid:inboxState.oldest_uid,has_older:inboxState.has_older}:{}),folders:inventory,folders_discovered_at:new Date().toISOString(),folder_states:states,_flags:allFlags,_errors:errors,_missing:!!target.folder&&!selected.length};
+ return {...root,...(inboxState?{uid_validity:inboxState.uid_validity,last_uid:inboxState.last_uid,oldest_uid:inboxState.oldest_uid,has_older:inboxState.has_older}:{}),folders:inventory,folders_discovered_at:new Date().toISOString(),folder_states:states,_flags:allFlags,_draft_snapshots:draftSnapshots,_errors:errors,_missing:!!target.folder&&!selected.length};
  }finally{if(client)await client.logout().catch(()=>client.close());}}
 export async function remotePatch(a:any,s:any,m:any,patch:any){if(!m.remote_id||m.remote_id.startsWith('local:'))return;
  if(a.provider==='outlook'){
