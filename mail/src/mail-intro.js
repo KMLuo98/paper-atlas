@@ -21,13 +21,8 @@ function playMailIntro(){
  overlay.querySelector('button').addEventListener('click',cleanup);
  function finish(){
   if(!ready||leaving||closed)return;
-  let delay=0;if(!reduced)for(const animation of overlay.getAnimations({subtree:true})){const timing=animation.effect?.getComputedTiming(),remaining=Math.max(0,(Number(timing?.endTime)||0)-(Number(animation.currentTime)||0));if(!remaining)continue;animation.playbackRate=Math.max(1,remaining/400);delay=Math.max(delay,Math.min(400,remaining));}
-  overlay.classList.add('fast-finish');finishTimer=setTimeout(()=>{if(closed)return;leaving=true;overlay.classList.add('is-leaving');overlay.querySelector('[data-intro-caption]').textContent='欢迎来到你的邮件工作台';finishTimer=setTimeout(cleanup,reduced?100:420);},delay);
+  overlay.classList.add('is-finishing','fast-finish');finishTimer=setTimeout(()=>{if(closed)return;leaving=true;overlay.classList.add('is-leaving');overlay.querySelector('[data-intro-caption]').textContent='欢迎来到你的邮件工作台';finishTimer=setTimeout(cleanup,reduced?100:420);},reduced?0:180);
  }
  return {ready(){if(ready)return;ready=true;finish();},destroy:cleanup};
 }
-export function createMailIntro({navigation=false}={}){
- let intro=null,finished=false;
- const timer=setTimeout(()=>{if(!finished)intro=playMailIntro();},navigation?Math.max(0,1200-performance.now()):1200);
- return {ready(){if(finished)return;finished=true;clearTimeout(timer);intro?.ready();},destroy(){finished=true;clearTimeout(timer);intro?.destroy();}};
-}
+export function createMailIntro(){return playMailIntro();}
