@@ -29,5 +29,6 @@
 @keyframes intro-spark{0%{opacity:0;transform:scale(.3) rotate(-25deg)}35%{opacity:1;transform:scale(1.2) rotate(0)}100%{opacity:0;transform:scale(.7) translateY(-15px)}}
 @keyframes intro-open-workspace{0%,18%{transform:scale(1);opacity:1}100%{transform:scale(2.7);opacity:0}}
 @keyframes intro-curtain{0%,24%{opacity:1}100%{opacity:0}}
+.mail-launch.fast-finish.is-leaving,.mail-launch.fast-finish.is-leaving .mail-launch-stage,.mail-launch.fast-finish.is-leaving .intro-envelope-glow,.mail-launch.fast-finish.is-leaving .intro-envelope-shine,.mail-launch.fast-finish.is-leaving .intro-star{animation-duration:.4s}
 @media(max-width:480px){.intro-envelope{--intro-scale:.8}.mail-launch-caption{margin-top:10px}.mail-launch-caption strong{font-size:23px}.mail-launch-caption span{font-size:12px}}
 @media(prefers-reduced-motion:reduce){.mail-launch .intro-envelope-flap,.mail-launch .intro-provider{animation:none}.mail-launch .intro-provider{opacity:0}.mail-launch.is-leaving,.mail-launch.is-leaving *{animation:none!important;transition:none!important}.mail-launch.is-leaving{opacity:0}}

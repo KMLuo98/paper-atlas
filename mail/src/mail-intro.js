@@ -10,15 +10,24 @@ const providers=[
  ['Yahoo邮箱',-135,70,12,svg('<rect x="6" y="7" width="36" height="35" rx="9" fill="#6b35bf"/><text x="24" y="33" text-anchor="middle" fill="white" font-family="Georgia,serif" font-size="28" font-weight="700">Y!</text>')],
  ['企业邮箱',138,68,-12,svg('<rect x="7" y="12" width="34" height="27" rx="5" fill="#3e8b76"/><path d="m9 16 15 12 15-12" fill="none" stroke="#e4f7ed" stroke-width="3"/><path d="M18 12V8h12v4" fill="none" stroke="#3e8b76" stroke-width="3"/>')]
 ];
-export function createMailIntro(){
+function playMailIntro(){
  document.querySelector('#mail-launch')?.remove();
- const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches,started=performance.now();let ready=false,leaving=false,closed=false,finishTimer;
+ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;let ready=false,leaving=false,closed=false,finishTimer;
  const overlay=document.createElement('div');overlay.id='mail-launch';overlay.className='mail-launch'+(reduced?' reduce-motion':'');overlay.setAttribute('role','status');overlay.setAttribute('aria-label','正在打开邮件工作台');
  overlay.innerHTML=`<div class="mail-launch-content"><div class="mail-launch-stage" aria-hidden="true"><div class="intro-envelope"><div class="intro-envelope-glow"></div><svg class="intro-envelope-back" viewBox="0 0 220 148"><rect x="1" y="1" width="218" height="146" rx="12" fill="#739888"/><path d="M4 3h212L110 90z" fill="#476e60"/></svg><div class="intro-provider-cloud">${providers.map(([name,x,y,rotation,icon],index)=>`<span class="intro-provider" title="${name}" data-provider="${name}" style="--from-x:${x}px;--from-y:${y}px;--tilt:${rotation}deg;--delay:${.35+index*.12}s">${icon}</span>`).join('')}</div><svg class="intro-envelope-front" viewBox="0 0 220 148"><defs><linearGradient id="intro-paper" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#e0ecdc"/><stop offset="1" stop-color="#b8cfb9"/></linearGradient></defs><path d="M1 4 110 79 219 4v132q0 11-11 11H12q-11 0-11-11z" fill="url(#intro-paper)" stroke="#91ad96"/><path d="m4 142 80-65m132 65-80-65" fill="none" stroke="#9cb79f"/><path d="M98 117h24" stroke="#597f65" stroke-width="2" stroke-linecap="round"/></svg><div class="intro-envelope-flap"><svg viewBox="0 0 220 95"><path d="M1 1h218L117 89q-7 6-14 0z" fill="#dce9d7" stroke="#9bb69b"/></svg></div><span class="intro-envelope-shine"></span></div><span class="intro-star star-one">✦</span><span class="intro-star star-two">✦</span><span class="intro-star star-three">✦</span></div><div class="mail-launch-caption"><strong>Mail Atlas</strong><span data-intro-caption>把所有来信，收进一个信封</span></div></div><button type="button" class="mail-launch-skip">跳过动画</button>`;
  const app=document.querySelector('#app'),wasInert=app?.inert;if(app)app.inert=true;
  document.body.append(overlay);
  const cleanup=()=>{if(closed)return;closed=true;clearTimeout(finishTimer);overlay.remove();if(app)app.inert=wasInert;};
  overlay.querySelector('button').addEventListener('click',cleanup);
- function finish(){if(!ready||leaving||closed)return;const delay=Math.max(0,(reduced?150:2450)-(performance.now()-started));finishTimer=setTimeout(()=>{if(closed)return;leaving=true;overlay.classList.add('is-leaving');overlay.querySelector('[data-intro-caption]').textContent='欢迎来到你的邮件工作台';finishTimer=setTimeout(cleanup,reduced?180:820);},delay);}
+ function finish(){
+  if(!ready||leaving||closed)return;
+  let delay=0;if(!reduced)for(const animation of overlay.getAnimations({subtree:true})){const timing=animation.effect?.getComputedTiming(),remaining=Math.max(0,(Number(timing?.endTime)||0)-(Number(animation.currentTime)||0));if(!remaining)continue;animation.playbackRate=Math.max(1,remaining/400);delay=Math.max(delay,Math.min(400,remaining));}
+  overlay.classList.add('fast-finish');finishTimer=setTimeout(()=>{if(closed)return;leaving=true;overlay.classList.add('is-leaving');overlay.querySelector('[data-intro-caption]').textContent='欢迎来到你的邮件工作台';finishTimer=setTimeout(cleanup,reduced?100:420);},delay);
+ }
  return {ready(){if(ready)return;ready=true;finish();},destroy:cleanup};
+}
+export function createMailIntro({navigation=false}={}){
+ let intro=null,finished=false;
+ const timer=setTimeout(()=>{if(!finished)intro=playMailIntro();},navigation?Math.max(0,1200-performance.now()):1200);
+ return {ready(){if(finished)return;finished=true;clearTimeout(timer);intro?.ready();},destroy(){finished=true;clearTimeout(timer);intro?.destroy();}};
 }
