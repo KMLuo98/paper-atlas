@@ -177,11 +177,5 @@ html{width:100%;min-width:0;overflow-x:clip;-webkit-text-size-adjust:100%;text-s
 @media(max-width:700px){.format-toolbar{gap:3px;padding:8px}.format-toolbar button{min-width:34px;min-height:36px}.format-toolbar select{font-size:16px!important;max-width:135px}.rich-mail-editor{padding:20px;min-height:350px;font-size:16px}.reader-columns{display:grid;grid-template-columns:minmax(0,1fr)}.reader-columns>.email-paper{grid-row:1}.reader-columns>.reader-aside{display:contents}.reader-aside>.translation-card{grid-row:2}.reader-aside>.info-card:not(.translation-card){grid-row:3}}
 .is-syncing svg{animation:mail-sync-spin .8s linear infinite!important;transform-origin:center}
 @keyframes mail-sync-spin{to{transform:rotate(360deg)}}
-.mail-enter{animation:mail-workspace-enter .32s ease-out both}
-@keyframes mail-workspace-enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-@media(prefers-reduced-motion:reduce){.is-syncing svg,.mail-enter{animation:none!important}}
-.mail-boot{min-height:100dvh;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#315f53;background:#f8f9f6;font:15px system-ui}
-.mail-boot-icon{font-size:40px;animation:mail-boot-float 1.2s ease-in-out infinite}
-.mail-boot span{color:#879380;font-size:13px}
-@keyframes mail-boot-float{50%{transform:translateY(-5px);opacity:.65}}
-@media(prefers-reduced-motion:reduce){.mail-boot-icon{animation:none}}
+
+@media(prefers-reduced-motion:reduce){.is-syncing svg{animation:none!important}}
