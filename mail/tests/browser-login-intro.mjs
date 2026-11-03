@@ -1,0 +1,11 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';
+const {chromium}=await import(process.env.MAIL_PLAYWRIGHT_MODULE||'playwright');const browser=await chromium.launch({headless:true,...(process.env.MAIL_BROWSER_CHANNEL?{channel:process.env.MAIL_BROWSER_CHANNEL}:{})});
+let mock=fs.readFileSync('mail/tests/browser-mail-intro.mjs','utf8').split('const mock=`')[1].split('`;')[0];
+mock=mock.replace("session:{user:{id:'intro-fixture',email:'qa@example.edu'}}","session:window.__signed?{user:{id:'intro-fixture',email:'qa@example.edu'}}:null").replace('export const login=async()=>{}','export const login=async()=>{window.__signed=true;}');
+const results=[];
+try{for(const width of [390,1440])for(const delay of [0,1800]){
+ const page=await browser.newPage({viewport:{width,height:850}});await page.addInitScript(()=>{window.__signed=false;window.__ready=false;window.__calls=[];});await page.route('**/src/cloud.js',r=>r.fulfill({body:mock,contentType:'application/javascript'}));await page.goto('http://127.0.0.1:5174/');await page.locator('#mail-launch').waitFor({state:'detached'});
+ await page.locator('[name=identifier]').fill('qa@example.edu');await page.locator('[name=password]').fill('synthetic-only');await page.locator('.auth-submit').click();await page.locator('#mail-launch').waitFor();if(delay)await page.waitForTimeout(delay);
+ assert.equal(await page.locator('#mail-launch.is-finishing').count(),0);const readyAt=Date.now();await page.evaluate(()=>window.__ready=true);await page.locator('#mail-launch.is-finishing').waitFor();assert.ok(Date.now()-readyAt<500);
+ assert.equal(await page.locator('.intro-provider').evaluateAll(nodes=>nodes.every(n=>getComputedStyle(n).opacity==='0'&&n.getAnimations().length===0)),true);await page.locator('#mail-launch.is-leaving').waitFor();assert.equal(await page.locator('.mail-launch-stage').evaluate(el=>el.getAnimations()[0].effect.getTiming().duration),950);await page.locator('#mail-launch').waitFor({state:'detached'});await page.locator('.app-shell').waitFor();assert.equal(await page.evaluate(()=>window.__calls.filter(x=>x==='bootstrap').length),1);results.push({width,delay,passed:true});await page.close();
+}}finally{await browser.close();}console.log(JSON.stringify(results));
