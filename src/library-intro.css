@@ -1,0 +1,41 @@
+.atlas-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: #f4f7ef;
+  color: #294940;
+  transition: opacity 240ms ease;
+}
+.atlas-intro-leaving { opacity: 0; pointer-events: none; }
+.atlas-intro-content { width: min(100%, 660px, 125dvh); text-align: center; }
+.atlas-intro-content svg { display: block; width: 100%; height: auto; }
+.atlas-intro-content svg text { text-anchor: middle; }
+.atlas-intro-content strong { display: block; margin: 8px 0 4px; font-size: clamp(20px, 5vw, 33px); }
+.atlas-intro-content span { display: block; color: #4f6c5c; }
+.atlas-scholar { animation: atlas-arrive 1.25s ease-out both; }
+.atlas-walk { animation: atlas-bob 310ms ease-in-out 4; }
+.atlas-foot { transform-box: fill-box; transform-origin: top center; animation: atlas-step 310ms ease-in-out 4; }
+.atlas-foot-alt { animation-direction: reverse; }
+.atlas-stack { animation: atlas-stack-away 2.85s step-end forwards; }
+.atlas-flying { opacity: 0; animation: atlas-sort 440ms ease-in-out var(--file-time) forwards; }
+.atlas-filed { opacity: 0; animation: atlas-file 240ms ease-out var(--file-time) forwards; }
+@keyframes atlas-arrive { to { transform: translateX(115px); } }
+@keyframes atlas-bob { 50% { transform: translateY(-7px); } }
+@keyframes atlas-step { 0%,100% { transform: rotate(-18deg); } 50% { transform: rotate(18deg); } }
+@keyframes atlas-stack-away { to { opacity: 0; } }
+@keyframes atlas-sort {
+  0% { opacity: 1; transform: translate(116px, 0) rotate(-8deg); }
+  55% { opacity: 1; transform: translate(calc((116px + var(--target-x)) / 2), calc(var(--target-y) / 2 - 32px)) rotate(8deg); }
+  98% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--target-x), var(--target-y)) scale(.65); }
+}
+@keyframes atlas-file { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .atlas-intro, .atlas-intro svg * { animation: none; transition: none; }
+  .atlas-scholar { transform: translateX(115px); }
+  .atlas-filed { opacity: 1; }
+  .atlas-stack { opacity: 0; }
+}

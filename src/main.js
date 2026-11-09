@@ -1,3 +1,4 @@
+import {createLibraryIntro} from './library-intro.js';
 import {bindDOIMatch} from './doi-editor.js';
 import {normalizeDOI} from '../supabase/functions/_shared/publication.js';
 import {annotationStore,clearAnnotationDrafts} from './pdf-annotation-store.js';
@@ -131,7 +132,8 @@ async function repairLibrary(){
 }
 window.matchMedia('(max-width:700px)').addEventListener('change',()=>{if(document.querySelector('#paper-results'))refreshResults();});
 installI18n();document.addEventListener('pa-language-change',()=>render().catch(fail));
-init().catch(err=>{renderAuth();fail(err);});
+const libraryIntro=createLibraryIntro(getLanguage());
+init().catch(err=>{renderAuth();fail(err);}).finally(libraryIntro.ready);
 
 function citationBadge(p){const count=p.citation_count;return '<span class="citation-badge" title="'+e((p.citation_source||'Crossref')+' · '+(p.citation_checked_at?.slice(0,10)||'待查询'))+'">'+(getLanguage()==='en'?'Cited by ':'被引 ')+(Number.isInteger(count)?count:'—')+'</span>'+((p.supplementary_files||[]).length?'<span class="citation-badge sm-badge" title="Supplementary material">SM</span>':'');}
 let metadataBusy=false;
