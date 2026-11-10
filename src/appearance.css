@@ -313,3 +313,26 @@ body{font-size:16px}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){
   [data-appearance=glass] :is(.settings-card,.library-section,.author-directory .author-entry,.chat-container,.graph-wrap,.mobile-rail-label){background:#f3f8fa}
 }
+
+[data-appearance=glass] #upload-top{
+  color:var(--glass-ink);border:1px solid #f3fbff;border-radius:999px;
+  background:radial-gradient(ellipse at 22% 0%,rgb(255 255 255 / var(--glass-alpha,.72)),transparent 73%),
+             linear-gradient(150deg,rgb(220 245 251 / var(--glass-alpha,.72)),rgb(168 219 232 / var(--glass-alpha,.72)));
+  box-shadow:inset 0 1px 1px #fff,0 4px 14px #31596c30;
+  transition:transform .2s cubic-bezier(.23,.8,.28,1.13),box-shadow .2s;
+}
+[data-appearance=glass] #upload-top:hover{box-shadow:inset 0 1px 1px #fff,0 6px 17px #31596c40}
+[data-appearance=glass] #upload-top:active{transform:scale(.97)}
+[data-appearance=glass] :is(.library-section>.library-heading,.library-section>.tabbar,.library-section .table-foot){background:transparent}
+@media(max-width:700px){
+  [data-appearance=glass] :is(button[data-mobile-icon],summary[data-mobile-icon],.mobile-sort-wrap,.author-toolbar>label.author-mobile-select,.library-controls .view-switch,.author-toolbar .view-switch,.mobile-sidebar-toggle,.topbar #ai-assistant){
+    background:transparent;border-color:transparent;box-shadow:none;
+  }
+  [data-appearance=glass] .view-switch::before{background:#b7dce65e;box-shadow:none}
+  [data-appearance=glass] :is(.filter-active>summary[data-mobile-icon],.view-switch button.active){color:#265f73}
+  [data-appearance=glass] .filter-active>summary[data-mobile-icon]{background:#b7dce65e}
+}
+@media(prefers-reduced-motion:reduce){
+  [data-appearance=glass] #upload-top{transition:none}
+  [data-appearance=glass] #upload-top:active{transform:none}
+}
