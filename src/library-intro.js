@@ -1,11 +1,8 @@
 import './library-intro.css';
 
-const publishers = [
-  ['Nature', 'n', '#a73949'], ['Science', 'S', '#b12935'],
-  ['Cell', 'C', '#297b84'], ['PNAS', '◉', '#246387'],
-  ['Wiley', 'W', '#397252'], ['Elsevier', '♣', '#aa572a'],
-  ['APS', '✦', '#385b9a'],
-];
+import publisherIcons from './publisher-icons.json';
+
+const publishers = ['Nature', 'Science', 'Cell', 'PNAS', 'Wiley', 'Elsevier', 'APS'];
 
 const sheet = `<rect width="25" height="32" rx="3" fill="#fffefa" stroke="#9aab9d"/>
   <path d="M5 8h15M5 14h12M5 20h15M5 26h9" stroke="#8c9f92" stroke-width="1.5" stroke-linecap="round"/>`;
@@ -40,13 +37,12 @@ function scene() {
     <circle cx="132" cy="104" r="63" fill="#f6edcf"/>
     <path d="M35 288h570" stroke="#c6d1bf" stroke-width="2"/>
     <rect x="285" y="38" width="304" height="232" rx="13" fill="#856654"/>
-    ${publishers.map(([name, mark, color], i) => {
+    ${publishers.map((name, i) => {
       const x = 297 + (i % 4) * 71, y = 51 + Math.floor(i / 4) * 88;
       return `<g transform="translate(${x} ${y})">
         <rect width="66" height="80" rx="5" fill="#faf5e8"/>
         <path d="M5 41 36 5h10L5 53z" fill="#fff" opacity=".7"/>
-        <circle cx="33" cy="18" r="11" fill="${color}"/>
-        <text x="33" y="23" fill="white" font-size="14" font-weight="800">${mark}</text>
+        <image x="8" y="5" width="50" height="30" href="${publisherIcons[name.toLowerCase()]}"/>
         <text x="33" y="47" fill="#344538" font-size="12" font-weight="700">${name}</text>
         <g class="atlas-filed" style="--file-time:${1700 + i * 260}ms" transform="translate(15 56) scale(1.45 .58)">${sheet}</g>
       </g>`;
@@ -67,26 +63,28 @@ function loginScene() {
     <circle cx="132" cy="104" r="63" fill="#f6edcf"/>
     <path d="M35 288h570" stroke="#c6d1bf" stroke-width="2"/>
     <rect x="286" y="39" width="255" height="245" rx="9" fill="#856654"/>
-    <rect x="298" y="51" width="231" height="225" rx="4" fill="#fcf1d6"/>
-    <rect x="322" y="69" width="184" height="198" rx="8" fill="#9d765b"/>
-    ${[79,139,199].map(y => `<g transform="translate(333 ${y})">
-      <rect width="162" height="51" rx="4" fill="#e4c39c"/>
-      ${[12,61,111].map(x => `<g transform="translate(${x} 13) rotate(-6)">
-        <rect x="5" y="-3" width="25" height="32" rx="3" fill="#fbebc5" stroke="#9aab9d"/>
-        ${sheet}
-      </g>`).join('')}
-    </g>`).join('')}
+    <rect x="298" y="51" width="231" height="225" rx="4" fill="#fff3ce"/>
     <g transform="translate(298 51)">
       <g class="atlas-study-door">
         <rect width="231" height="225" rx="4" fill="#598471" stroke="#34594b" stroke-width="3"/>
         <rect x="20" y="20" width="191" height="185" rx="6" fill="#749a83" stroke="#a1b7a0" stroke-width="2"/>
-        <circle cx="34" cy="114" r="7" fill="#efcb77"/>
+        <circle cx="34" cy="114" r="9" fill="#efcb77"/><path d="M31 114h6" stroke="#614c34" stroke-width="2" stroke-linecap="round"/>
       </g>
     </g>
     ${scholar}
-    <g class="atlas-door-hand">
-      <path d="M266 198q22 3 42-21" stroke="#3a6255" stroke-width="11" stroke-linecap="round" fill="none"/>
-      <circle cx="309" cy="176" r="6" fill="#f5c49f"/>
+    <g transform="translate(278 193)">
+      <g class="atlas-key-pull">
+        <g class="atlas-key-ring">
+          <circle r="9" fill="none" stroke="#89602c" stroke-width="3"/>
+          ${[-45, 0, 45].map((angle, index) => `<path transform="rotate(${angle})" d="M0 8v${21 + index * 4}h6v-5h-4" fill="none" stroke="${['#a97b40','#b48b50','#906434'][index]}" stroke-width="3" stroke-linejoin="round"/>`).join('')}
+        </g>
+      </g>
+    </g>
+    <g transform="translate(279 187)">
+      <g class="atlas-key-found">
+        <circle r="6" fill="none" stroke="#a77836" stroke-width="3"/>
+        <path d="M6 0h19m-5 0v5" stroke="#a77836" stroke-width="3" stroke-linecap="round"/>
+      </g>
     </g>
   </svg>`;
 }
@@ -107,18 +105,28 @@ export function createLibraryIntro(language, mode = 'startup') {
   document.body.append(overlay);
   const start = performance.now();
   let leaving = false;
-  function ready() {
-    if (leaving) return;
+  function destroy() {
+    if (!overlay.isConnected) return;
+    clearTimeout(watchdog);
+    overlay.remove();
+    app.inert = previousInert;
+  }
+  async function ready() {
+    if (leaving || !overlay.isConnected) return;
     leaving = true;
     clearTimeout(watchdog);
-    setTimeout(() => {
+    const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+    if (!reduced) {
+      await wait(Math.max(0, (login ? 980 : 3450) - (performance.now() - start)));
+      if (login) {
+        overlay.classList.add('atlas-key-ready');
+        await wait(940);
+      }
       overlay.classList.add('atlas-intro-leaving');
-      setTimeout(() => {
-        overlay.remove();
-        app.inert = previousInert;
-      }, reduced ? 0 : 260);
-    }, reduced ? 0 : Math.max(0, (login ? 2500 : 3450) - (performance.now() - start)));
+      await wait(260);
+    }
+    destroy();
   }
-  const watchdog = setTimeout(ready, 10000);
-  return { ready };
+  const watchdog = login ? undefined : setTimeout(ready, 10000);
+  return { ready, destroy };
 }
