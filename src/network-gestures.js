@@ -14,7 +14,7 @@ export function mountNetworkGestures(svg,{width,height,getTransform,setTransform
  function move(event){if(!pointers.has(event.pointerId))return;prevent(event);pointers.set(event.pointerId,{clientX:event.clientX,clientY:event.clientY});
   if(pointers.size>=2){if(!pinch)beginPinch();const point=measure(),scale=Math.max(minScale,Math.min(4,pinch.scale*point.distance/pinch.distance));setTransform({scale,tx:point.x-pinch.anchorX*scale,ty:point.y-pinch.anchorY*scale});return;}
   const point=local(event),t=getTransform();
-  if(drag?.id===event.pointerId){drag.moved ||=Math.abs(event.clientX-drag.startX)+Math.abs(event.clientY-drag.startY)>4;onNodeMove(drag.node,{x:(point.x-t.tx)/t.scale,y:(point.y-t.ty)/t.scale});}
+  if(drag?.id===event.pointerId){drag.moved ||=Math.abs(event.clientX-drag.startX)+Math.abs(event.clientY-drag.startY)>4;if(drag.moved)onNodeMove(drag.node,{x:(point.x-t.tx)/t.scale,y:(point.y-t.ty)/t.scale});}
   else if(pan?.id===event.pointerId){pan.moved ||=Math.abs(point.x-pan.x)+Math.abs(point.y-pan.y)>4;setTransform({...t,tx:pan.tx+point.x-pan.x,ty:pan.ty+point.y-pan.y});}
  }
  function up(event){if(!pointers.has(event.pointerId))return;prevent(event);const wasPinching=!!pinch;pointers.delete(event.pointerId);

@@ -67,11 +67,23 @@ test('layout computation uses the worker once, caches positions, and ignores lat
 test('hover does not repaint the graph and dragging updates only the node and its incident edges', () => {
  const {document,window}=parseHTML('<html><body><svg></svg></body></html>');window.PointerEvent=function(){};const svg=document.querySelector('svg');svg.getBoundingClientRect=()=>({left:0,top:0,width:840,height:620});
  const data={nodes:['drag-a','drag-b','drag-c','drag-d'].map(id=>({id,label:id})),edges:[{source:'drag-a',target:'drag-b'},{source:'drag-c',target:'drag-d'}]};
- const graph=drawNetwork(svg,data);let writes=0;
+ const storage=new Map(),host=svg.ownerDocument.defaultView;
+ host.localStorage={getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value),removeItem:key=>storage.delete(key)};
+ const positionKey='test-network-positions';
+ const graph=drawNetwork(svg,data,{positionKey});let writes=0;
  for(const el of svg.querySelectorAll('*')){const set=el.setAttribute.bind(el);el.setAttribute=(...args)=>{writes++;return set(...args);};}
  const node=svg.querySelector('[data-node-id="drag-a"]');node.onmouseenter();node.onmouseleave();assert.equal(writes,0);
+ const defaultPosition=node.getAttribute('transform');
  const stableNode=svg.querySelector('[data-node-id="drag-c"]').getAttribute('transform'),stableEdge=svg.querySelectorAll('.network-edge')[1].outerHTML;
  const event=(type,x,y)=>{const e=new window.Event(type,{bubbles:true,cancelable:true});Object.assign(e,{pointerId:1,pointerType:'mouse',clientX:x,clientY:y,button:0});node.querySelector('circle').dispatchEvent(e);};
  event('pointerdown',100,100);event('pointermove',140,140);event('pointerup',140,140);
- assert(writes>0);assert.equal(svg.querySelector('[data-node-id="drag-c"]').getAttribute('transform'),stableNode);assert.equal(svg.querySelectorAll('.network-edge')[1].outerHTML,stableEdge);graph.destroy();
+ assert(writes>0);assert.equal(svg.querySelector('[data-node-id="drag-c"]').getAttribute('transform'),stableNode);assert.equal(svg.querySelectorAll('.network-edge')[1].outerHTML,stableEdge);
+ const draggedPosition=node.getAttribute('transform');assert.notEqual(draggedPosition,defaultPosition);
+ graph.destroy();svg.replaceChildren();
+ const reopened=drawNetwork(svg,data,{positionKey});
+ const reopenedNode=svg.querySelector('[data-node-id="drag-a"]');
+ assert.equal(reopenedNode.getAttribute('transform'),draggedPosition);
+ reopened.restoreLayout();assert.equal(storage.has(positionKey),false);
+ assert.equal(reopenedNode.getAttribute('transform'),defaultPosition);
+ reopened.destroy();delete host.localStorage;
 });

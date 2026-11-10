@@ -3,7 +3,7 @@ import {getLanguage} from './i18n.js';
 import {networkMetrics, computeNetworkLayout, networkPhysics} from './network-physics.js';
 import {networkLayouts} from './network-cache.js';
 
-export function drawNetwork(svg, data, {authors = false, onClick = () => {}, onSelectionChange = () => {}} = {}) {
+export function drawNetwork(svg, data, {authors = false, positionKey, onClick = () => {}, onSelectionChange = () => {}} = {}) {
   const width = Math.max(280, svg.clientWidth || 840), height = Math.max(420, svg.clientHeight || 620), ns = 'http://www.w3.org/2000/svg';
   const doc = svg.ownerDocument, host = doc.defaultView, idOf = n => typeof n === 'object' ? n.id : n;
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
@@ -12,7 +12,12 @@ export function drawNetwork(svg, data, {authors = false, onClick = () => {}, onS
   const layoutInput = {nodes: data.nodes.map(n => ({id: n.id})), edges: data.edges.map(e => ({source: idOf(e.source), target: idOf(e.target), weight: e.weight || 1}))};
   const layoutKey = JSON.stringify([authors, width, height, layoutInput]);
   const cached = networkLayouts.get(layoutKey), cachedPositions = new Map((cached || []).map(n => [n.id, n]));
-  const nodes = data.nodes.map((n, i) => ({...n, x: width / 2 + Math.cos(i * 2.399963) * Math.sqrt(i + 1) * 62, y: height / 2 + Math.sin(i * 2.399963) * Math.sqrt(i + 1) * 62, ...cachedPositions.get(n.id)}));
+  let saved = new Map();
+  try {
+    const entries = positionKey && JSON.parse(host.localStorage.getItem(positionKey));
+    if (Array.isArray(entries)) saved = new Map(entries.filter(entry => Array.isArray(entry) && entry.length === 3 && Number.isFinite(entry[1]) && Number.isFinite(entry[2])).map(([id, x, y]) => [id, {x: x * width, y: y * height}]));
+  } catch { /* Storage can be unavailable. */ }
+  const nodes = data.nodes.map((n, i) => ({...n, x: width / 2 + Math.cos(i * 2.399963) * Math.sqrt(i + 1) * 62, y: height / 2 + Math.sin(i * 2.399963) * Math.sqrt(i + 1) * 62, ...cachedPositions.get(n.id), ...saved.get(n.id)}));
   const nodesById = new Map(nodes.map(n => [n.id, n])), nodeIndices = new Map(nodes.map((n, i) => [n.id, i]));
   const links = layoutInput.edges.map(e => ({...e, source: nodesById.get(e.source), target: nodesById.get(e.target)})).filter(e => e.source && e.target);
   const neighbors = new Map(nodes.map(n => [n.id, new Set([n.id])])), incident = new Map(nodes.map(n => [n.id, new Set()]));
@@ -28,7 +33,7 @@ export function drawNetwork(svg, data, {authors = false, onClick = () => {}, onS
     const el = make('line', {class: 'network-edge', stroke: '#aec29e', 'stroke-width': authors ? Math.min(4, 1 + Math.log1p(link.weight || 1)) : 1.3, 'stroke-opacity': links.length > nodes.length * 3 ? .18 : .42, ...(!authors ? {'marker-end': `url(#${markerId})`} : {})});
     viewport.append(el); return el;
   });
-  let selected = null, labels = nodes.length <= 40, scale = 1, tx = 0, ty = 0, disposed = false, layoutReady = !!cached;
+  let selected = null, labels = nodes.length <= 40, scale = 1, tx = 0, ty = 0, disposed = false;
   const labelEls = [], rings = [], innerEls=[], photoEls=[];
   let photosVisible=false;
   const nodeEls = nodes.map((node, i) => {
@@ -99,7 +104,12 @@ export function drawNetwork(svg, data, {authors = false, onClick = () => {}, onS
     if (!authors && selected === node.id) {onClick(node); return;}
     highlight(node.id, {focus: false});
   }
-  function remember() {if (layoutReady) networkLayouts.set(layoutKey, nodes.map(({id, x, y, community}) => ({id, x, y, community})));}
+  function savePosition(node) {
+    if (!positionKey || !manuallyMoved.has(node.id)) return;
+    saved.set(node.id, {x: node.x, y: node.y});
+    try {host.localStorage.setItem(positionKey, JSON.stringify([...saved].map(([id, {x, y}]) => [id, x / width, y / height])));}
+    catch { /* Keep the current layout usable if storage is full or blocked. */ }
+  }
   const manuallyMoved = new Set();
   const dirty = new Set(); let frame = null;
   function paintMoved() {
@@ -110,15 +120,15 @@ export function drawNetwork(svg, data, {authors = false, onClick = () => {}, onS
   }
   const gestures = mountNetworkGestures(svg, {width, height, getTransform: () => ({scale, tx, ty}), setTransform: next => {scale = next.scale; tx = next.tx; ty = next.ty; transform();}, nodeForTarget: target => nodesById.get(target?.closest?.('.node')?.getAttribute('data-node-id')),
     onNodeMove: (node, point) => {node.x = point.x; node.y = point.y; manuallyMoved.add(node.id); dirty.add(node.id); if (host.requestAnimationFrame) {if (frame === null) frame = host.requestAnimationFrame(paintMoved);} else paintMoved();},
-    onNodeEnd: () => {if (dirty.size) paintMoved(); remember();}, onNodeClick: activate, onBlankClick: () => highlight(null, {focus: false})});
+    onNodeEnd: node => {if (dirty.size) paintMoved(); savePosition(node);}, onNodeClick: activate, onBlankClick: () => highlight(null, {focus: false})});
   let worker = null, cancelFallback = () => {}, finishReady;
   const ready = new Promise(resolve => {finishReady = resolve;});
   const loading = svg.closest('.graph-wrap')?.querySelector('.network-loading');
   function busy(value) {svg.setAttribute('aria-busy', String(value)); if (loading) loading.hidden = !value;}
   function applyPositions(positions) {
     if (disposed) return;
-    for (const position of positions) {const node = nodesById.get(position.id); if (node) {node.community = position.community; if (!manuallyMoved.has(node.id)) {node.x = position.x; node.y = position.y;}}}
-    layoutReady = true; paint(); fit(); remember(); busy(false); finishReady();
+    for (const position of positions) {const node = nodesById.get(position.id); if (node) {node.community = position.community; if (!manuallyMoved.has(node.id) && !saved.has(node.id)) {node.x = position.x; node.y = position.y;}}}
+    networkLayouts.set(layoutKey, positions.map(({id, x, y, community}) => ({id, x, y, community}))); paint(); fit(); busy(false); finishReady();
   }
   function fallback() {
     if (disposed) return;
@@ -129,7 +139,7 @@ export function drawNetwork(svg, data, {authors = false, onClick = () => {}, onS
     cancelFallback = () => {clearTimeout(timer); simulation.stop();}; timer = setTimeout(step, 0);
   }
   paint(); fit(); paintSelection();
-  if (cached || !nodes.length) {layoutReady = true; busy(false); finishReady();}
+  if (cached || !nodes.length) {busy(false); finishReady();}
   else {
     busy(true);
     if (typeof Worker === 'function') {
@@ -141,5 +151,5 @@ export function drawNetwork(svg, data, {authors = false, onClick = () => {}, onS
       } catch {worker?.terminate(); worker = null; fallback();}
     } else fallback();
   }
-  return {ready, setPhotos, destroy() {remember(); disposed = true; worker?.terminate(); cancelFallback(); if (frame !== null) host.cancelAnimationFrame?.(frame); gestures.destroy(); finishReady();}, reset() {gestures.cancel(); highlight(null, {focus: false}); fit();}, toggleLabels() {labels = !labels; paintSelection(); return labels;}, highlight};
+  return {ready, setPhotos, destroy() {disposed = true; worker?.terminate(); cancelFallback(); if (frame !== null) host.cancelAnimationFrame?.(frame); gestures.destroy(); finishReady();}, reset() {gestures.cancel(); highlight(null, {focus: false}); fit();}, restoreLayout() {gestures.cancel(); saved.clear(); manuallyMoved.clear(); try {if (positionKey) host.localStorage.removeItem(positionKey);} catch {} const defaults = networkLayouts.get(layoutKey); if (defaults) applyPositions(defaults); else if (nodes.length && !worker) {cancelFallback(); fallback();} highlight(null, {focus: false});}, toggleLabels() {labels = !labels; paintSelection(); return labels;}, highlight};
 }
