@@ -85,3 +85,16 @@ test('author details show academic homepages and sourced maximum metrics without
  await f.ui.renderDetail('orcid:'+orcid);assert(f.document.querySelector('a[href*=scholar]'));assert(f.document.querySelector('a[href*=researchgate]'));assert.match(f.document.querySelector('.author-academic-stats').textContent,/1234/);assert.match(f.document.querySelector('.author-academic-stats').textContent,/2026-10-26/);assert.equal(f.document.querySelectorAll('.author-paper').length,2);
  f.document.querySelector('#author-edit').onclick();assert(f.document.querySelector('[name=scholar_url]'));assert(f.document.querySelector('[name=researchgate_url]'));f.ui.stop();
 });
+
+test('merge mode enables dragging and presents a confirmation for the chosen pair',async()=>{
+ const f=fixture();await f.ui.renderList();const d=f.document;
+ assert.equal(d.querySelector('.author-entry').getAttribute('draggable'),'false');
+ const mode=d.querySelector('#authors-merge');mode.onclick({currentTarget:mode});
+ assert.equal(mode.getAttribute('aria-pressed'),'true');
+ const cards=d.querySelectorAll('.author-entry');assert.equal(cards[0].getAttribute('draggable'),'true');
+ const click=element=>element.dispatchEvent(new d.defaultView.Event('click',{bubbles:true,cancelable:true}));
+ click(cards[0]);assert(d.querySelector('.author-merge-source'));
+ click(cards[1]);assert(d.querySelector('[data-merge-confirm]'));
+ assert(!f.calls.some(call=>call.action==='author_merge'));
+ d.querySelector('[data-merge-cancel]').onclick();assert(!d.querySelector('[data-merge-confirm]'));
+});

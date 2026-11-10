@@ -189,3 +189,80 @@ html[data-appearance="glass"] {
   [data-appearance="glass"] .view-switch::before,
   [data-appearance="glass"] :is(.search-wrap,.network-node-search) input {transition:none}
 }
+
+.card-publisher-icon{width:48px;height:29px;object-fit:contain;flex:none;margin-inline-start:auto}
+.paper-card .card-foot .favorite{margin-inline-end:auto}
+.language-switch{display:none}
+.glass-settings:not([hidden]){display:flex;align-items:center;flex-wrap:wrap;gap:16px;margin-top:16px}
+.glass-settings label{flex:1 1 190px}
+.glass-settings input{display:block;width:100%;accent-color:#4b8295}
+.glass-settings output{float:right;font-variant-numeric:tabular-nums}
+.glass-preview{flex:1 1 160px;padding:14px;border-radius:14px;background:linear-gradient(125deg,#8fb6c7,#ebd9bd,#b1cfc5)}
+.glass-preview>div{border:1px solid #fff;border-radius:12px;padding:10px;background:rgb(248 253 255 / var(--glass-alpha,.72));color:#193c4d}
+.glass-preview small{display:block;color:#425965}
+.appearance-options button:is(:hover,:active,[aria-pressed=true]){background:transparent;box-shadow:none}
+[data-appearance=glass] .appearance-options::before{background:var(--glass-control)}
+[data-appearance=glass] .appearance-options button:active{transform:none}
+[data-appearance=glass] [data-language-toggle]{display:none}
+[data-appearance=glass] .language-switch{
+  position:relative;display:inline-grid;grid-template-columns:1fr 1fr;isolation:isolate;flex:none;
+  border-radius:999px;border:1px solid #fff;padding:2px;background:#dbeaf1a6;box-shadow:inset 0 1px 3px #294d601b;
+}
+[data-appearance=glass] .auth-wrap>.language-switch{position:absolute;right:16px;top:16px;z-index:3}
+[data-appearance=glass] .language-switch button{
+  display:block;min-width:0;padding:6px 9px;border:0;border-radius:999px;background:transparent;box-shadow:none;color:#315564;font-size:12px;
+}
+[data-appearance=glass] .language-switch button[aria-pressed=true]{font-weight:700;color:#193c4d}
+[data-appearance=glass] .language-switch::before{
+  content:"";position:absolute;z-index:-1;top:2px;bottom:2px;left:2px;width:calc((100% - 4px)/2);
+  border-radius:inherit;background:var(--glass-control);box-shadow:inset 0 1px 0 #fff,0 2px 6px #30576d30;
+}
+html[lang=en][data-appearance=glass] .language-switch::before{transform:translateX(100%)}
+html[data-language-motion=en][data-appearance=glass] .language-switch::before{animation:glass-slide-en .36s cubic-bezier(.22,.81,.26,1.12) both}
+html[data-language-motion=zh][data-appearance=glass] .language-switch::before{animation:glass-slide-zh .36s cubic-bezier(.22,.81,.26,1.12) both}
+@keyframes glass-slide-en{from{transform:translateX(0)}to{transform:translateX(100%)}}
+@keyframes glass-slide-zh{from{transform:translateX(100%)}to{transform:translateX(0)}}
+
+[data-appearance=glass] :is(.library-section,.author-directory .author-entry,.chat-container,.chat-message,.chat-tasks,.chat-compose){
+  background:rgb(248 253 255 / var(--glass-alpha,.72));border-color:#c9dfe6;color:var(--glass-ink);
+}
+[data-appearance=glass] :is(.author-directory .author-entry,.chat-message strong,.chat-heading,.chat-note,.chat-welcome,.chat-tasks p){
+  color:var(--glass-secondary);
+}
+[data-appearance=glass] :is(.author-entry h2,.paper-title,.paper-cell,.chat-message [data-user-content]){
+  color:var(--glass-ink);
+}
+[data-appearance=glass] :is(.library-section thead,.library-heading,.tabbar,.table-foot,.chat-options){
+  background:rgb(237 248 252 / var(--glass-alpha,.72));color:#365b6a;
+}
+[data-appearance=glass] :is(.paper-authors,.paper-cell small,.card-publication small,.author-institution,.eyebrow){
+  color:#416b78;
+}
+[data-appearance=glass] .auth-art .eyebrow{color:#a7c091}
+[data-appearance=glass] :is(.card-publication>span,.library-section .journal-name){color:#275f73}
+[data-appearance=glass] .chat-message.user{background:rgb(220 239 248 / var(--glass-alpha,.72))}
+[data-appearance=glass] :is(.chat-compose textarea,.chat-tasks button.active,.chat-task-row:focus-within){
+  color:var(--glass-ink);background:var(--glass-control);border-color:#c9dfe6;border-radius:13px;
+}
+[data-appearance=glass] .chat-compose-actions button{border-radius:999px}
+
+[data-appearance=glass] .sidebar{isolation:isolate}
+.sidebar-glass-highlight{display:none}
+[data-appearance=glass] .sidebar-glass-highlight{
+  display:block;position:absolute;top:0;left:0;z-index:-1;opacity:0;pointer-events:none;border-radius:999px;
+  background:radial-gradient(ellipse 100px 48px at var(--glass-x,50%) var(--glass-y,50%),#fff,transparent),linear-gradient(150deg,#ffffffce,#d6edf4be);
+  box-shadow:inset 0 0 0 1px #fff,0 3px 8px #31576827;transition:opacity .16s ease;
+}
+[data-appearance=glass] .sidebar-glass-highlight.visible{
+  opacity:1;transition:opacity .16s ease,transform .31s cubic-bezier(.18,.82,.28,1.12),width .28s ease-out,height .28s ease-out;
+}
+[data-appearance=glass] .sidebar:has(.sidebar-glass-highlight.visible) :is(.nav-link,.tag-nav):hover{background:transparent;box-shadow:none}
+[data-appearance=glass] .sidebar :is(.nav-link,.tag-nav){color:#345b6b;border-radius:999px}
+[data-appearance=glass] .sidebar .nav-link.active{color:#193c4d;background:#d8edf67f}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){
+  [data-appearance=glass] :is(.library-section,.author-directory .author-entry,.chat-container,.chat-message,.chat-message.user,.chat-tasks,.chat-compose,.glass-preview>div){background:#f3f8fa}
+}
+@media(prefers-reduced-motion:reduce){
+  html[data-language-motion][data-appearance=glass] .language-switch::before{animation:none}
+  [data-appearance=glass] .sidebar-glass-highlight.visible{transition:none}
+}

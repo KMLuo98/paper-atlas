@@ -411,10 +411,12 @@ export function translateText(value, lang = language) {
   for (const [from, to] of Object.entries(fragments)) translated = translated.replaceAll(from, to);
   return translated;
 }
+let languageAnimationTimer;
 export function setLanguage(next) {
+  if (next === language) return;
   language = next === 'en' ? 'en' : 'zh';
   try {localStorage.setItem('pa-language', language);} catch {}
-  if (typeof document !== 'undefined') {document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN'; document.dispatchEvent(new Event('pa-language-change'));}
+  if (typeof document !== 'undefined') {document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN'; document.documentElement.dataset.languageMotion=language; clearTimeout(languageAnimationTimer);languageAnimationTimer=setTimeout(()=>delete document.documentElement.dataset.languageMotion,420); document.dispatchEvent(new Event('pa-language-change'));}
 }
 export function installI18n() {
   const originals = new WeakMap(), attributes = new WeakMap(); let pending = false;
@@ -422,7 +424,7 @@ export function installI18n() {
     pending = false; document.documentElement.lang = language === 'en' ? 'en' : 'zh-CN';
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let node; (node = walker.nextNode());) {
-      if (node.parentElement?.closest('script,style,textarea,pre,code,.summary,.paper-title,.paper-authors,.keyword-chip,.key-once,[data-user-content],[data-language-toggle]')) continue;
+      if (node.parentElement?.closest('script,style,textarea,pre,code,.summary,.paper-title,.paper-authors,.keyword-chip,.key-once,[data-user-content],[data-language-toggle],[data-language-control]')) continue;
       if (!originals.has(node)) originals.set(node, node.data);
       const next = translateText(originals.get(node)); if (node.data !== next) node.data = next;
     }
@@ -434,10 +436,11 @@ export function installI18n() {
       }
     });
     document.querySelectorAll('[data-summary-heading]').forEach(el=>{const zh=el.dataset.summaryHeading;const en={'问题':'Question','模型':'Model','模型与方法':'Model and methods','结论与现象':'Findings','局限与待核验':'Limitations and checks'}[zh]||zh;const next=(language==='en'?en:zh)+(language==='en'?':':'：');if(el.textContent!==next)el.textContent=next;});
+    document.querySelectorAll('[data-language-choice]').forEach(button=>{const pressed=String(button.dataset.languageChoice===language);if(button.getAttribute('aria-pressed')!==pressed)button.setAttribute('aria-pressed',pressed);});
     document.querySelectorAll('[data-language-toggle]').forEach(button => {const label = language === 'en' ? '中文' : 'English'; if (button.textContent !== label) button.textContent = label;});
   }
   const observer = new MutationObserver(() => {if (!pending) {pending = true; queueMicrotask(update);}});
   observer.observe(document.body, {childList:true,subtree:true,characterData:true});
-  document.addEventListener('click', event => {if (event.target.closest('[data-language-toggle]')) setLanguage(language === 'en' ? 'zh' : 'en');});
+  document.addEventListener('click', event => {const choice=event.target.closest('[data-language-choice]');if(choice)setLanguage(choice.dataset.languageChoice);else if (event.target.closest('[data-language-toggle]')) setLanguage(language === 'en' ? 'zh' : 'en');});
   document.addEventListener('pa-language-change', update); update();
 }

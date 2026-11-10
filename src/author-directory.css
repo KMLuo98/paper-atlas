@@ -14,3 +14,7 @@
 
 .author-card-wrapper.author-merge-target .author-entry{outline:2px solid #568063;outline-offset:-2px;background:#eaf2e7}
 .author-card-wrapper .author-entry[draggable=true]{cursor:grab}
+
+.author-merge-source .author-entry {outline:2px solid #51847d;outline-offset:-2px}
+.author-merge-hint {color:var(--muted);margin:0 0 10px}
+.author-card-wrapper .author-entry[draggable=false] {cursor:pointer}

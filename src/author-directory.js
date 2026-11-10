@@ -12,6 +12,7 @@ const formats = () => [['given_family', 'First Last'], ['family_given', 'Last, F
 export function createAuthorDirectory({state, shell, icon, modal, busy, toast, go, goBack=()=>go('author-directory'), uiIcons}) {
   let owner = '', profiles = [], photos = new Map(), loadedAt = 0, loading = null, revision = 0;
   let maintenance=null, maintenanceTimer=null, repaintTimer=null, rescan=false, paused=false, listPaint=null, pendingRequest=null;
+  let mergeMode=false, mergeSource='';
   let preferences = {view: 'cards', sort: 'name', format: 'given_family'}, query = '';
   let directoryStamp='',directoryRows=[],affiliationCache=new WeakMap();
   const ownerId = () => state.user?.id || 'demo';
@@ -69,21 +70,27 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
   }
   function cards(authors) {
     const rows=filterAuthors(authors,query,preferences.sort,preferences.format),list=preferences.view==='list',groups=new Map();
-    const items=rows.map(person=>{const group=authorIndexValue(person,preferences.sort,preferences.format);let anchor='';if(!groups.has(group)){anchor='author-index-'+groups.size;groups.set(group,anchor);}return `<article ${anchor?`id="${anchor}"`:''} class="author-card-wrapper" data-author-card="${e(person.key)}"><a class="author-entry" draggable="true" href="#/${routeFor(person)}">${photo(person)}<h2 data-user-content>${e(nameOf(person))}</h2><p class="author-institution" data-user-content>${institutionMarkup(person)}</p><div class="author-paper-count"><strong aria-label="${l('库内论文数','Library paper count')}">${person.paper_count}</strong></div></a><button type="button" class="author-card-edit" data-author-card-edit="${e(person.key)}" aria-label="${l('编辑作者信息','Edit author profile')}：${e(nameOf(person))}" title="${l('编辑信息','Edit profile')}">${icon('square-pen')}</button></article>`;}).join('');
+    const items=rows.map(person=>{const group=authorIndexValue(person,preferences.sort,preferences.format);let anchor='';if(!groups.has(group)){anchor='author-index-'+groups.size;groups.set(group,anchor);}return `<article ${anchor?`id="${anchor}"`:''} class="author-card-wrapper" data-author-card="${e(person.key)}"><a class="author-entry" draggable="${mergeMode}" href="#/${routeFor(person)}">${photo(person)}<h2 data-user-content>${e(nameOf(person))}</h2><p class="author-institution" data-user-content>${institutionMarkup(person)}</p><div class="author-paper-count"><strong aria-label="${l('库内论文数','Library paper count')}">${person.paper_count}</strong></div></a><button type="button" class="author-card-edit" data-author-card-edit="${e(person.key)}" aria-label="${l('编辑作者信息','Edit author profile')}：${e(nameOf(person))}" title="${l('编辑信息','Edit profile')}">${icon('square-pen')}</button></article>`;}).join('');
     return `<div class="author-results-count">${rows.length} ${l('位作者','authors')}</div><div class="author-browser"><div class="author-entries ${list?'is-list':''}">${list&&rows.length?`<div class="author-list-head"><span></span><span>${l('姓名','Name')}</span><span>${l('机构','Institution')}</span><span>${l('论文数','Papers')}</span></div>`:''}${items||`<div class="notice">${l('没有匹配的作者。','No matching authors.')}</div>`}</div><nav class="author-index" aria-label="${l('作者索引','Author index')}">${[...groups].map(([label,anchor])=>`<button data-author-index="${anchor}" type="button">${e(label)}</button>`).join('')}</nav></div>`;
   }
   async function renderList(isCurrent = () => true) {
-    const version = ++revision; switchOwner();
+    const version = ++revision; switchOwner();mergeMode=false;mergeSource='';
     shell(l('作者库', 'Author directory'), `<div class="content"><p role="status">${l('正在读取作者资料…', 'Loading authors…')}</p></div>`);
     await load(); if (!isCurrent() || revision !== version) return;
     const authors = people();
-    shell(l('作者库', 'Author directory'), `<div class="content author-directory"><div class="row page-head"><div><h1 class="page-title">${l('作者库', 'Author directory')}.</h1></div><button id="authors-refresh">${icon('refresh-cw')} ${l('刷新', 'Refresh')}</button><button id="authors-merge">${l('合并作者','Merge authors')}</button><button id="authors-match-all">${icon('sparkles')} ${l('匹配作者信息','Match author information')}</button></div><div class="author-toolbar"><div class="search-wrap">${icon('search')}<input id="authors-search" type="search" placeholder="${l('搜索姓名、别名、机构或邮箱…', 'Search names, aliases, institutions or email…')}" aria-label="${l('搜索作者', 'Search authors')}" value="${e(query)}"></div><label>${l('排序', 'Sort')}<select id="authors-sort"><option value="name" ${preferences.sort === 'name' ? 'selected' : ''}>${l('姓名首字母', 'Name A–Z')}</option><option value="papers" ${preferences.sort === 'papers' ? 'selected' : ''}>${l('库内论文数量', 'Library paper count')}</option></select></label><label>${l('姓名格式', 'Name format')}<select id="authors-format">${formatOptions(preferences.format)}</select></label><div class="view-switch"><button id="authors-cards" aria-label="${l('卡片视图', 'Card view')}" class="${preferences.view === 'cards' ? 'active' : ''}">${icon('layout-grid')}</button><button id="authors-list" aria-label="${l('列表视图', 'List view')}" class="${preferences.view === 'list' ? 'active' : ''}">${icon('list')}</button></div></div><div id="authors-results">${cards(authors)}</div></div>`);
-    const paint = () => {const root=document.querySelector('#authors-results');if(!root)return;root.innerHTML=cards(people());bindIndex();bindCardActions();};listPaint=paint;bindIndex();bindCardActions();
+    shell(l('作者库', 'Author directory'), `<div class="content author-directory"><div class="row page-head"><div><h1 class="page-title">${l('作者库', 'Author directory')}.</h1></div><button id="authors-refresh">${icon('refresh-cw')} ${l('刷新', 'Refresh')}</button><button id="authors-merge" aria-pressed="false">${l('合并作者','Merge authors')}</button><button id="authors-match-all">${icon('sparkles')} ${l('匹配作者信息','Match author information')}</button></div><div class="author-toolbar"><div class="search-wrap">${icon('search')}<input id="authors-search" type="search" placeholder="${l('搜索姓名、别名、机构或邮箱…', 'Search names, aliases, institutions or email…')}" aria-label="${l('搜索作者', 'Search authors')}" value="${e(query)}"></div><label>${l('排序', 'Sort')}<select id="authors-sort"><option value="name" ${preferences.sort === 'name' ? 'selected' : ''}>${l('姓名首字母', 'Name A–Z')}</option><option value="papers" ${preferences.sort === 'papers' ? 'selected' : ''}>${l('库内论文数量', 'Library paper count')}</option></select></label><label>${l('姓名格式', 'Name format')}<select id="authors-format">${formatOptions(preferences.format)}</select></label><div class="view-switch"><button id="authors-cards" aria-label="${l('卡片视图', 'Card view')}" class="${preferences.view === 'cards' ? 'active' : ''}">${icon('layout-grid')}</button><button id="authors-list" aria-label="${l('列表视图', 'List view')}" class="${preferences.view === 'list' ? 'active' : ''}">${icon('list')}</button></div></div><p class="author-merge-hint" hidden>${l('把来源作者拖到要保留的作者上，也可以依次点击两条记录。','Drag the source onto the author you want to retain, or select the two records in order.')}</p><div id="authors-results">${cards(authors)}</div></div>`);
+    const paint = () => {const root=document.querySelector('#authors-results');if(!root)return;mergeSource='';root.innerHTML=cards(people());bindIndex();bindCardActions();};listPaint=paint;bindIndex();bindCardActions();
     document.querySelector('#authors-search').oninput = event => {query = event.target.value; paint();};
     document.querySelector('#authors-sort').onchange = event => {preferences.sort = event.target.value; persist(); paint();};
     document.querySelector('#authors-format').onchange = event => {preferences.format = event.target.value; persist(); paint();};
     for (const [id, value] of [['authors-cards', 'cards'], ['authors-list', 'list']]) document.querySelector('#' + id).onclick = () => {preferences.view = value; persist(); document.querySelector('#authors-cards').classList.toggle('active', value === 'cards'); document.querySelector('#authors-list').classList.toggle('active', value === 'list'); paint();};
-    document.querySelector('#authors-merge').onclick = () => mergeDialog();
+    document.querySelector('#authors-merge').onclick = event => {
+      mergeMode=!mergeMode;mergeSource='';
+      event.currentTarget.setAttribute('aria-pressed',String(mergeMode));
+      event.currentTarget.textContent=mergeMode?l('退出合并','Exit merge mode'):l('合并作者','Merge authors');
+      document.querySelector('.author-merge-hint').hidden=!mergeMode;
+      paint();
+    };
     bindCardDrag(document.querySelector('#authors-results'));
     document.querySelector('#authors-match-all').onclick = () => matchDialog();
     document.querySelector('#authors-refresh').onclick = event => busy(event.currentTarget, async () => {await load(true); await renderList(isCurrent);}); uiIcons();
@@ -96,37 +103,37 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
     const run=keys=>{d.close();return startMaintenance({information:true,force:true,authorKeys:keys}).catch(error=>toast(error.message));};
     d.el.querySelector('#author-match-selected').onclick=()=>run([...selected]);d.el.querySelector('#author-match-everyone').onclick=()=>run(authors.map(p=>p.key));paint();
   }
-  function mergeDialog(sourceKey='',targetKey=''){
-    const authors=people(),label=l('合并作者','Merge authors');
-    const d=modal(label,`<p>${l('将来源作者的论文和其他姓名写法归到保留作者。请确认两条记录属于同一人。','Combine the source author’s papers and aliases under the retained author. Confirm both records belong to the same person.')}</p><label>${l('筛选作者','Filter authors')}<input type="search" id="merge-author-query"></label><label>${l('来源作者','Source author')}<select id="merge-author-source"></select></label><label>${l('保留作者','Retained author')}<select id="merge-author-target"></select></label><p id="merge-author-status" role="status"></p><button id="merge-author-confirm" class="primary">${label}</button>`);
-    const source=d.el.querySelector('#merge-author-source'),target=d.el.querySelector('#merge-author-target'),confirm=d.el.querySelector('#merge-author-confirm'),search=d.el.querySelector('#merge-author-query'),status=d.el.querySelector('#merge-author-status');
-    const paint=()=>{
-      const matches=filterAuthors(authors,search.value,preferences.sort,preferences.format);
-      for(const [select,key] of [[source,sourceKey],[target,targetKey]]){
-        const candidates=matches.some(p=>p.key===key)?matches:[...authors.filter(p=>p.key===key),...matches];
-        select.innerHTML=`<option value="">${l('选择作者','Choose author')}</option>`+candidates.map(p=>`<option value="${e(p.key)}" ${p.key===key?'selected':''}>${e(nameOf(p))} · ${e(p.institution||p.orcid||'')} · ${p.paper_count}</option>`).join('');
-        select.value=key;
-      }
-      const a=authors.find(p=>p.key===sourceKey),b=authors.find(p=>p.key===targetKey),conflict=a?.orcid&&b?.orcid&&a.orcid!==b.orcid;
-      status.textContent=conflict?l('两条记录的 ORCID 不同，请核对身份。','These records have different ORCID IDs. Verify their identity.'):a&&b&&a!==b?l('合并后的库内论文数：','Distinct papers after merging: ')+new Set([...a.papers,...b.papers].map(p=>p.id)).size:'';
-      confirm.disabled=!a||!b||a===b||!!conflict;
-    };
-    search.oninput=paint;source.onchange=()=>{sourceKey=source.value;paint();};target.onchange=()=>{targetKey=target.value;paint();};
+  function mergeDialog(sourceKey,targetKey){
+    const authors=people(),source=authors.find(p=>p.key===sourceKey),target=authors.find(p=>p.key===targetKey);
+    if(!source||!target||source===target)return;
+    const conflict=source.orcid&&target.orcid&&source.orcid!==target.orcid;
+    const count=new Set([...source.papers,...target.papers].map(p=>p.id)).size;
+    const d=modal(l('合并作者','Merge authors'),`<p data-user-content><strong>${e(nameOf(source))}</strong> → <strong>${e(nameOf(target))}</strong></p><p>${conflict?l('两条记录的 ORCID 不同，请核对身份。','These records have different ORCID IDs. Verify their identity.'):l('确认属于同一人后，保留右侧作者。合并后的库内论文数：','Confirm these are the same person. The author on the right is retained. Distinct library papers: ')+count}</p><div class="actions"><button data-merge-cancel>${l('取消','Cancel')}</button><button data-merge-confirm class="primary" ${conflict?'disabled':''}>${l('确认合并','Confirm merge')}</button></div>`);
+    const confirm=d.el.querySelector('[data-merge-confirm]');
+    d.el.querySelector('[data-merge-cancel]').onclick=()=>d.close();
     confirm.onclick=()=>busy(confirm,async()=>{
       const id=ownerId(),result=await api('author_merge',{author_key:targetKey,source_key:sourceKey});
       if(id!==ownerId())return;
       await updateProfile(result);d.close();listPaint?.();toast(l('作者已合并','Authors merged'));
     });
-    paint();
   }
   function bindCardDrag(root){
     let source='',target=null,frame=0,velocity=0;
+    root.addEventListener('click',event=>{
+      const entry=event.target.closest('.author-entry');
+      if(!mergeMode||!entry)return;
+      event.preventDefault();
+      const card=entry.closest('[data-author-card]'),key=card.dataset.authorCard;
+      root.querySelector('.author-merge-source')?.classList.remove('author-merge-source');
+      if(mergeSource&&mergeSource!==key){const previous=mergeSource;mergeSource='';mergeDialog(previous,key);}
+      else {mergeSource=mergeSource?'':key;card.classList.toggle('author-merge-source',!!mergeSource);}
+    });
     const stop=()=>{if(frame)cancelAnimationFrame(frame);frame=0;velocity=0;target?.classList.remove('author-merge-target');target=null;source='';};
     const scroll=()=>{if(!root.isConnected||!source){stop();return;}window.scrollBy(0,velocity);frame=velocity?requestAnimationFrame(scroll):0;};
     root.addEventListener('dragstart',event=>{
       const card=event.target.closest('[data-author-card]');
-      if(!card||state.demo||event.target.closest('button')){event.preventDefault();return;}
-      source=card.dataset.authorCard;if(!event.dataTransfer){stop();return;}event.dataTransfer.setData('text/plain',source);event.dataTransfer.effectAllowed='move';
+      if(!mergeMode||!card||state.demo||event.target.closest('button')){event.preventDefault();return;}
+      mergeSource='';root.querySelector('.author-merge-source')?.classList.remove('author-merge-source');source=card.dataset.authorCard;if(!event.dataTransfer){stop();return;}event.dataTransfer.setData('text/plain',source);event.dataTransfer.effectAllowed='move';
     });
     root.ondragover=event=>{
       if(!source)return;event.preventDefault();

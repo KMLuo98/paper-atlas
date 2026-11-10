@@ -1,4 +1,4 @@
-import {currentAppearance,setAppearance} from './appearance.js';
+import {currentAppearance,setAppearance,glassTransparency,setGlassTransparency} from './appearance.js';
 import {getLanguage} from './i18n.js';
 import {db, api,ensureStorageSpace} from './cloud.js';
 import {escapeHTML as e} from './core.js';
@@ -7,12 +7,14 @@ import {passwordError} from '../supabase/functions/_shared/password.js';
 export function renderProfile({state, shell, icon, busy, modal, toast, refresh, render, go}) {
   shell('个人设置', `<div class="content"><div class="eyebrow">YOUR PERSONAL SPACE</div><h1 class="page-title">个人设置.</h1><p class="subtitle">管理你的头像、个人资料与账户。</p><section class="settings-card"><h3>头像与资料</h3><div class="profile-preview"><div class="avatar large-avatar">${state.avatarURL ? `<img src="${e(state.avatarURL)}" alt="当前头像">` : e((state.profile?.display_name || state.profile?.username || 'DE').slice(0, 2))}</div><div><button id="choose-avatar">${icon('cloud-upload')} 上传头像</button><button id="remove-avatar" class="text-button">移除头像</button><p>JPG、PNG 或 WebP，最大 5 MB。</p></div></div><input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp" hidden><form id="profile-form"><label>显示名称<input name="display_name" maxlength="60" value="${e(state.profile?.display_name || '')}" placeholder="你的名字或昵称"></label><label>用户名<input value="${e(state.profile?.username || 'demo')}" readonly></label><label>邮箱<input value="${e(state.user?.email || '演示模式')}" readonly></label><button type="submit" class="primary">保存资料</button></form></section><section class="settings-card danger-zone"><h3>注销账户</h3><p>注销将永久删除你的账户、头像、全部论文（含回收站）、分析结果和 API 令牌，无法恢复。请先下载需要保留的论文和引用。</p><button id="delete-account" class="danger">注销我的账户</button></section></div>`);
   const english=getLanguage()==='en',appearance=currentAppearance();
-  document.querySelector('.settings-card').insertAdjacentHTML('beforebegin',`<section class="settings-card"><h3>${english?'Appearance':'界面风格'}</h3><div class="appearance-options" role="group" aria-label="${english?'Appearance':'界面风格'}" data-selected="${appearance}"><button type="button" data-appearance-choice="classic" aria-pressed="${appearance==='classic'}">${english?'Classic':'经典'}</button><button type="button" data-appearance-choice="glass" aria-pressed="${appearance==='glass'}">${english?'Liquid Glass':'液态玻璃'}</button></div></section>`);
+  document.querySelector('.settings-card').insertAdjacentHTML('beforebegin',`<section class="settings-card"><h3>${english?'Appearance':'界面风格'}</h3><div class="appearance-options" role="group" aria-label="${english?'Appearance':'界面风格'}" data-selected="${appearance}"><button type="button" data-appearance-choice="classic" aria-pressed="${appearance==='classic'}">${english?'Classic':'经典'}</button><button type="button" data-appearance-choice="glass" aria-pressed="${appearance==='glass'}">${english?'Liquid Glass':'液态玻璃'}</button></div><div class="glass-settings" ${appearance==='glass'?'':'hidden'}><label>${english?'Transparency':'透明度'} <output>${glassTransparency()}%</output><input type="range" id="glass-transparency" min="10" max="65" value="${glassTransparency()}"></label><div class="glass-preview"><div><strong>${english?'Preview':'效果预览'}</strong><small>${english?'Paper title · Author':'论文标题 · 作者'}</small></div></div></div></section>`);
   const options=document.querySelector('.appearance-options');
+  const glassSettings=document.querySelector('.glass-settings'),slider=glassSettings.querySelector('input');
+  slider.oninput=()=>{setGlassTransparency(slider.value);glassSettings.querySelector('output').textContent=slider.value+'%';};
   const appearanceButtons=[...options.querySelectorAll('[data-appearance-choice]')];
   for(const button of appearanceButtons)button.onclick=()=>{
     const value=button.dataset.appearanceChoice;
-    setAppearance(value);options.dataset.selected=value;
+    setAppearance(value);options.dataset.selected=value;glassSettings.hidden=value!=='glass';
     for(const choice of appearanceButtons)choice.setAttribute('aria-pressed',String(choice===button));
   };
   const danger=document.querySelector('.danger-zone');
