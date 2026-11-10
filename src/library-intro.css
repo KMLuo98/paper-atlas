@@ -39,3 +39,16 @@
   .atlas-filed { opacity: 1; }
   .atlas-stack { opacity: 0; }
 }
+
+.atlas-login-scene .atlas-scholar { animation: atlas-approach 1.25s ease-out both; }
+.atlas-login-scene .atlas-stack { animation: none; }
+.atlas-study-door { transform-origin: 231px 0; animation: atlas-open 850ms ease-in-out 1.3s both; }
+.atlas-door-hand { opacity: 0; animation: atlas-reach 850ms ease-in-out 1.15s; }
+@keyframes atlas-approach { to { transform: translateX(192px); } }
+@keyframes atlas-open { to { transform: translateX(103px) scaleX(.23) skewY(-10deg); } }
+@keyframes atlas-reach { 30%, 55% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .atlas-login-scene .atlas-scholar { animation: none; transform: translateX(192px); }
+  .atlas-login-scene .atlas-stack { opacity: 1; }
+  .atlas-study-door { animation: none; transform: translateX(103px) scaleX(.23) skewY(-10deg); }
+}

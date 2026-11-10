@@ -140,9 +140,6 @@ API 与集成|API & integrations
 退出登录|Sign out
 了解 Paper Atlas|About Paper Atlas
 论文按用户隔离存储，API 密钥仅保存在服务端。|Each user has a private library. AI credentials stay on the server.
-让每一篇读过的论文，都成为下一次发现的起点。|Let every paper inspire your next discovery.
-收集、理解、连接，构建你的学术知识地图。|Collect, understand and connect your research.
-整理知识的脉络，让下一次发现从这里开始。|Organize what you know. Discover what comes next.
 导出引用|Export citations
 导出引文|Export citations
 上传论文|Upload papers

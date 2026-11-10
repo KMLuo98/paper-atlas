@@ -10,24 +10,7 @@ const publishers = [
 const sheet = `<rect width="25" height="32" rx="3" fill="#fffefa" stroke="#9aab9d"/>
   <path d="M5 8h15M5 14h12M5 20h15M5 26h9" stroke="#8c9f92" stroke-width="1.5" stroke-linecap="round"/>`;
 
-function scene() {
-  return `<svg viewBox="0 0 640 330" aria-hidden="true">
-    <rect x="10" y="8" width="620" height="306" rx="36" fill="#e8eee0"/>
-    <circle cx="132" cy="104" r="63" fill="#f6edcf"/>
-    <path d="M35 288h570" stroke="#c6d1bf" stroke-width="2"/>
-    <rect x="285" y="38" width="304" height="232" rx="13" fill="#856654"/>
-    ${publishers.map(([name, mark, color], i) => {
-      const x = 297 + (i % 4) * 71, y = 51 + Math.floor(i / 4) * 88;
-      return `<g transform="translate(${x} ${y})">
-        <rect width="66" height="80" rx="5" fill="#faf5e8"/>
-        <path d="M5 41 36 5h10L5 53z" fill="#fff" opacity=".7"/>
-        <circle cx="33" cy="18" r="11" fill="${color}"/>
-        <text x="33" y="23" fill="white" font-size="14" font-weight="800">${mark}</text>
-        <text x="33" y="47" fill="#344538" font-size="12" font-weight="700">${name}</text>
-        <g class="atlas-filed" style="--file-time:${1700 + i * 260}ms" transform="translate(15 56) scale(1.45 .58)">${sheet}</g>
-      </g>`;
-    }).join('')}
-    <g class="atlas-scholar">
+const scholar = `<g class="atlas-scholar">
       <ellipse cx="61" cy="277" rx="45" ry="7" fill="#bccbbb"/>
       <g class="atlas-walk">
         <path class="atlas-foot" d="M42 248v23h-9" fill="none" stroke="#293b35" stroke-width="11" stroke-linecap="round"/>
@@ -49,7 +32,26 @@ function scene() {
         <path d="M38 193q13 29 37 11" fill="none" stroke="#3a6255" stroke-width="12" stroke-linecap="round"/>
         <circle cx="78" cy="202" r="6" fill="#f5c49f"/>
       </g>
-    </g>
+    </g>`;
+
+function scene() {
+  return `<svg viewBox="0 0 640 330" aria-hidden="true">
+    <rect x="10" y="8" width="620" height="306" rx="36" fill="#e8eee0"/>
+    <circle cx="132" cy="104" r="63" fill="#f6edcf"/>
+    <path d="M35 288h570" stroke="#c6d1bf" stroke-width="2"/>
+    <rect x="285" y="38" width="304" height="232" rx="13" fill="#856654"/>
+    ${publishers.map(([name, mark, color], i) => {
+      const x = 297 + (i % 4) * 71, y = 51 + Math.floor(i / 4) * 88;
+      return `<g transform="translate(${x} ${y})">
+        <rect width="66" height="80" rx="5" fill="#faf5e8"/>
+        <path d="M5 41 36 5h10L5 53z" fill="#fff" opacity=".7"/>
+        <circle cx="33" cy="18" r="11" fill="${color}"/>
+        <text x="33" y="23" fill="white" font-size="14" font-weight="800">${mark}</text>
+        <text x="33" y="47" fill="#344538" font-size="12" font-weight="700">${name}</text>
+        <g class="atlas-filed" style="--file-time:${1700 + i * 260}ms" transform="translate(15 56) scale(1.45 .58)">${sheet}</g>
+      </g>`;
+    }).join('')}
+    ${scholar}
     ${publishers.map((_, i) => {
       const x = 257 + (i % 4) * 71, y = -77 + Math.floor(i / 4) * 88;
       return `<g transform="translate(55 181)"><g class="atlas-flying" style="--file-time:${1270 + i * 260}ms;--target-x:${x}px;--target-y:${y}px">${sheet}</g></g>`;
@@ -59,14 +61,47 @@ function scene() {
   </svg>`;
 }
 
-export function createLibraryIntro(language) {
+function loginScene() {
+  return `<svg class="atlas-login-scene" viewBox="0 0 640 330" aria-hidden="true">
+    <rect x="10" y="8" width="620" height="306" rx="36" fill="#e8eee0"/>
+    <circle cx="132" cy="104" r="63" fill="#f6edcf"/>
+    <path d="M35 288h570" stroke="#c6d1bf" stroke-width="2"/>
+    <rect x="286" y="39" width="255" height="245" rx="9" fill="#856654"/>
+    <rect x="298" y="51" width="231" height="225" rx="4" fill="#fcf1d6"/>
+    <rect x="322" y="69" width="184" height="198" rx="8" fill="#9d765b"/>
+    ${[79,139,199].map(y => `<g transform="translate(333 ${y})">
+      <rect width="162" height="51" rx="4" fill="#e4c39c"/>
+      ${[12,61,111].map(x => `<g transform="translate(${x} 13) rotate(-6)">
+        <rect x="5" y="-3" width="25" height="32" rx="3" fill="#fbebc5" stroke="#9aab9d"/>
+        ${sheet}
+      </g>`).join('')}
+    </g>`).join('')}
+    <g transform="translate(298 51)">
+      <g class="atlas-study-door">
+        <rect width="231" height="225" rx="4" fill="#598471" stroke="#34594b" stroke-width="3"/>
+        <rect x="20" y="20" width="191" height="185" rx="6" fill="#749a83" stroke="#a1b7a0" stroke-width="2"/>
+        <circle cx="34" cy="114" r="7" fill="#efcb77"/>
+      </g>
+    </g>
+    ${scholar}
+    <g class="atlas-door-hand">
+      <path d="M266 198q22 3 42-21" stroke="#3a6255" stroke-width="11" stroke-linecap="round" fill="none"/>
+      <circle cx="309" cy="176" r="6" fill="#f5c49f"/>
+    </g>
+  </svg>`;
+}
+
+export function createLibraryIntro(language, mode = 'startup') {
   const app = document.querySelector('#app');
   const overlay = document.createElement('div');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const caption = language === 'en' ? 'Getting your library ready…' : '正在整理你的文献库…';
+  const login = mode === 'login';
+  const caption = login
+    ? (language === 'en' ? 'Opening your study…' : '正在打开你的书房…')
+    : language === 'en' ? 'Getting your library ready…' : '正在整理你的文献库…';
   overlay.className = 'atlas-intro';
   overlay.setAttribute('role', 'status');
-  overlay.innerHTML = `<div class="atlas-intro-content">${scene()}<strong>Paper Atlas</strong><span>${caption}</span></div>`;
+  overlay.innerHTML = `<div class="atlas-intro-content">${login ? loginScene() : scene()}<strong>Paper Atlas</strong><span>${caption}</span></div>`;
   const previousInert = app.inert;
   app.inert = true;
   document.body.append(overlay);
@@ -82,7 +117,7 @@ export function createLibraryIntro(language) {
         overlay.remove();
         app.inert = previousInert;
       }, reduced ? 0 : 260);
-    }, reduced ? 0 : Math.max(0, 3450 - (performance.now() - start)));
+    }, reduced ? 0 : Math.max(0, (login ? 2500 : 3450) - (performance.now() - start)));
   }
   const watchdog = setTimeout(ready, 10000);
   return { ready };
