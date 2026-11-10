@@ -1,0 +1,107 @@
+import './appearance.css';
+
+const appearanceKey = 'pa-appearance';
+const transparencyKey = 'pa-glass-transparency';
+const root = document.documentElement;
+let transparency = 28;
+
+function applyAppearance(value) {
+  root.dataset.appearance = value === 'glass' ? 'glass' : 'classic';
+}
+
+function applyTransparency(value) {
+  const number = Number(value);
+  if (value == null || !Number.isFinite(number)) return;
+  transparency = Math.max(10, Math.min(65, Math.round(number)));
+  root.style.setProperty('--glass-alpha', String(1 - transparency / 100));
+}
+
+try {
+  applyAppearance(localStorage.getItem(appearanceKey));
+  applyTransparency(localStorage.getItem(transparencyKey));
+} catch { /* Appearance remains available when storage is restricted. */ }
+
+export function mailAppearanceHTML() {
+  return `<section class="settings-block mail-appearance"><div class="block-heading"><div><h2>外观</h2></div></div>
+    <div class="mail-appearance-options" role="group" aria-label="界面风格">
+      <button type="button" data-mail-appearance="classic">经典</button>
+      <button type="button" data-mail-appearance="glass">液态玻璃</button>
+    </div>
+    <label class="mail-transparency">玻璃透明度 <output id="mail-glass-value"></output>
+      <input type="range" id="mail-glass-transparency" min="10" max="65" step="1">
+    </label>
+  </section>`;
+}
+
+function paintAppearanceControls() {
+  const mode = root.dataset.appearance || 'classic';
+  const controls = document.querySelector('.mail-appearance-options');
+  if (!controls) return;
+  controls.dataset.selected = mode;
+  for (const button of controls.querySelectorAll('button')) {
+    button.setAttribute('aria-pressed', String(button.dataset.mailAppearance === mode));
+  }
+  const range = document.querySelector('#mail-glass-transparency');
+  range.value = transparency;
+  range.disabled = mode !== 'glass';
+  document.querySelector('#mail-glass-value').textContent = transparency + '%';
+}
+
+document.addEventListener('click', event => {
+  const button = event.target.closest?.('[data-mail-appearance]');
+  if (!button) return;
+  applyAppearance(button.dataset.mailAppearance);
+  try { localStorage.setItem(appearanceKey, root.dataset.appearance); } catch {}
+  paintAppearanceControls();
+});
+
+document.addEventListener('input', event => {
+  if (event.target.id !== 'mail-glass-transparency') return;
+  applyTransparency(event.target.value);
+  try { localStorage.setItem(transparencyKey, String(transparency)); } catch {}
+  paintAppearanceControls();
+});
+
+window.addEventListener('storage', event => {
+  if (event.key === appearanceKey) applyAppearance(event.newValue);
+  else if (event.key === transparencyKey) applyTransparency(event.newValue);
+  else return;
+  paintAppearanceControls();
+});
+
+const toolbarButtons = [
+  '.head-actions button', '.reader-toolbar button', '.compose-bottom button',
+  '.list-actions button', '.pagination button', '.translation-controls button',
+  '.email-bottom button', '.filter-controls button'
+].join(',');
+const actionIcons = {
+  'bulk-read':'check', 'bulk-category':'folder', 'load-older':'arrow-down',
+  'mark-unread':'mail', 'prev-page':'chevron-left', 'next-page':'chevron-right',
+  'sync':'refresh-cw', 'mail-columns':'settings-2', 'translate':'languages',
+  'leave-compose':'arrow-left', 'save-draft':'save', 'unread-filter':'mail',
+  'toggle-advertising':'shield-check'
+};
+
+export function prepareMailAppearance(icon) {
+  paintAppearanceControls();
+  for (const button of document.querySelectorAll(toolbarButtons)) {
+    if (button.classList.contains('mobile-icon-action')) continue;
+    const label = button.textContent.trim();
+    if (!label) continue;
+    const glyph = actionIcons[button.dataset.action];
+    const currentIcon = button.querySelector('[data-lucide],svg');
+    if (currentIcon && glyph) currentIcon.setAttribute('data-lucide', glyph);
+    if (!currentIcon) {
+      if (!glyph) continue;
+      button.insertAdjacentHTML('afterbegin', icon(glyph, 18));
+    }
+    const text = document.createElement('span');
+    text.className = 'mobile-action-label';
+    for (const node of [...button.childNodes]) if (node.nodeType === 3) text.append(node);
+    if (!text.textContent.trim()) continue;
+    button.append(text);
+    button.classList.add('mobile-icon-action');
+    if (!button.hasAttribute('aria-label')) button.setAttribute('aria-label', label);
+    if (!button.title) button.title = label;
+  }
+}
