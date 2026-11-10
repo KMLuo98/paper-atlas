@@ -46,6 +46,10 @@ test('glass highlight moves between rows and the view picker stays mounted when 
 });
 test('phone keyword rendering shows two plus remaining keywords in the expandable list',()=>{
  const f=fixture(390);f.qa.renderLibrary();const keywords=f.document.querySelector('tbody tr .keywords');assert.equal(keywords.querySelectorAll(':scope > .keyword-chip').length,2);assert.equal(keywords.querySelector('summary').textContent,'+8');
+ const d=f.document;assert(d.querySelector('.mobile-paper-sort #sort'));assert(d.querySelector('.mobile-paper-sort #sort-direction'));
+ const toggle=d.querySelector('.mobile-sidebar-toggle'),scrim=d.querySelector('.mobile-sidebar-scrim');
+ toggle.onclick();assert(d.querySelector('.shell').classList.contains('sidebar-open'));assert.equal(toggle.getAttribute('aria-expanded'),'true');assert.equal(scrim.hidden,false);
+ scrim.onclick();assert(!d.querySelector('.shell').classList.contains('sidebar-open'));assert.equal(scrim.hidden,true);
 });
 
 test('reader keyword action saves added terms and refreshes badges without remounting the PDF',async()=>{

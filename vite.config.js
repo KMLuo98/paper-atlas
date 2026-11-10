@@ -6,9 +6,9 @@ const interfaceTypeScale = {
     if (!/[\\/]src[\\/]/.test(declaration.source?.input.file || '')) return;
     const value = declaration.value;
     if (declaration.prop === 'font') {
-      declaration.value = value.replace(/(^|\s)(\d+(?:\.\d+)?px)(?=\s|\/)/, (_, gap, size) => gap + `calc(${size} + 1pt)`);
+      declaration.value = value.replace(/(^|\s)(\d+(?:\.\d+)?px)(?=\s|\/)/, (_, gap, size) => gap + `calc(${size} + var(--interface-font-step, 1pt))`);
     } else if (declaration.prop === 'font-size' && (/^\d+(?:\.\d+)?px$/.test(value) || value.startsWith('clamp('))) {
-      declaration.value = `calc(${value} + 1pt)`;
+      declaration.value = `calc(${value} + var(--interface-font-step, 1pt))`;
     }
   }
 };

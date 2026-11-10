@@ -42,8 +42,8 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
     g.append(make('circle', {r, fill: ['#50764c', '#87a76b', '#b4bd87', '#729180', '#b49f6a'][i % 5], stroke: '#fffefa', 'stroke-width': 2}));
     const innerText = authors ? node.name.split(' ').map(part => part[0]).slice(0, 2).join('') : (node.short_label === '未发表' && getLanguage() === 'en' ? 'Unpub.' : node.short_label || 'PDF');
     const units = [...innerText].reduce((sum, char) => sum + (/[\p{Script=Han}]/u.test(char) ? 1 : .62), 0), innerSize = r * Math.min(12 / 14, 1.72 / Math.max(1, units)), labelSize = r * 12 / 14;
-    const inner = make('text', {'text-anchor': 'middle', dy: innerSize * .35, class: 'node-inner-label', style: `fill:#fffef9;font-size:calc(${innerSize}px + 1pt);font-weight:600`}); inner.textContent = innerText; g.append(inner);innerEls.push(inner);
-    const label = make('text', {y: r + labelSize * 1.5, 'text-anchor': 'middle', class: 'node-label', style: `font-size:calc(${labelSize}px + 1pt)`});
+    const inner = make('text', {'text-anchor': 'middle', dy: innerSize * .35, class: 'node-inner-label', style: `fill:#fffef9;font-size:calc(${innerSize}px + var(--interface-font-step, 1pt));font-weight:600`}); inner.textContent = innerText; g.append(inner);innerEls.push(inner);
+    const label = make('text', {y: r + labelSize * 1.5, 'text-anchor': 'middle', class: 'node-label', style: `font-size:calc(${labelSize}px + var(--interface-font-step, 1pt))`});
     label.textContent = authors ? node.name : node.label.length > 27 ? node.label.slice(0, 25) + '…' : node.label; labelEls.push(label); g.append(label);
     const title = make('title'); title.textContent = node.label; g.append(title); viewport.append(g);
     g.onkeydown = event => {if (event.key === 'Enter' || event.key === ' ') {event.preventDefault(); activate(node);}};

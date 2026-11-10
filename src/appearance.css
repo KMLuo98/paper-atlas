@@ -279,11 +279,6 @@ html[data-language-motion=zh][data-appearance=glass] .language-switch::before{an
 [data-appearance=glass] .sidebar .storage-box{border-color:#c9dfe6}
 [data-appearance=glass] .sidebar .nav-link.active,
 [data-appearance=glass] #paper-results tbody tr.selected{background:rgb(197 226 235 / var(--glass-alpha,.72))}
-[data-appearance=glass] body {
-  background-color:#f5f8fa;
-  background-image:radial-gradient(ellipse at 12% 0%,rgb(189 216 237 / var(--glass-alpha,.72)),transparent 58%),
-                   radial-gradient(ellipse at 97% 35%,rgb(187 225 208 / var(--glass-alpha,.72)),transparent 58%);
-}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){
   [data-appearance=glass] :is(.settings-card,.sidebar .storage-box,.library-section th,.paper-cell>div){background:#f3f8fa}
 }
