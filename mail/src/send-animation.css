@@ -24,4 +24,8 @@
  .send-envelope-front{-webkit-clip-path:polygon(0 0,50% 48%,100% 0,100% 100%,0 100%)}
 }
 @keyframes send-seal-flat{0%,70%{transform:scaleY(-1)}100%{transform:scaleY(1)}}
-@media(prefers-reduced-motion:reduce){.send-letter,.send-envelope-flap,.mail-send-stage.is-departing .send-envelope,.mail-send-stage.is-departing .send-animation-status{animation:none}.send-letter{transform:translateY(30px) scale(.6)}.mail-send-stage.is-departing{opacity:0}}
+@media(prefers-reduced-motion:reduce){
+ .send-letter{transform:translateY(30px) scale(.6)}
+ .mail-send-stage.is-departing{animation:send-soft-exit .36s ease-out both!important}
+}
+@keyframes send-soft-exit{from{opacity:1}to{opacity:0}}

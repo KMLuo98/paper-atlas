@@ -20,7 +20,7 @@ function playMailIntro(){
  const cleanup=()=>{if(closed)return;closed=true;clearTimeout(finishTimer);overlay.remove();if(app)app.inert=wasInert;};
  function finish(){
   if(!ready||leaving||closed)return;
-  overlay.classList.add('is-finishing');finishTimer=setTimeout(()=>{if(closed)return;leaving=true;overlay.classList.add('is-leaving');overlay.querySelector('[data-intro-caption]').textContent='欢迎来到你的邮件工作台';finishTimer=setTimeout(cleanup,reduced?100:980);},reduced?0:300);
+  overlay.classList.add('is-finishing');finishTimer=setTimeout(()=>{if(closed)return;leaving=true;overlay.classList.add('is-leaving');overlay.querySelector('[data-intro-caption]').textContent='欢迎来到你的邮件工作台';finishTimer=setTimeout(cleanup,reduced?400:980);},reduced?0:300);
  }
  return {ready(){if(ready)return;ready=true;finish();},destroy:cleanup};
 }

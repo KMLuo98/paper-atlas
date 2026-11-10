@@ -40,4 +40,7 @@
 }
 @keyframes intro-flap-flat{from{transform:scaleY(1);z-index:6}to{transform:scaleY(-1);z-index:2}}
 @keyframes intro-close-flat{from{transform:scaleY(-1)}to{transform:scaleY(1)}}
-@media(prefers-reduced-motion:reduce){.mail-launch .intro-envelope-flap,.mail-launch .intro-provider{animation:none}.mail-launch .intro-provider{opacity:0}.mail-launch.is-leaving,.mail-launch.is-leaving *{animation:none!important;transition:none!important}.mail-launch.is-leaving{opacity:0}}
+@media(prefers-reduced-motion:reduce){
+ .mail-launch.is-leaving{animation:intro-soft-exit .36s ease-out both!important}
+}
+@keyframes intro-soft-exit{from{opacity:1}to{opacity:0}}

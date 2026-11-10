@@ -27,6 +27,7 @@ try{
   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(12000);
   await page.route('**/src/cloud.js',r=>r.fulfill({body:mock,contentType:'application/javascript'}));
   await page.goto(process.env.MAIL_TEST_URL||'http://127.0.0.1:5174/');await page.locator('.mail-row').first().waitFor();
+  await page.locator('#mail-launch').waitFor({state:'detached'});
   const cdp=await context.newCDPSession(page);
   const swipe=async({x=8,y=210,dx=170,dy=0,cancel=false}={})=>{
    await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
@@ -49,6 +50,11 @@ try{
   await page.locator('[data-open="message-4"]').scrollIntoViewIfNeeded();
   const originalScroll=await page.evaluate(()=>scrollY);
   await page.locator('[data-open="message-4"]').click();await page.locator('.reader-page').waitFor();
+  await page.goBack();
+  await page.locator('.inbox-page').waitFor();
+  assert.equal(await page.locator('#mail-search').inputValue(),'fixture');
+  await page.goForward();
+  await page.locator('.reader-page').waitFor();
   if(width<700){
    await swipe({dx:35});assert.equal(await page.locator('.reader-page').count(),1);
    await swipe({dx:100,cancel:true});assert.equal(await page.locator('.reader-page').count(),1);

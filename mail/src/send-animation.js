@@ -14,7 +14,7 @@ export function beginSendAnimation(dialog){
  const packed=new Promise(resolve=>{settle=resolve;timer=setTimeout(resolve,reduced?0:850);});
  const cleanup=()=>{if(closed)return;closed=true;clearTimeout(timer);settle();stage.remove();dialog.classList.remove('is-mail-sending');dialog.removeAttribute('aria-busy');if(app)app.inert=wasInert;};
  return {
-  async accepted(){await packed;if(closed)return;stage.querySelector('p').textContent='邮件已提交投递';stage.classList.add('is-departing');await new Promise(resolve=>{settle=resolve;timer=setTimeout(resolve,reduced?100:950);});cleanup();},
+  async accepted(){await packed;if(closed)return;stage.querySelector('p').textContent='邮件已提交投递';stage.classList.add('is-departing');await new Promise(resolve=>{settle=resolve;timer=setTimeout(resolve,reduced?400:950);});cleanup();},
   cancel:cleanup
  };
 }
