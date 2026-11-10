@@ -25,3 +25,14 @@
 .reference-tags,.reference-tags .reference-badge{max-width:100%;overflow-wrap:anywhere;white-space:normal}.reference-tags .reference-badge{display:inline-block;line-height:1.7;margin:3px 4px 3px 0}.sm-file{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left;line-height:1.7}.sm-badge{margin-left:5px}.reader-info>[data-sm-add],.reader-info>#edit-references{margin:8px 0 14px}
 
 .paper-citations{display:flex;align-items:center;gap:5px;flex-wrap:wrap}.author-academic-stats strong{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+
+.network-node-search{position:sticky;top:0;z-index:2;background:var(--paper,#fffefa);padding:4px 0 12px}
+.network-node-search label{display:block;font-size:13px;font-weight:600;margin-bottom:5px}
+.network-node-search input{width:100%;box-sizing:border-box}
+.network-node-results{position:absolute;inset-inline:0;max-height:240px;overflow:auto;background:#fffefa;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 20px #263c3020}
+.network-node-results button{display:block;width:100%;text-align:start;border:0;border-radius:0;background:transparent;overflow-wrap:anywhere}
+.network-node-results button:hover,.network-node-results button:focus-visible,.ranking.active{background:#e9f1e2}
+.network-node-results p{padding:8px;margin:0}
+.network-side .ranking{cursor:pointer;scroll-margin-top:85px}
+.network-side .citation-rank{scroll-margin-top:85px}
+.network-side .network-group-button{min-width:26px;padding:2px 4px;justify-content:center}

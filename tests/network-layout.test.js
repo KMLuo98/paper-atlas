@@ -33,7 +33,7 @@ test('the rendered graph handles pinches starting on a node without opening its 
  event('pointerdown',1,100,svg.querySelector('.node circle'));event('pointerdown',2,200);event('pointermove',2,300);const after=Number(viewport.getAttribute('transform').match(/scale\(([^)]+)\)/)[1]);assert.equal(after,before*2);event('pointerup',2,300);event('pointerup',1,100);assert.equal(clicked,0);graph.destroy();delete globalThis.document;
 });
 
-test('citation node first activation selects and shows its label, second opens; author activation stays selected', () => {
+test('both networks select on first activation and open details on second', () => {
  for(const authors of [false,true]) {
   const {document}=parseHTML('<html><body><svg></svg></body></html>');const svg=document.querySelector('svg');
   const nodes=Array.from({length:45},(_,i)=>({id:String(i),label:'Paper '+i,name:'Author '+i,short_label:'PRE'}));let opened=0;
@@ -41,8 +41,11 @@ test('citation node first activation selects and shows its label, second opens; 
   const activate=id=>svg.querySelector(`[data-node-id="${id}"]`).onkeydown({key:'Enter',preventDefault(){}});
   activate('0');assert.equal(opened,0);assert.equal(svg.querySelectorAll('.node.selected').length,1);assert.equal(svg.querySelector('[data-node-id="0"] .node-label').style.display,'');
   assert.equal(svg.querySelector('[data-node-id="1"] .node-label').style.display,'none');assert(svg.querySelector('.selected-edge'));
-  activate('0');assert.equal(opened,authors?0:1);assert(svg.querySelector('[data-node-id="0"]').classList.contains('selected'));
-  activate('1');assert.equal(opened,authors?0:1);assert.equal(svg.querySelector('[data-node-id="0"] .node-label').style.display,'none');
+  activate('0');assert.equal(opened,1);assert(svg.querySelector('[data-node-id="0"]').classList.contains('selected'));
+  activate('1');assert.equal(opened,1);assert.equal(svg.querySelector('[data-node-id="0"] .node-label').style.display,'none');
+  graph.highlightGroup(['0','1','2']);assert.equal(svg.querySelectorAll('.node.selected').length,3);
+  assert.equal(svg.querySelectorAll('.selected-edge').length,1);
+  activate('2');assert.equal(opened,1);assert.equal(svg.querySelectorAll('.node.selected').length,1);
   graph.reset();assert.equal(svg.querySelectorAll('.node.selected').length,0);graph.destroy();
  }
 });

@@ -33,7 +33,7 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
     const el = make('line', {class: 'network-edge', stroke: '#aec29e', 'stroke-width': authors ? Math.min(4, 1 + Math.log1p(link.weight || 1)) : 1.3, 'stroke-opacity': links.length > nodes.length * 3 ? .18 : .42, ...(!authors ? {'marker-end': `url(#${markerId})`} : {})});
     viewport.append(el); return el;
   });
-  let selected = null, labels = nodes.length <= 40, scale = 1, tx = 0, ty = 0, disposed = false;
+  let selected = null, group = new Set(), labels = nodes.length <= 40, scale = 1, tx = 0, ty = 0, disposed = false;
   const labelEls = [], rings = [], innerEls=[], photoEls=[];
   let photosVisible=false;
   const nodeEls = nodes.map((node, i) => {
@@ -73,35 +73,42 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
     el.setAttribute('x2', edge.target.x - dx / distance * to); el.setAttribute('y2', edge.target.y - dy / distance * to);
   }
   function paint() {links.forEach((_, i) => paintEdge(i)); nodeEls.forEach((el, i) => {el.setAttribute('transform', `translate(${nodes[i].x},${nodes[i].y})`); el.setAttribute('data-community', nodes[i].community || '');});}
-  function fit() {
-    if (!nodes.length) {scale = 1; tx = 0; ty = 0; transform(); return;}
-    const left = Math.min(...nodes.map(n => n.x - radius(n.id))) - 50, right = Math.max(...nodes.map(n => n.x + radius(n.id))) + 50, top = Math.min(...nodes.map(n => n.y - radius(n.id))) - 50, bottom = Math.max(...nodes.map(n => n.y + radius(n.id))) + 60;
+  function fit(visible = nodes) {
+    if (!visible.length) {scale = 1; tx = 0; ty = 0; transform(); return;}
+    const left = Math.min(...visible.map(n => n.x - radius(n.id))) - 50, right = Math.max(...visible.map(n => n.x + radius(n.id))) + 50, top = Math.min(...visible.map(n => n.y - radius(n.id))) - 50, bottom = Math.max(...visible.map(n => n.y + radius(n.id))) + 60;
     scale = Math.min(1, (width - 24) / (right - left), (height - 24) / (bottom - top)); tx = width / 2 - (left + right) / 2 * scale; ty = height / 2 - (top + bottom) / 2 * scale; transform();
   }
   function paintSelection() {
-    const nearby = neighbors.get(selected);
+    const nearby = group.size ? group : neighbors.get(selected);
     nodeEls.forEach((el, i) => {
-      const id = nodes[i].id, active = id === selected;
-      el.classList.toggle('selected', active); el.classList.toggle('network-muted', !!selected && !nearby?.has(id)); el.setAttribute('aria-pressed', String(active));
+      const id = nodes[i].id, active = id === selected || group.has(id);
+      el.classList.toggle('selected', active); el.classList.toggle('network-muted', !!nearby && !nearby.has(id)); el.setAttribute('aria-pressed', String(active));
       rings[i].setAttribute('opacity', active ? '1' : '0'); labelEls[i].style.display = labels || active ? '' : 'none';
     });
     edgeEls.forEach((el, i) => {
-      const edge = links[i], active = !!selected && incident.get(selected)?.has(i), incoming = !authors && active && edge.target.id === selected, outgoing = !authors && active && edge.source.id === selected;
+      const edge = links[i], active = group.size ? group.has(edge.source.id) && group.has(edge.target.id) : !!selected && incident.get(selected)?.has(i), incoming = !authors && active && edge.target.id === selected, outgoing = !authors && active && edge.source.id === selected;
       el.classList.toggle('selected-edge', !!active); el.classList.toggle('incoming-edge', !!incoming); el.classList.toggle('outgoing-edge', !!outgoing);
       el.setAttribute('stroke', incoming ? '#2879b8' : outgoing ? '#d46b38' : '#aec29e');
       if (!authors) el.setAttribute('marker-end', `url(#${markerId}${incoming ? '-incoming' : outgoing ? '-outgoing' : ''})`);
-      el.classList.toggle('network-muted', !!selected && !active);
+      el.classList.toggle('network-muted', !!nearby && !active);
     });
   }
   function highlight(id, {focus = true} = {}) {
     const next = nodesById.has(id) ? id : null;
-    if (next !== selected) {selected = next; paintSelection(); onSelectionChange(selected);}
+    if (next !== selected || group.size) {group.clear(); selected = next; paintSelection(); onSelectionChange(selected);}
     if (selected && focus) {const node = nodesById.get(selected); scale = Math.max(1, Math.min(1.3, scale)); tx = width / 2 - node.x * scale; ty = height / 2 - node.y * scale; transform();}
     else if (!selected && focus) fit();
     return selected;
   }
+  function highlightGroup(ids) {
+    group = new Set(ids.filter(id => nodesById.has(id)));
+    selected = null;
+    paintSelection();
+    onSelectionChange(null);
+    fit([...group].map(id => nodesById.get(id)));
+  }
   function activate(node) {
-    if (!authors && selected === node.id) {onClick(node); return;}
+    if (selected === node.id) {onClick(node); return;}
     highlight(node.id, {focus: false});
   }
   function savePosition(node) {
@@ -128,7 +135,7 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
   function applyPositions(positions) {
     if (disposed) return;
     for (const position of positions) {const node = nodesById.get(position.id); if (node) {node.community = position.community; if (!manuallyMoved.has(node.id) && !saved.has(node.id)) {node.x = position.x; node.y = position.y;}}}
-    networkLayouts.set(layoutKey, positions.map(({id, x, y, community}) => ({id, x, y, community}))); paint(); fit(); busy(false); finishReady();
+    networkLayouts.set(layoutKey, positions.map(({id, x, y, community}) => ({id, x, y, community}))); paint(); if (group.size) fit([...group].map(id => nodesById.get(id))); else if (selected) highlight(selected); else fit(); busy(false); finishReady();
   }
   function fallback() {
     if (disposed) return;
@@ -151,5 +158,5 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
       } catch {worker?.terminate(); worker = null; fallback();}
     } else fallback();
   }
-  return {ready, setPhotos, destroy() {disposed = true; worker?.terminate(); cancelFallback(); if (frame !== null) host.cancelAnimationFrame?.(frame); gestures.destroy(); finishReady();}, reset() {gestures.cancel(); highlight(null, {focus: false}); fit();}, restoreLayout() {gestures.cancel(); saved.clear(); manuallyMoved.clear(); try {if (positionKey) host.localStorage.removeItem(positionKey);} catch {} const defaults = networkLayouts.get(layoutKey); if (defaults) applyPositions(defaults); else if (nodes.length && !worker) {cancelFallback(); fallback();} highlight(null, {focus: false});}, toggleLabels() {labels = !labels; paintSelection(); return labels;}, highlight};
+  return {ready, setPhotos, highlightGroup, destroy() {disposed = true; worker?.terminate(); cancelFallback(); if (frame !== null) host.cancelAnimationFrame?.(frame); gestures.destroy(); finishReady();}, reset() {gestures.cancel(); highlight(null, {focus: false}); fit();}, restoreLayout() {gestures.cancel(); saved.clear(); manuallyMoved.clear(); try {if (positionKey) host.localStorage.removeItem(positionKey);} catch {} const defaults = networkLayouts.get(layoutKey); if (defaults) applyPositions(defaults); else if (nodes.length && !worker) {cancelFallback(); fallback();} highlight(null, {focus: false});}, toggleLabels() {labels = !labels; paintSelection(); return labels;}, highlight};
 }
