@@ -57,7 +57,7 @@ test('reader includes continuous viewer and accessible split control; profile co
  const glass=f.document.querySelector('[data-appearance-choice=glass]');
  glass.onclick();assert.equal(f.document.documentElement.dataset.appearance,'glass');assert.equal(f.context.localStorage.getItem('pa-appearance'),'glass');assert.equal(glass.getAttribute('aria-pressed'),'true');
  const slider=f.document.querySelector('#glass-transparency');
- assert(!f.document.querySelector('.glass-settings').hidden);
+ assert(!f.document.querySelector('.glass-settings').hidden);assert(!f.document.querySelector('.glass-preview'));
  slider.value='42';slider.oninput();
  assert(Math.abs(Number(f.document.documentElement.style.getPropertyValue('--glass-alpha'))-.58)<.0001);
  assert.equal(f.context.localStorage.getItem('pa-glass-transparency'),'42');

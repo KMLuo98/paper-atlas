@@ -36,3 +36,16 @@
 .network-side .ranking{cursor:pointer;scroll-margin-top:85px}
 .network-side .citation-rank{scroll-margin-top:85px}
 .network-side .network-group-button{min-width:26px;padding:2px 4px;justify-content:center}
+
+.library-controls{flex-wrap:wrap}
+.library-controls>.search-wrap{min-width:min(100%,135px)}
+.library-controls>#ai-search,.library-controls .sort-direction{
+  width:auto;max-width:100%;white-space:normal;overflow-wrap:anywhere;justify-content:center;
+}
+.library-controls .journal-multi{flex:0 1 auto;min-width:0;max-width:100%}
+.library-controls :is(.journal-multi,.publication-filter)>summary{
+  max-width:100%;white-space:normal;overflow-wrap:anywhere;
+}
+.library-controls .filter-select{width:auto;max-width:100%;min-width:7em}
+.library-controls .search-wrap input{width:100%;min-width:0;box-sizing:border-box}
+.sidebar .storage-box :is(.row,small){min-width:0;overflow-wrap:anywhere}

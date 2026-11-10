@@ -34,7 +34,7 @@
 .appearance-options button:focus-visible {outline: 2px solid #26685d;outline-offset: 1px}
 
 html[data-appearance="glass"] {
-  --glass-surface: #edf4f3;
+  --glass-surface: rgb(237 244 243 / var(--glass-alpha,.72));
   --glass-edge: #fff;
   --glass-shadow: 0 8px 28px #29484019, inset 0 1px 0 #fff;
 }
@@ -69,7 +69,7 @@ html[data-appearance="glass"] {
 }
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
   [data-appearance="glass"] :is(.sidebar,.topbar,.dialog,.network-node-results) {
-    background: linear-gradient(155deg,#ffffffb8,#e4f3ee9e);
+    background: linear-gradient(155deg,rgb(255 255 255 / var(--glass-alpha,.72)),rgb(228 243 238 / var(--glass-alpha,.72)));
     -webkit-backdrop-filter: blur(18px) saturate(1.3);
     backdrop-filter: blur(18px) saturate(1.3);
   }
@@ -94,7 +94,7 @@ html[data-appearance="glass"] {
   --glass-ink: #193c4d;
   --glass-secondary: #4b6470;
   --glass-selection: #e1f1f6;
-  --glass-control: linear-gradient(158deg,#fffefdf0,#e7f2f7c7);
+  --glass-control: linear-gradient(158deg,rgb(255 254 253 / var(--glass-alpha,.72)),rgb(231 242 247 / var(--glass-alpha,.72)));
 }
 [data-appearance="glass"] :is(body,.topbar,.library-section,.paper-title,.paper-card,.settings-card) {
   color: var(--glass-ink);
@@ -167,8 +167,8 @@ html[data-appearance="glass"] {
   opacity: 0;
   pointer-events: none;
   border-radius: 15px;
-  background: radial-gradient(ellipse 145px 85px at var(--glass-x,50%) var(--glass-y,50%), #ffffffed, transparent),
-              linear-gradient(155deg,#f7fdffdb,#cce8efb8);
+  background: radial-gradient(ellipse 145px 85px at var(--glass-x,50%) var(--glass-y,50%), rgb(255 255 255 / var(--glass-alpha,.72)), transparent),
+              linear-gradient(155deg,rgb(247 253 255 / var(--glass-alpha,.72)),rgb(204 232 239 / var(--glass-alpha,.72)));
   box-shadow: inset 0 0 0 1px #fff, inset 0 -1px 1px #5b93a548, 0 3px 10px #31576820;
   transition: opacity .16s ease;
 }
@@ -197,9 +197,6 @@ html[data-appearance="glass"] {
 .glass-settings label{flex:1 1 190px}
 .glass-settings input{display:block;width:100%;accent-color:#4b8295}
 .glass-settings output{float:right;font-variant-numeric:tabular-nums}
-.glass-preview{flex:1 1 160px;padding:14px;border-radius:14px;background:linear-gradient(125deg,#8fb6c7,#ebd9bd,#b1cfc5)}
-.glass-preview>div{border:1px solid #fff;border-radius:12px;padding:10px;background:rgb(248 253 255 / var(--glass-alpha,.72));color:#193c4d}
-.glass-preview small{display:block;color:#425965}
 .appearance-options button:is(:hover,:active,[aria-pressed=true]){background:transparent;box-shadow:none}
 [data-appearance=glass] .appearance-options::before{background:var(--glass-control)}
 [data-appearance=glass] .appearance-options button:active{transform:none}
@@ -239,7 +236,8 @@ html[data-language-motion=zh][data-appearance=glass] .language-switch::before{an
   color:#416b78;
 }
 [data-appearance=glass] .auth-art .eyebrow{color:#a7c091}
-[data-appearance=glass] :is(.card-publication>span,.library-section .journal-name){color:#275f73}
+[data-appearance=glass] .card-publication>span{color:#275f73}
+[data-appearance=glass] .library-section .journal{color:var(--glass-ink)}
 [data-appearance=glass] .chat-message.user{background:rgb(220 239 248 / var(--glass-alpha,.72))}
 [data-appearance=glass] :is(.chat-compose textarea,.chat-tasks button.active,.chat-task-row:focus-within){
   color:var(--glass-ink);background:var(--glass-control);border-color:#c9dfe6;border-radius:13px;
@@ -250,7 +248,7 @@ html[data-language-motion=zh][data-appearance=glass] .language-switch::before{an
 .sidebar-glass-highlight{display:none}
 [data-appearance=glass] .sidebar-glass-highlight{
   display:block;position:absolute;top:0;left:0;z-index:-1;opacity:0;pointer-events:none;border-radius:999px;
-  background:radial-gradient(ellipse 100px 48px at var(--glass-x,50%) var(--glass-y,50%),#fff,transparent),linear-gradient(150deg,#ffffffce,#d6edf4be);
+  background:radial-gradient(ellipse 100px 48px at var(--glass-x,50%) var(--glass-y,50%),rgb(255 255 255 / var(--glass-alpha,.72)),transparent),linear-gradient(150deg,rgb(255 255 255 / var(--glass-alpha,.72)),rgb(214 237 244 / var(--glass-alpha,.72)));
   box-shadow:inset 0 0 0 1px #fff,0 3px 8px #31576827;transition:opacity .16s ease;
 }
 [data-appearance=glass] .sidebar-glass-highlight.visible{
@@ -260,9 +258,47 @@ html[data-language-motion=zh][data-appearance=glass] .language-switch::before{an
 [data-appearance=glass] .sidebar :is(.nav-link,.tag-nav){color:#345b6b;border-radius:999px}
 [data-appearance=glass] .sidebar .nav-link.active{color:#193c4d;background:#d8edf67f}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){
-  [data-appearance=glass] :is(.library-section,.author-directory .author-entry,.chat-container,.chat-message,.chat-message.user,.chat-tasks,.chat-compose,.glass-preview>div){background:#f3f8fa}
+  [data-appearance=glass] :is(.library-section,.author-directory .author-entry,.chat-container,.chat-message,.chat-message.user,.chat-tasks,.chat-compose){background:#f3f8fa}
 }
 @media(prefers-reduced-motion:reduce){
   html[data-language-motion][data-appearance=glass] .language-switch::before{animation:none}
   [data-appearance=glass] .sidebar-glass-highlight.visible{transition:none}
+}
+
+[data-appearance=glass] :is(.settings-card,.sidebar .storage-box,.library-section th,.paper-cell>div) {
+  background:rgb(241 250 253 / var(--glass-alpha,.72));
+  color:var(--glass-ink);
+}
+[data-appearance=glass] .paper-cell>div {
+  padding:4px 7px;
+  min-width:0;
+  border-radius:9px;
+  overflow-wrap:anywhere;
+}
+[data-appearance=glass] :is(.sidebar .storage-box small,.sidebar .storage-box .row){color:var(--glass-ink)}
+[data-appearance=glass] .sidebar .storage-box{border-color:#c9dfe6}
+[data-appearance=glass] .sidebar .nav-link.active,
+[data-appearance=glass] #paper-results tbody tr.selected{background:rgb(197 226 235 / var(--glass-alpha,.72))}
+[data-appearance=glass] body {
+  background-color:#f5f8fa;
+  background-image:radial-gradient(ellipse at 12% 0%,rgb(189 216 237 / var(--glass-alpha,.72)),transparent 58%),
+                   radial-gradient(ellipse at 97% 35%,rgb(187 225 208 / var(--glass-alpha,.72)),transparent 58%);
+}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){
+  [data-appearance=glass] :is(.settings-card,.sidebar .storage-box,.library-section th,.paper-cell>div){background:#f3f8fa}
+}
+
+body{font-size:16px}
+[data-appearance=glass] :is(.graph-wrap,.network-side,.author-info-card,.author-papers,.reader-info,.pdf-panel,.auth-form-wrap){
+  background-color:rgb(243 251 254 / var(--glass-alpha,.72));
+}
+[data-appearance=glass] :is(.view-switch,.language-switch,.appearance-options,.storage-track){
+  background-color:rgb(219 234 241 / var(--glass-alpha,.72));
+}
+[data-appearance=glass] :is(.keywords .badge,.keyword-chip,.citation-badge){
+  background-color:rgb(217 236 240 / var(--glass-alpha,.72));
+}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){
+  [data-appearance=glass] :is(.graph-wrap,.network-side,.author-info-card,.author-papers,.reader-info,.pdf-panel,.auth-form-wrap){background-color:#f3f8fa}
+  [data-appearance=glass] :is(.paper-glass-highlight,.sidebar-glass-highlight){background:#d7eaf0}
 }
