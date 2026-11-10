@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {protectWorkspaceEntry,restoreWorkspaceEntry} from '../src/workspace-history.js';
+import {protectWorkspaceEntry,restoreWorkspaceEntry,pushWorkspacePage} from '../src/workspace-history.js';
 
 test('workspace entry replaces login and installs a single same-page history boundary',()=>{
   const entries=[{url:'#/login',state:null}];
@@ -23,4 +23,12 @@ test('back from a regular app page traverses normally and a signed-in boundary r
   assert.equal(forwards,0);
   restoreWorkspaceEntry(history,{paWorkspace:'boundary'},true);
   assert.equal(forwards,1);
+});
+
+test('app buttons record source pages in order, without treating login as a workspace page',()=>{
+  const entries=[],history={pushState:(state,_,url)=>entries.push({state,url})};
+  pushWorkspacePage(history,'#/authors','#/author/example',true);
+  pushWorkspacePage(history,'#/author/example','#/paper/one',true);
+  pushWorkspacePage(history,'#/paper/one','#/login',false);
+  assert.deepEqual(entries.map(({state})=>state.paFrom),['#/authors','#/author/example',undefined]);
 });

@@ -7,3 +7,10 @@ export function protectWorkspaceEntry(history, url) {
 export function restoreWorkspaceEntry(history, entry, signedIn) {
   if (signedIn && entry?.paWorkspace==='boundary') history.forward();
 }
+
+export function pushWorkspacePage(history, from, to, signedIn) {
+  const state = signedIn && from !== '#/login' && to !== '#/login'
+    ? {paVisited:true,paWorkspace:'page',paFrom:from||'#/library'}
+    : {paVisited:true};
+  history.pushState(state,'',to);
+}

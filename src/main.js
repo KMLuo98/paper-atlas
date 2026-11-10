@@ -1,4 +1,4 @@
-import {protectWorkspaceEntry,restoreWorkspaceEntry} from './workspace-history.js';
+import {protectWorkspaceEntry,restoreWorkspaceEntry,pushWorkspacePage} from './workspace-history.js';
 import {createLibraryIntro} from './library-intro.js';
 import {bindDOIMatch} from './doi-editor.js';
 import {normalizeDOI} from '../supabase/functions/_shared/publication.js';
@@ -47,9 +47,10 @@ function toast(message){const el=document.querySelector('#toast');el.textContent
 const fail=err=>toast(err.message||String(err));
 async function busy(button,fn){if(button?.disabled)return;const html=button?.innerHTML;if(button){button.disabled=true;button.innerHTML='<span class="spinner"></span> 处理中';}try{return await fn();}catch(err){fail(err);}finally{if(button?.isConnected){button.disabled=false;button.innerHTML=html;uiIcons();}}}
 function go(route,{replace=false}={}){
-  if(replace){history.replaceState(history.state,'','#/'+route);render().catch(fail);}
-  else if(location.hash===`#/${route}`)render();
-  else location.hash=`/${route}`;
+  const destination='#/'+route;
+  if(replace)history.replaceState(history.state,'',destination);
+  else if(location.hash!==destination)pushWorkspacePage(history,location.hash,destination,!!state.user);
+  return render().catch(fail);
 }
 const route=()=>location.hash.replace(/^#\/?/,'').split('?')[0]||'library';
 function activePapers(){return state.papers.filter(p=>!p.deleted_at);}
