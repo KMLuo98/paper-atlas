@@ -49,3 +49,17 @@
 .library-controls .filter-select{width:auto;max-width:100%;min-width:7em}
 .library-controls .search-wrap input{width:100%;min-width:0;box-sizing:border-box}
 .sidebar .storage-box :is(.row,small){min-width:0;overflow-wrap:anywhere}
+
+.mobile-filter-icon{display:none}
+.mobile-sort-wrap{display:contents}
+@media(max-width:700px){
+  [data-mobile-icon]{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:0}
+  [data-mobile-icon] .mobile-control-label{display:none}
+  .mobile-filter-icon{display:inline-grid;place-items:center;font-size:18px;line-height:1}
+  summary[data-mobile-icon]::marker{content:""}
+  summary[data-mobile-icon]::-webkit-details-marker{display:none}
+  .mobile-sort-wrap{position:relative;display:inline-grid;place-items:center;width:44px;height:44px;flex:none;border:1px solid var(--line);border-radius:10px}
+  .library-controls .mobile-sort-wrap select{position:absolute;inset:0;width:100%;height:100%;min-width:0;opacity:0;cursor:pointer}
+  .mobile-sort-wrap:focus-within{outline:2px solid #6096aa;outline-offset:1px}
+  .filter-active>summary[data-mobile-icon]{box-shadow:inset 0 0 0 2px #629a8e;color:#245c53}
+}

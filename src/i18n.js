@@ -195,6 +195,10 @@ AI 状态|AI status
 可能已移入回收站，或你无权访问。|The paper may be in Trash or you may not have access.
 返回文献库|Back to library
 返回上一页|Back
+筛选期刊|Filter journals
+筛选发表时间|Filter by publication date
+升序或降序|Sort direction
+AI 跨语种|AI bilingual search
 作者与机构|Authors & affiliations
 机构待补充|Affiliation unavailable
 期刊|Journal
