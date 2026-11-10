@@ -86,3 +86,106 @@ html[data-appearance="glass"] {
   .appearance-options::before,[data-appearance="glass"] :is(.topbar button,.graph-controls button,.sidebar .nav-link) {transition: none}
   [data-appearance="glass"] :is(.topbar button,.graph-controls button,.appearance-options button):active {transform: none}
 }
+
+html[data-appearance="glass"] {
+  --ink: #1d3643;
+  --muted: #4a626c;
+  --line: #d4e1e7;
+  --glass-ink: #193c4d;
+  --glass-secondary: #4b6470;
+  --glass-selection: #e1f1f6;
+  --glass-control: linear-gradient(158deg,#fffefdf0,#e7f2f7c7);
+}
+[data-appearance="glass"] :is(body,.topbar,.library-section,.paper-title,.paper-card,.settings-card) {
+  color: var(--glass-ink);
+}
+[data-appearance="glass"] :is(.paper-authors,.paper-card .card-foot,.library-heading .muted,.table-foot,.subtitle,.breadcrumb,.citation-badge) {
+  color: var(--glass-secondary);
+}
+[data-appearance="glass"] .library-section {
+  background: linear-gradient(150deg,#fbfdffeb,#ecf4f4cf);
+  border-color: #ffffffdb;
+  box-shadow: 0 8px 24px #26495715;
+}
+[data-appearance="glass"] :is(.keywords .badge,.keyword-chip,.citation-badge) {
+  color: #274d5a;
+  background: #d9ecf0cf;
+  border-color: #c6dfe6;
+}
+[data-appearance="glass"] .search-wrap input,
+[data-appearance="glass"] .network-node-search input {
+  color: var(--glass-ink);
+  background: var(--glass-control);
+  border: 1px solid #fff;
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 #fff, inset 0 -1px 1px #83a5b429, 0 3px 10px #31546514;
+  transition: box-shadow 240ms ease, background-color 240ms ease;
+}
+[data-appearance="glass"] :is(.search-wrap,.network-node-search) input:focus {
+  outline: 2px solid #6096aa;
+  outline-offset: 1px;
+  box-shadow: inset 0 1px 0 #fff, 0 4px 14px #3f7a9233;
+}
+[data-appearance="glass"] :is(.search-wrap,.network-node-search) input::placeholder {color:#516b76}
+[data-appearance="glass"] .search-wrap :is(svg,kbd) {color:#4c6875}
+[data-appearance="glass"] .view-switch {
+  position: relative;
+  isolation: isolate;
+  border: 1px solid #fbffff;
+  border-radius: 999px;
+  background: #dbeaf1a6;
+  box-shadow: inset 0 1px 3px #294d601b;
+}
+[data-appearance="glass"] .view-switch button {color:#4c6675;border-radius:999px}
+[data-appearance="glass"] .view-switch button.active {
+  color: #193d50;
+  background: var(--glass-control);
+  box-shadow: inset 0 1px 0 #fff,0 2px 6px #30576d30;
+}
+@supports selector(.view-switch:has(button.active)) {
+  [data-appearance="glass"] .view-switch:has(>button:first-child + button:last-child)::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: 2px; bottom: 2px; left: 2px;
+    width: calc((100% - 4px) / 2);
+    border-radius: 999px;
+    background: var(--glass-control);
+    box-shadow: inset 0 1px 0 #fff,0 2px 6px #30576d30;
+    transition: transform .32s cubic-bezier(.24,.88,.31,1.14);
+  }
+  [data-appearance="glass"] .view-switch:has(>button:last-child.active)::before {transform:translateX(100%)}
+  [data-appearance="glass"] .view-switch:has(>button:first-child + button:last-child) button.active {background:transparent;box-shadow:none}
+}
+[data-appearance="glass"] #paper-results {position:relative;isolation:isolate}
+.paper-glass-highlight {display:none}
+[data-appearance="glass"] .paper-glass-highlight {
+  display: block;
+  position: absolute;
+  top: 0; left: 0;
+  z-index: -1;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: 15px;
+  background: radial-gradient(ellipse 145px 85px at var(--glass-x,50%) var(--glass-y,50%), #ffffffed, transparent),
+              linear-gradient(155deg,#f7fdffdb,#cce8efb8);
+  box-shadow: inset 0 0 0 1px #fff, inset 0 -1px 1px #5b93a548, 0 3px 10px #31576820;
+  transition: opacity .16s ease;
+}
+[data-appearance="glass"] .paper-glass-highlight.visible {
+  opacity: 1;
+  transition: opacity .16s ease, transform .29s cubic-bezier(.18,.82,.28,1.08), width .29s ease-out,height .29s ease-out;
+}
+[data-appearance="glass"] #paper-results tbody tr:hover {background:transparent}
+[data-appearance="glass"] #paper-results :is(tbody tr,.paper-card):focus-within {outline:2px solid #6096aa;outline-offset:-2px}
+[data-appearance="glass"] #paper-results tbody tr.selected {background:#c5e2eb70}
+[data-appearance="glass"] #paper-results .paper-card {background:#ffffff20;border-color:#bfd4de;border-radius:15px}
+[data-appearance="glass"] #paper-results .paper-title:hover {color:#1f5972}
+@media (prefers-reduced-transparency:reduce), (prefers-contrast:more) {
+  [data-appearance="glass"] .paper-glass-highlight {background:#d7eaf0;box-shadow:inset 0 0 0 1px #6d9eae}
+}
+@media (prefers-reduced-motion:reduce) {
+  [data-appearance="glass"] .paper-glass-highlight.visible,
+  [data-appearance="glass"] .view-switch::before,
+  [data-appearance="glass"] :is(.search-wrap,.network-node-search) input {transition:none}
+}

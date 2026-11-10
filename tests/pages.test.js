@@ -24,6 +24,20 @@ test('home page renders six keywords, canonical multi-journal filters, citation 
  const checks=[...d.querySelectorAll('[data-journal]')];assert.deepEqual(checks.map(c=>c.value),['Nature Communications','Physical Review E']);checks[0].checked=true;checks[0].onchange();assert.equal(d.querySelectorAll('tbody tr').length,1);checks[1].checked=true;checks[1].onchange();assert.equal(d.querySelectorAll('tbody tr').length,2);
  const low=d.querySelector('[data-year-low]');low.value='2021';low.oninput({target:low});assert.equal(d.querySelectorAll('tbody tr').length,1);d.querySelector('[data-year-reset]').onclick();d.querySelector('#grid-view').onclick();assert(d.querySelector('.card-publication>small'));assert(!d.querySelector('.card-foot').textContent.includes('未分类'));
 });
+test('glass highlight moves between rows and the view picker stays mounted when switching',()=>{
+ const f=fixture();f.qa.renderLibrary();const d=f.document;
+ d.documentElement.dataset.appearance='glass';
+ const results=d.querySelector('#paper-results'),table=d.querySelector('.table-scroll'),rows=d.querySelectorAll('tbody tr');
+ const rect=(top,height)=>({top,left:0,right:500,width:500,height});
+ results.getBoundingClientRect=table.getBoundingClientRect=()=>rect(0,300);
+ rows[0].getBoundingClientRect=()=>rect(50,80);rows[1].getBoundingClientRect=()=>rect(130,100);
+ const move=target=>{const event=new f.window.Event('pointermove',{bubbles:true});Object.assign(event,{pointerType:'mouse',clientX:25,clientY:60});target.dispatchEvent(event);};
+ move(rows[0]);const highlight=results.querySelector('.paper-glass-highlight');
+ assert(highlight.classList.contains('visible'));assert.match(highlight.style.transform,/,50px,/);
+ move(rows[1]);assert.equal(results.querySelector('.paper-glass-highlight'),highlight);assert.match(highlight.style.transform,/,130px,/);
+ const picker=d.querySelector('#grid-view');picker.onclick();
+ assert.equal(d.querySelector('#grid-view'),picker);assert.equal(picker.getAttribute('aria-pressed'),'true');assert(d.querySelector('.paper-card'));
+});
 test('phone keyword rendering shows two plus remaining keywords in the expandable list',()=>{
  const f=fixture(390);f.qa.renderLibrary();const keywords=f.document.querySelector('tbody tr .keywords');assert.equal(keywords.querySelectorAll(':scope > .keyword-chip').length,2);assert.equal(keywords.querySelector('summary').textContent,'+8');
 });
