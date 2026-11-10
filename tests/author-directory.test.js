@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildAuthorDirectory,formattedAuthorName,publishedPaper,filterAuthors,authorEnrichmentTasks,authorEnrichmentKey,authorPhotoInputsChanged,authorIndexValue,authorInstitutions} from '../supabase/functions/_shared/author-directory.js';
+import {buildAuthorDirectory,profiledAuthorNetwork,formattedAuthorName,publishedPaper,filterAuthors,authorEnrichmentTasks,authorEnrichmentKey,authorPhotoInputsChanged,authorIndexValue,authorInstitutions} from '../supabase/functions/_shared/author-directory.js';
 import {validateAuthorPatch,authorAction} from '../supabase/functions/_shared/author-actions.js';
 const orcid='0000-0002-1825-0097',other='0000-0001-5109-3700';
 const papers=[{id:'p1',title:'Network research',publication_status:'published',journal:'Physical Review E',published_at:'2020-01-01',authors:[{name:'Jun-an Lu',institution:'Institute One',email:'lu@example.edu',orcid},{name:'Alice Smith'}]}, {id:'p2',title:'Synchronization',publication_status:'published',authors:[{name:'Lu Jun-An',institution:'Institute Two',orcid}]}, {id:'p3',title:'Preprint',publication_status:'unpublished',authors:[{name:'陆君安',orcid}]}, {id:'p4',title:'Different identity',publication_status:'published',authors:[{name:'Jun-an Lu',orcid:other}]}];
@@ -95,4 +95,39 @@ test('backend remembers a no-information result and retries only when the author
  const args={service,userId:'owner',body:{action:'author_match_information',author_key:'profile:saved',automatic:true},allPapers:async()=>papers,limit:async()=>{},discoverInformation:async()=>{calls++;return [];},HTTPError};
  const first=await authorAction(args);assert.equal(first.profile.information_lookup_status,'not_found');const second=await authorAction(args);assert.equal(second.skipped,true);assert.equal(calls,1);
  row.aliases=['陆君安','New documented spelling'];await authorAction(args);assert.equal(calls,2);args.body.automatic=false;await authorAction(args);assert.equal(calls,3);
+});
+
+test('merged identities share a network node and count each paper once, even in a filtered scope',()=>{
+ const library=[
+  {id:'a',authors:[{name:'Stefano Boccaletti'},{name:'S. Boccaletti',orcid},{name:'Alice Smith'}]},
+  {id:'b',authors:[{name:'S. Boccaletti',orcid},{name:'Alice Smith'}]}
+ ];
+ const profiles=[
+  {id:'old',first_name:'S.',last_name:'Boccaletti',orcid,identity_keys:['orcid:'+orcid],updated_at:'2026-01-01'},
+  {id:'merged',first_name:'Stefano',last_name:'Boccaletti',orcid,source_key:'name:boccalettistefano',identity_keys:['name:boccalettistefano','orcid:'+orcid,'profile:old']}
+ ];
+ const directory=buildAuthorDirectory(library,profiles);
+ const author=directory.find(p=>p.key==='profile:merged');
+ assert.equal(author.paper_count,2);
+ assert.equal(filterAuthors(directory,'Boccaeltti')[0],author);
+ const network=profiledAuthorNetwork(library,profiles);
+ assert.equal(network.nodes.length,2);assert.equal(network.edges.length,1);assert.equal(network.edges[0].weight,2);
+ const scoped=profiledAuthorNetwork([...library].reverse(),profiles,[library[1]]);
+ assert.equal(scoped.nodes.find(n=>n.profileKey===author.key).id,'name:boccalettistefano');
+ assert.equal(scoped.edges[0].weight,1);
+});
+
+test('author merge is owner scoped, keeps the target name and rejects conflicting ORCID',async()=>{
+ const target={id:'target',source_key:'orcid:'+orcid,user_id:'owner',identity_keys:['orcid:'+orcid],first_name:'Jun-an',last_name:'Lu',orcid,aliases:[]};
+ const source={id:'source',source_key:'name:alicesmith',user_id:'owner',identity_keys:['name:alicesmith'],first_name:'Alice',last_name:'Smith',aliases:[]};
+ const writes=[];
+ const service={from:()=>({select(){return this;},eq(key,value){if(key==='user_id')assert.equal(value,'owner');if(key==='id')assert.equal(value,target.id);return this;},order(){return this;},range:async()=>({data:[target,source]}),update(patch){writes.push(patch);return this;},single:async()=>({data:{...target,...writes.at(-1)}})})};
+ class HTTPError extends Error{constructor(status,message){super(message);this.status=status;}}
+ const args={service,userId:'owner',body:{action:'author_merge',author_key:'profile:target',source_key:'orcid:'+other},allPapers:async()=>papers,HTTPError};
+ await assert.rejects(authorAction(args),e=>e.status===409);
+ assert.equal(writes.length,0);
+ const {profile}=await authorAction({...args,body:{...args.body,source_key:'profile:source'}});
+ assert.equal(profile.first_name,'Jun-an');
+ assert(profile.identity_keys.includes('profile:source'));
+ assert.equal(writes.length,1);
 });

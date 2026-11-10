@@ -25,6 +25,9 @@ export function formattedAuthorName(author, format = 'given_family') {
 export function buildAuthorDirectory(papers, profiles = []) {
   papers = [...new Map(papers.filter(p => !p.deleted_at).map(p => [p.id, p])).values()];
   const raw = authorNetwork(papers,{includeEdges:false}), paperMap = new Map(papers.map(p => [p.id, p])), grouped = new Map();
+  // A merged profile keeps the former profile links, while the original rows remain intact.
+  const superseded=new Set(profiles.flatMap(p=>(p.identity_keys||[]).filter(key=>key.startsWith('profile:')&&key!=='profile:'+p.id)));
+  profiles=profiles.filter(p=>!superseded.has('profile:'+p.id));
   const identityIndex=new Map(),orcidIndex=new Map(),nameIndex=new Map();
   const index=(map,key,profile)=>{if(!key)return;if(!map.has(key))map.set(key,new Set());map.get(key).add(profile);};
   for(const profile of profiles){for(const key of profile.identity_keys||[])index(identityIndex,key,profile);index(orcidIndex,normalizeORCID(profile.orcid),profile);for(const key of authorNameKeys({name:[profile.first_name,profile.last_name].filter(Boolean).join(' '),aliases:profile.aliases||[]}))index(nameIndex,key,profile);}
@@ -35,7 +38,7 @@ export function buildAuthorDirectory(papers, profiles = []) {
       return p.identity_keys?.includes(person.id) || sameAuthor(person, {name: [p.first_name, p.last_name].filter(Boolean).join(' '), orcid: p.orcid, aliases: p.aliases || []});
     });
     const explicit = candidates.filter(p => p.identity_keys?.includes(person.id));
-    let eligible = candidates;
+    let eligible = explicit.length ? explicit : candidates;
     const known = new Set(eligible.map(p => normalizeORCID(p.orcid)).filter(Boolean));
     if (known.size > 1) eligible = explicit.length === 1 ? explicit : [];
     const profile = [...eligible].sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')) || a.id.localeCompare(b.id))[0];
@@ -57,9 +60,32 @@ export function buildAuthorDirectory(papers, profiles = []) {
       keywords: profile?.keywords || [], research_summary: profile?.research_summary || '', keywords_paper_ids: profile?.keywords_paper_ids || [], keywords_generated_at: profile?.keywords_generated_at || null};
   });
 }
+export function profiledAuthorNetwork(papers, profiles, scopedPapers=papers) {
+  if (!profiles.length) return authorNetwork(scopedPapers);
+  const scope=new Set(scopedPapers.map(p=>p.id)),byPaper=new Map(),pairs=new Map(),nodes=[];
+  for(const person of buildAuthorDirectory(papers,profiles)){
+    const ids=person.papers.map(p=>p.id).filter(id=>scope.has(id));
+    if(!ids.length)continue;
+    const identities=person.identity_keys.filter(key=>!key.startsWith('profile:')).sort();
+    const id=identities.includes(person.profile?.source_key)?person.profile.source_key:identities[0]||person.key;
+    const name=person.english_name||person.original_names[0];
+    nodes.push({id,identityKeys:identities,profileKey:person.key,label:name,name,aliases:person.aliases,orcid:person.orcid,institution:person.institution,institutions:person.institutions,email:person.email,papers:ids});
+    for(const paper of ids){if(!byPaper.has(paper))byPaper.set(paper,[]);byPaper.get(paper).push(id);}
+  }
+  for(const [paper,ids] of byPaper){
+    ids.sort();
+    for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){
+      const source=ids[i],target=ids[j],key=JSON.stringify([source,target]);
+      if(!pairs.has(key))pairs.set(key,{source,target,weight:0,papers:[]});
+      const edge=pairs.get(key);edge.weight++;edge.papers.push(paper);
+    }
+  }
+  return {nodes,edges:[...pairs.values()].sort((a,b)=>b.weight-a.weight)};
+}
 export function filterAuthors(authors, query = '', sort = 'name', format = 'given_family') {
-  const words = normalize(query).split(' ').filter(Boolean);
-  return authors.filter(a => {const names=[a.english_name,...a.aliases],text = normalize([...names,...names.map(n=>n.replace(/[-.]/g,'')), a.institution, ...a.institutions, a.email, a.orcid].join(' '));return words.every(w => text.includes(w) || text.split(' ').some(token => fuzzyAuthorWord(w, token)));})
+  const fold=value=>normalize(String(value||'').normalize('NFKD').replace(/\p{M}/gu,''));
+  const words = fold(query).split(' ').filter(Boolean);
+  return authors.filter(a => {const names=[a.english_name,...a.aliases],text = fold([...names,...names.map(n=>n.replace(/[-.]/g,'')), a.institution, ...a.institutions, a.email, a.orcid].join(' '));const tokens=text.split(' ');return words.every(w => text.includes(w) || tokens.some(token => fuzzyAuthorWord(w, token)));})
     .sort((a, b) => (sort === 'papers' ? b.paper_count - a.paper_count : 0) || formattedAuthorName(a, format).localeCompare(formattedAuthorName(b, format), 'en', {sensitivity: 'base'}) || a.key.localeCompare(b.key));
 }
 

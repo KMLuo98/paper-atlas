@@ -7,8 +7,8 @@ import {loadNetworkPhotos} from './network-photos.js';
 import {getLanguage} from './i18n.js';
 import {sameAuthor} from '../supabase/functions/_shared/author-identity.js';
 const l=(zh,en)=>getLanguage()==='en'?en:zh;
-export function networkPage(kind,{state,shell,icon,modal,busy,toast,go,render,download,uiIcons}){
- const authors=kind==='authors',papers=state.papers.filter(p=>!p.deleted_at),selected=state.scope?papers.filter(p=>state.scope.includes(p.id)):papers,data=cachedNetwork(kind,selected,state.user?.id||(state.demo?'demo':'local'));
+export function networkPage(kind,{state,shell,icon,modal,busy,toast,go,render,download,uiIcons,authorProfiles=[]}){
+ const authors=kind==='authors',papers=state.papers.filter(p=>!p.deleted_at),selected=state.scope?papers.filter(p=>state.scope.includes(p.id)):papers,data=cachedNetwork(kind,selected,state.user?.id||(state.demo?'demo':'local'),authorProfiles,papers);
  const nodesById=new Map(data.nodes.map(node=>[node.id,node])),paperAuthorCounts=new Map();
  if(authors)for(const node of data.nodes)for(const id of node.papers||[])paperAuthorCounts.set(id,(paperAuthorCounts.get(id)||0)+1);
  const maxGroup=Math.max(2,...paperAuthorCounts.values()),size=Math.min(maxGroup,state.groupSize||2),ranking=authors?cachedCollaborationGroups(data,size):null;
@@ -27,6 +27,7 @@ export function networkPage(kind,{state,shell,icon,modal,busy,toast,go,render,do
  }
  function openNode(node){
   if(!authors){go('paper/'+encodeURIComponent(node.id));return;}
+  if(node.profileKey){go('author/'+encodeURIComponent(node.profileKey));return;}
   if(state.scope){
    const shared=new Set(node.papers),directory=authorNetwork(papers,{includeEdges:false}).nodes;
    const matches=directory.filter(candidate=>candidate.papers.some(id=>shared.has(id))&&sameAuthor(candidate,node));

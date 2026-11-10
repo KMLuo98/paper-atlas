@@ -35,12 +35,16 @@ export function validateAuthorPatch(patch, person, userId) {
   }
   return out;
 }
-export async function authorAction({service, userId, body, allPapers, model, limit, discoverPhotos, discoverInformation, HTTPError}) {
+export async function readAuthorProfiles(service,userId,HTTPError) {
   const profiles = [];
   for (let start = 0; ; start += 500) {
     const r = await service.from('author_profiles').select('*').eq('user_id', userId).order('id').range(start, start + 499);
     if (r.error) throw new HTTPError(503, '作者资料读取失败'); profiles.push(...r.data); if (r.data.length < 500) break;
   }
+  return profiles;
+}
+export async function authorAction({service, userId, body, allPapers, model, limit, discoverPhotos, discoverInformation, HTTPError}) {
+  const profiles=await readAuthorProfiles(service,userId,HTTPError);
   const papers = await allPapers(), directory = buildAuthorDirectory(papers, profiles), person = directory.find(a => a.key === body.author_key || a.identity_keys.includes(body.author_key));
   if (!person) throw new HTTPError(404, '作者不存在或不属于当前文献库');
   let base = person.profile || {source_key: person.identity_keys[0], id: crypto.randomUUID(), user_id: userId, identity_keys: person.identity_keys, first_name: person.first_name, last_name: person.last_name, aliases: person.aliases, institution: person.institution, email: person.email, orcid: person.orcid, name_format: 'default'};
@@ -63,6 +67,17 @@ export async function authorAction({service, userId, body, allPapers, model, lim
     const prefix=kind==='photo'?'photo_lookup':'keywords_lookup',now=new Date().toISOString();
     const r=await service.from('author_profiles').update({[prefix+'_lease_until']:new Date(Date.now()+180000).toISOString(),[prefix+'_key']:key,[prefix+'_status']:'running'}).eq('id',base.id).eq('user_id',userId).or(`${prefix}_lease_until.is.null,${prefix}_lease_until.lt.${now}`).select('*').maybeSingle();
     if(r.error)throw new HTTPError(503,'作者任务暂时无法启动');if(!r.data)return false;base=r.data;return true;
+  }
+  if(body.action==='author_merge'){
+    const source=directory.find(a=>a.key===body.source_key||a.identity_keys.includes(body.source_key));
+    if(!source||source===person)throw new HTTPError(400,'请选择两位不同的库内作者');
+    if(source.orcid&&person.orcid&&normalizeORCID(source.orcid)!==normalizeORCID(person.orcid))throw new HTTPError(409,'两位作者的 ORCID 不同，请先核对身份');
+    const patch={identity_keys:[...new Set([...person.identity_keys,...source.identity_keys,...(source.profile?[source.key]:[])])],
+      aliases:[...new Set([...person.aliases,...source.aliases])]};
+    for(const field of ['institution','email','orcid','profile_url','scholar_url','researchgate_url'])if(!person[field]&&source[field])patch[field]=source[field];
+    if(!person.photo_path&&source.photo_path)for(const field of ['photo_path','photo_source','photo_source_url'])patch[field]=source[field];
+    if(!person.keywords.length&&source.keywords.length){patch.keywords=source.keywords;patch.keywords_manual=!!source.profile?.keywords_manual;}
+    return save(patch);
   }
   if (body.action === 'author_save') {
     let patch; try {patch = validateAuthorPatch(body.profile, person, userId);} catch (error) {throw new HTTPError(400, error.message);}

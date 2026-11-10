@@ -194,6 +194,7 @@ AI 状态|AI status
 找不到这篇文献|Paper not found
 可能已移入回收站，或你无权访问。|The paper may be in Trash or you may not have access.
 返回文献库|Back to library
+返回上一页|Back
 作者与机构|Authors & affiliations
 机构待补充|Affiliation unavailable
 期刊|Journal
