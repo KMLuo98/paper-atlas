@@ -1,8 +1,9 @@
+:root{--appearance-control-width:min(100%,320px)}
 .appearance-options {
   position: relative;
   display: inline-grid;
   grid-template-columns: repeat(2,minmax(0,1fr));
-  width: min(100%, 320px);
+  width: var(--appearance-control-width);
   padding: 4px;
   border: 1px solid #d7e0d9;
   border-radius: 999px;
@@ -193,8 +194,8 @@ html[data-appearance="glass"] {
 .card-publisher-icon{width:48px;height:29px;object-fit:contain;flex:none;margin-inline-start:auto}
 .paper-card .card-foot .favorite{margin-inline-end:auto}
 .language-switch{display:none}
-.glass-settings:not([hidden]){display:flex;align-items:center;flex-wrap:wrap;gap:16px;margin-top:16px}
-.glass-settings label{flex:1 1 190px}
+.glass-settings:not([hidden]){display:block;width:var(--appearance-control-width);margin-top:16px}
+.glass-settings label{display:block}
 .glass-settings input{display:block;width:100%;accent-color:#4b8295}
 .glass-settings output{float:right;font-variant-numeric:tabular-nums}
 .appearance-options button:is(:hover,:active,[aria-pressed=true]){background:transparent;box-shadow:none}
@@ -265,14 +266,12 @@ html[data-language-motion=zh][data-appearance=glass] .language-switch::before{an
   [data-appearance=glass] .sidebar-glass-highlight.visible{transition:none}
 }
 
-[data-appearance=glass] :is(.settings-card,.sidebar .storage-box,.library-section th,.paper-cell>div) {
+[data-appearance=glass] :is(.settings-card,.sidebar .storage-box,.library-section th) {
   background:rgb(241 250 253 / var(--glass-alpha,.72));
   color:var(--glass-ink);
 }
 [data-appearance=glass] .paper-cell>div {
-  padding:4px 7px;
   min-width:0;
-  border-radius:9px;
   overflow-wrap:anywhere;
 }
 [data-appearance=glass] :is(.sidebar .storage-box small,.sidebar .storage-box .row){color:var(--glass-ink)}
@@ -280,7 +279,7 @@ html[data-language-motion=zh][data-appearance=glass] .language-switch::before{an
 [data-appearance=glass] .sidebar .nav-link.active,
 [data-appearance=glass] #paper-results tbody tr.selected{background:rgb(197 226 235 / var(--glass-alpha,.72))}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){
-  [data-appearance=glass] :is(.settings-card,.sidebar .storage-box,.library-section th,.paper-cell>div){background:#f3f8fa}
+  [data-appearance=glass] :is(.settings-card,.sidebar .storage-box,.library-section th){background:#f3f8fa}
 }
 
 body{font-size:16px}

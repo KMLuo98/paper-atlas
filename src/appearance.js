@@ -23,7 +23,7 @@ export function glassTransparency() {return transparency;}
 export function setGlassTransparency(value) {
   const number = Number(value);
   if (!Number.isFinite(number)) return;
-  transparency = Math.max(10, Math.min(65, Math.round(number)));
+  transparency = Math.max(0, Math.min(100, Math.round(number)));
   root.style.setProperty('--glass-alpha', String(1 - transparency / 100));
   try {localStorage.setItem(transparencyKey, String(transparency));} catch {}
 }

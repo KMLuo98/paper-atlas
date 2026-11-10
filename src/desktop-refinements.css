@@ -194,7 +194,7 @@
   position:static;flex:none;background:transparent;padding:0 0 8px;
 }
 .network-side .network-node-results{position:static;max-height:145px;margin-top:5px}
-.network-side .network-rankings{min-height:0;overflow:auto;overscroll-behavior:contain}
+.network-side .network-rankings{min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-inline-end:12px}
 .network-rankings>:first-child{margin-top:0}
 @media(max-width:850px){
   .network-side .network-rankings{max-height:420px}
