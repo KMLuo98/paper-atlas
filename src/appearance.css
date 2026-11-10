@@ -336,3 +336,10 @@ body{font-size:16px}
   [data-appearance=glass] #upload-top{transition:none}
   [data-appearance=glass] #upload-top:active{transform:none}
 }
+
+[data-appearance=glass] .network-layout .graph-wrap{
+  background:#fff;box-shadow:none;
+}
+[data-appearance=glass] .chat-container :is(.chat-heading,.chat-workspace,.chat-tasks,.chat-main,.chat-options,.chat-messages,.chat-compose,.chat-note){
+  background:transparent;
+}

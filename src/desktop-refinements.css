@@ -184,3 +184,21 @@
 }
 #empty-trash .mobile-control-label{display:none}
 #empty-trash:not(:disabled):hover{background:#829b8a20}
+
+/* The search and rankings occupy separate rows; only the rankings scroll. */
+.network-layout .graph-wrap,.network-layout .graph-wrap svg.network{background:#fff}
+.network-layout .network-side{
+  display:flex;flex-direction:column;min-height:0;overflow:hidden;scrollbar-gutter:auto;
+}
+.network-side .network-node-search{
+  position:static;flex:none;background:transparent;padding:0 0 8px;
+}
+.network-side .network-node-results{position:static;max-height:145px;margin-top:5px}
+.network-side .network-rankings{min-height:0;overflow:auto;overscroll-behavior:contain}
+.network-rankings>:first-child{margin-top:0}
+@media(max-width:850px){
+  .network-side .network-rankings{max-height:420px}
+}
+.chat-container :is(.chat-heading,.chat-workspace,.chat-tasks,.chat-main,.chat-options,.chat-messages,.chat-compose,.chat-note){
+  background:transparent;
+}
