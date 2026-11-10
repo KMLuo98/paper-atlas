@@ -50,7 +50,7 @@ function scene() {
     ${scholar}
     ${publishers.map((_, i) => {
       const x = 257 + (i % 4) * 71, y = -77 + Math.floor(i / 4) * 88;
-      return `<g transform="translate(55 181)"><g class="atlas-flying" style="--file-time:${1270 + i * 260}ms;--target-x:${x}px;--target-y:${y}px">${sheet}</g></g>`;
+      return `<g transform="translate(55 181)"><g class="atlas-flying" style="--file-time:${1270 + i * 260}ms;--target-x:${x}px;--target-y:${y}px;--mid-x:${(116 + x) / 2}px;--mid-y:${y / 2 - 32}px">${sheet}</g></g>`;
     }).join('')}
     <path d="M205 238h12v49h-12zm335 0h12v49h-12z" fill="#9b7559"/>
     <rect x="191" y="227" width="376" height="14" rx="6" fill="#c79e75"/>

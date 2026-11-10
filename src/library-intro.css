@@ -1,16 +1,17 @@
 .atlas-intro {
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   z-index: 2147483647;
   display: grid;
   place-items: center;
   padding: 16px;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   background: #f4f7ef;
   color: #294940;
   transition: opacity 240ms ease;
 }
 .atlas-intro-leaving { opacity: 0; pointer-events: none; }
-.atlas-intro-content { width: min(100%, 660px, 125dvh); text-align: center; }
+.atlas-intro-content { width: 100%; max-width: 660px; max-width: min(660px, 125vh); max-width: min(660px, 125svh); text-align: center; }
 .atlas-intro-content svg { display: block; width: 100%; height: auto; }
 .atlas-intro-content svg text { text-anchor: middle; }
 .atlas-intro-content strong { display: block; margin: 8px 0 4px; font-size: clamp(20px, 5vw, 33px); }
@@ -28,7 +29,7 @@
 @keyframes atlas-stack-away { to { opacity: 0; } }
 @keyframes atlas-sort {
   0% { opacity: 1; transform: translate(116px, 0) rotate(-8deg); }
-  55% { opacity: 1; transform: translate(calc((116px + var(--target-x)) / 2), calc(var(--target-y) / 2 - 32px)) rotate(8deg); }
+  55% { opacity: 1; transform: translate(var(--mid-x), var(--mid-y)) rotate(8deg); }
   98% { opacity: 1; }
   100% { opacity: 0; transform: translate(var(--target-x), var(--target-y)) scale(.65); }
 }
@@ -44,9 +45,9 @@
 .atlas-login-scene .atlas-scholar { animation: none; transform: translateX(192px); }
 .atlas-login-scene .atlas-walk, .atlas-login-scene .atlas-foot { animation: none; }
 .atlas-login-scene .atlas-stack { display: none; }
-.atlas-study-door { transform-origin: 231px 0; }
+.atlas-study-door { transform-box: fill-box; transform-origin: right center; }
 .atlas-key-pull { animation: atlas-key-pull 500ms ease-out both; }
-.atlas-key-ring { animation: atlas-key-check 1.1s steps(3, jump-none) infinite alternate; }
+.atlas-key-ring { animation: atlas-key-check 1.1s steps(3, end) infinite alternate; }
 .atlas-key-found { opacity: 0; }
 .atlas-key-ready .atlas-key-pull { visibility: hidden; }
 .atlas-key-ready .atlas-key-found { animation: atlas-key-insert 480ms ease-in-out both; }
