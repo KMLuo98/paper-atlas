@@ -88,7 +88,21 @@ html[data-appearance="glass"] {
 [data-appearance="glass"] .mail-row.checked {background:#d2e9f0}
 [data-appearance="glass"] .mail-row.unread-located {background:#fff0bd}
 @media (hover:hover) {
-  [data-appearance="glass"] :is(.mail-row,.nav-item,.mailbox-link):hover {background:#fff9}
+  [data-appearance="glass"] :is(.nav-item,.mailbox-link):hover {background:#fff9}
+}
+@media (min-width:701px) and (hover:hover) {
+  [data-appearance="glass"] .mail-row::after {
+    content:"";
+    position:absolute;
+    inset:4px;
+    border-radius:14px;
+    pointer-events:none;
+    opacity:0;
+    background:radial-gradient(ellipse 145px 65px at var(--mail-glint-x,50%) 22%,#fff8,transparent 96%),#fff2;
+    box-shadow:inset 0 1px 0 #fffc,inset 0 -1px 0 #668a9c22,0 2px 6px #42687a16;
+    transition:opacity .16s ease;
+  }
+  [data-appearance="glass"] .mail-row:hover::after {opacity:1}
 }
 @media (prefers-reduced-transparency:reduce), (prefers-contrast:more) {
   html[data-appearance="glass"] {
@@ -100,7 +114,8 @@ html[data-appearance="glass"] {
   }
 }
 
-.app-shell {grid-template-columns:72px minmax(0,1fr)}
+.sidebar .color-dot>svg {display:none}
+@media (max-width:700px) {
 .sidebar {
   width:72px;
   padding:20px 8px max(12px,env(safe-area-inset-bottom,0px));
@@ -129,8 +144,10 @@ html[data-appearance="glass"] {
 .sidebar .section-label .icon-btn {width:44px;min-height:44px}
 .sidebar .mailbox-link {position:relative}
 .sidebar .mailbox-link .color-dot {width:25px;height:25px;display:grid;place-items:center;margin:0;color:#fff}
+.sidebar .color-dot>svg {display:block}
 .sidebar .mailbox-link .error-dot,.sidebar .mailbox-link>svg {position:absolute;right:4px;top:4px}
 .sidebar :is(button,a):focus-visible {outline:2px solid #347286;outline-offset:-2px}
+}
 
 .mail-mobile-compose {display:none}
 @media (max-width:700px) {
@@ -164,5 +181,5 @@ html[data-appearance="glass"] {
   .inbox-toolbar .filter-controls .mobile-icon-action:only-of-type {justify-self:center}
 }
 @media (prefers-reduced-motion:reduce) {
-  .mail-appearance-options::before {transition:none}
+  .mail-appearance-options::before,[data-appearance="glass"] .mail-row::after {transition:none}
 }

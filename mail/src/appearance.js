@@ -69,6 +69,14 @@ window.addEventListener('storage', event => {
   paintAppearanceControls();
 });
 
+const mailHover = matchMedia('(min-width:701px) and (hover:hover)');
+document.addEventListener('pointermove', event => {
+  if (event.pointerType !== 'mouse' || !mailHover.matches || root.dataset.appearance !== 'glass') return;
+  const row = event.target.closest?.('.mail-row');
+  if (!row) return;
+  row.style.setProperty('--mail-glint-x', (event.clientX - row.getBoundingClientRect().left) + 'px');
+});
+
 const toolbarButtons = [
   '.head-actions button', '.reader-toolbar button', '.compose-bottom button',
   '.list-actions button', '.pagination button', '.translation-controls button',
