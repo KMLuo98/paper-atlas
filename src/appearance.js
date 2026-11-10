@@ -69,8 +69,6 @@ document.addEventListener('pointermove', event => {
     style.height = rect.height + 'px';
     style.transform = `translate3d(${left-container.left+(host.scrollLeft||0)}px,${rect.top-container.top+(host.scrollTop||0)}px,0)`;
   }
-  style.setProperty('--glass-x', (event.clientX-left)+'px');
-  style.setProperty('--glass-y', (event.clientY-rect.top)+'px');
   if (first) layer.getBoundingClientRect();
   layer.classList.add('visible');
   state.active=item;
