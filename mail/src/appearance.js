@@ -84,6 +84,19 @@ const actionIcons = {
 
 export function prepareMailAppearance(icon) {
   paintAppearanceControls();
+  for (const button of document.querySelectorAll('.sidebar :is(button,a)')) {
+    const mailbox = button.querySelector('.color-dot + span');
+    const label = mailbox
+      ? [...mailbox.childNodes].map(node => node.textContent.trim()).filter(Boolean).join(' · ')
+      : (button.querySelector('span:not(.all-dot)')?.textContent || button.textContent).trim();
+    const name = button.getAttribute('aria-label') || label;
+    if (name) {
+      button.setAttribute('aria-label', name);
+      if (!button.title) button.title = name;
+    }
+    const marker = button.querySelector('.color-dot');
+    if (marker && !marker.firstChild) marker.innerHTML = icon('mail', 15);
+  }
   for (const button of document.querySelectorAll(toolbarButtons)) {
     if (button.classList.contains('mobile-icon-action')) continue;
     const label = button.textContent.trim();
