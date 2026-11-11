@@ -25,6 +25,12 @@ for(const width of [320,390,1440]){
  await page.getByRole('button',{name:'联系人垃圾箱',exact:true}).click();await page.locator('.contact-trash-row').waitFor();assert.equal(await page.locator('.contact-trash-row strong').textContent(),'Alice <test>');assert.match(await page.locator('.contact-trash-info').textContent(),/third@example.edu/);assert.equal(await page.locator('.contact-trash-row img').count(),1);await fit();
  await page.screenshot({path:'test-results/mail-contact-trash-'+width+'.png',fullPage:true});
  // Failed restore keeps the item available for retry.
+ await page.locator('#contact-trash-search').fill('zzzzzz');
+ await page.getByText('没有匹配的联系人').waitFor();
+ await page.locator('#contact-trash-search').fill('thrdexample');
+ await page.locator('.contact-trash-row').waitFor();
+ assert.match(await page.locator('.contact-trash-info').textContent(),/third@example.edu/);
+ await page.locator('#contact-trash-search').fill('');
  await page.evaluate(()=>window.__fail=true);await page.locator('[data-action=restore-contact]').click();assert.equal(await page.locator('.contact-trash-row').count(),1);
  await page.locator('[data-action=restore-contact]').click();await page.getByText('垃圾箱是空的').waitFor();await page.locator('#modal-root [data-action=close-modal]').click();
  const card=page.locator('[data-contact-card=person-a]');await card.waitFor();assert.equal(await card.locator('img').count(),1);assert.match(await card.textContent(),/alias@example.edu/);assert.match(await card.textContent(),/third@example.edu/);

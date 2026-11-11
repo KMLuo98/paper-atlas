@@ -258,14 +258,58 @@ const columnNames={account:'邮箱标签',time:'时间',sender:'发件人 / 收�
 function mailColumnsModal(){const layout=currentMailLayout(),mobile=mobileColumns();modal('列宽与间距',`<div class="column-editor">${mobile?`<label>手机显示方式<select id="mail-column-mode"><option value="compact" ${layout.mode==='compact'?'selected':''}>紧凑列表</option><option value="table" ${layout.mode==='table'?'selected':''}>可调列宽表格</option></select></label>`:''}${Object.entries(COLUMN_LIMITS).map(([key,[min,max]])=>`<label>${columnNames[key]} <output id="column-value-${key}">${layout[key]}px</output><input type="range" data-column-range="${key}" min="${min}" max="${max}" value="${layout[key]}"></label>`).join('')}<p class="muted" id="column-save-status" aria-live="polite">${mobile?'手机端':'电脑端'}独立保存，调整立即生效。</p><div class="modal-footer"><button class="secondary" data-action="reset-mail-columns">恢复默认</button><button class="primary" data-action="close-modal">完成</button></div></div>`);}
 function resizeHandle(key){return `<span class="column-resizer" data-column-resize="${key}" role="separator" aria-orientation="vertical" tabindex="0" aria-label="调整${columnNames[key]}列宽" title="拖动调宽；方向键微调；双击恢复"></span>`;}
 function contactModal(c=null){S.contactEdit={...(c||{}),pendingPhoto:null,removePhoto:false,candidate:null};modal(c?'编辑联系人':'新建联系人',`<form id="contact-form"><input type="hidden" name="id" value="${c?.id||''}"><div class="contact-photo-links"><span id="contact-photo-preview">${avatar(c,c?.email,true)}</span><button class="text-btn" type="button" data-action="choose-photo">选择照片</button><button class="text-btn" type="button" data-action="remove-photo" data-id="${c?.id||''}">移除照片</button></div><div class="form-grid"><label>姓名<input name="name" value="${esc(c?.name||'')}" placeholder="联系人姓名"></label><label>机构（国家 · 学校）<input name="organization" maxlength="200" placeholder="例如：中国 · 复旦大学" value="${esc(displayOrganization(c))}"></label></div><div class="form-grid" id="contact-email-fields">${emailFields([...contactEmails(c),...Array(Math.max(0,2-contactEmails(c).length)).fill('')])}</div><button class="text-btn" type="button" data-action="add-contact-email">${I('plus',15)} 添加邮箱</button><div class="form-grid"><label>照片来源 / 人物或期刊页面<input name="profile_url" type="url" value="${esc(c?.profile_url||'')}" placeholder="https://…"></label><label>电话<input name="phone" value="${esc(c?.phone||'')}"></label><label>分组<select name="group_name">${[...new Set(['未分类',...(S.settings.contact_groups||[]),...(c?.group_name?[c.group_name]:[])])].map(g=>`<option ${c?.group_name===g?'selected':''}>${esc(g)}</option>`).join('')}</select></label></div><label>备注<textarea name="notes" rows="3">${esc(c?.notes||'')}</textarea></label><div class="form-error"></div><div class="modal-footer"><button class="secondary" type="button" data-action="match-contact-info">${I('sparkles',16)} AI 匹配信息</button><button class="primary" type="submit">保存联系人</button></div></form>`,true);}
-async function contactTrashModal(append=false){
- let root=$('#contact-trash-list');if(!append){modal('联系人垃圾箱','<div id="contact-trash-list" aria-live="polite"><p class="muted">正在加载…</p></div>',true);root=$('#contact-trash-list');}if(!root)return;
- const offset=append?Number(root.dataset.offset||0):0;try{const result=await api('contact_trash_list',{offset});if($('#contact-trash-list')!==root)return;root.querySelector('[data-action="contact-trash-more"]')?.remove();const rows=result.contacts||[],html=rows.map(c=>`<article class="contact-trash-row"><span class="avatar large">${c.photo_url?`<img src="${esc(c.photo_url)}" alt="${esc(c.name||c.email)}">`:esc(initials(c.name||c.email))}</span><div class="contact-trash-info"><strong>${esc(c.name||c.email)}</strong><p>${esc(contactEmails(c).join(' · '))}</p><small>删除于 ${esc(fmtDate(c.deleted_at,true))}</small></div><button class="secondary" data-action="restore-contact" data-id="${c.id}">${I('undo-2',16)} 撤回删除</button></article>`).join('');if(append)root.insertAdjacentHTML('beforeend',html);else root.innerHTML=html||'<div class="small-empty">垃圾箱是空的</div>';root.dataset.offset=offset+rows.length;if(result.has_more)root.insertAdjacentHTML('beforeend','<button class="secondary contact-trash-more" data-action="contact-trash-more">加载更多</button>');iconsNow();}catch(e){if($('#contact-trash-list')===root&&!append)root.innerHTML='<p class="muted">加载失败，请重试。</p><button class="secondary" data-action="contact-trash">重新加载</button>';throw e;}
+let contactTrashView;
+function paintContactTrash(view){
+ if(!view.root.isConnected)return;
+ const query=view.search.value.trim();
+ const rows=view.rows.filter(c=>fuzzy([c.name,...contactEmails(c),c.organization,c.phone,c.group_name,c.notes].filter(Boolean).join(' '),query));
+ const results=rows.map(c=>`<article class="contact-trash-row"><span class="avatar large">${c.photo_url?`<img src="${esc(c.photo_url)}" alt="${esc(c.name||c.email)}">`:esc(initials(c.name||c.email))}</span><div class="contact-trash-info"><strong>${esc(c.name||c.email)}</strong><p>${esc(contactEmails(c).join(' · '))}</p><small>删除于 ${esc(fmtDate(c.deleted_at,true))}</small></div><button class="secondary" data-action="restore-contact" data-id="${c.id}">${I('undo-2',16)} 撤回删除</button></article>`).join('');
+ const status=view.loading?'正在加载…':query?'没有匹配的联系人':'垃圾箱是空的';
+ view.root.innerHTML=(results||'<p class="small-empty">'+status+'</p>')+
+  (view.failed?'<button class="secondary contact-trash-more" data-action="contact-trash-more">重新加载</button>':
+   view.hasMore&&!view.loading?'<button class="secondary contact-trash-more" data-action="contact-trash-more">加载更多</button>':'');
+ iconsNow();
+}
+async function loadContactTrash(view){
+ if(view.loading)return view.loading;
+ view.failed=false;
+ view.loading=(async()=>{
+  try{
+   do{
+    const result=await api('contact_trash_list',{offset:view.rows.length});
+    const rows=result.contacts||[];
+    view.rows.push(...rows);
+    view.hasMore=Boolean(result.has_more&&rows.length);
+   }while(view.root.isConnected&&view.search.value.trim()&&view.hasMore);
+  }catch(e){view.failed=true;error(e);}
+  finally{view.loading=null;paintContactTrash(view);}
+ })();
+ paintContactTrash(view);
+ return view.loading;
+}
+async function contactTrashModal(append=false,query=''){
+ if(append){if(contactTrashView?.root.isConnected&&contactTrashView.hasMore)await loadContactTrash(contactTrashView);return;}
+ modal('联系人垃圾箱','<input id="contact-trash-search" type="search" aria-label="搜索联系人垃圾箱" placeholder="搜索姓名、邮箱或机构"><div id="contact-trash-list" aria-live="polite"></div>',true);
+ const view={root:$('#contact-trash-list'),search:$('#contact-trash-search'),rows:[],hasMore:true,loading:null,failed:false};
+ contactTrashView=view;
+ view.search.value=query;
+ view.search.oninput=()=>{
+  paintContactTrash(view);
+  if(view.search.value.trim()&&view.hasMore)loadContactTrash(view);
+ };
+ await loadContactTrash(view);
 }
 function contactDraft(){const f=$('#contact-form'),data=Object.fromEntries(new FormData(f));data.emails=$$('input[name="contact_email"]',f).map(n=>n.value.trim()).filter(Boolean);data.email=data.emails[0]||'';data.second_email=data.emails[1]||'';delete data.contact_email;if(S.contactEdit?.id&&data.organization===displayOrganization(S.contactEdit))data.organization=S.contactEdit.organization||'';return data;}
 function previewContactPhoto(url){const n=$('#contact-photo-preview');if(n)n.innerHTML=`<span class="avatar large"><img src="${esc(url)}" alt="待保存头像"></span>`;}
+function chooseContactPhoto(file){
+ S.contactEdit.pendingPhoto=file;
+ S.contactEdit.candidate=null;
+ S.contactEdit.removePhoto=false;
+ previewContactPhoto(URL.createObjectURL(file));
+ toast('照片已选定，保存联系人后生效');
+}
 async function reviewPhotos(expand=false){const draft=contactDraft();if(!draft.name&&!draft.email)throw Error('请先填写姓名或邮箱');if(!expand)S.photoReview={draft,items:[],seen:[],round:0};const job=S.photoReview,token=crypto.randomUUID();job.token=token;overlay('匹配照片','<p role="status">正在查找公开照片，请稍候…</p>');let r;try{r=await api('photo_candidates',{contact:job.draft,expand,exclude:job.seen,round:job.round});}catch(e){if(S.photoReview===job&&job.token===token&&$('#review-overlay')){job.items=[];paintPhotoReview('查找未完成：'+e.message+'。可以扩大搜索或稍后重试。');}return;}if(S.photoReview!==job||job.token!==token||!$('#review-overlay'))return;job.round++;job.items=r.items||[];job.seen.push(...(r.seen||[]));job.selected=job.items[0]?.id||'';paintPhotoReview(r.message);if(!job.items.length)toast(r.message||'没有找到可供确认的照片');}
-function paintPhotoReview(message=''){const job=S.photoReview;overlay('确认联系人照片',`<p>${esc(message||'请核对照片与本人是否对应。候选照片未经你确认，不会写入联系人。')}</p><div class="photo-candidates">${job.items.map(p=>`<label class="photo-candidate"><input type="radio" name="photo_candidate" value="${p.id}" ${p.id===job.selected?'checked':''}><img src="${esc(p.url)}" alt="候选照片" loading="lazy"><strong>${p.name_only?'仅按人名匹配 · 待确认':p.exact?'身份线索匹配':'候选 · 身份待核实'}</strong><span>${esc(p.title||'公开照片')}</span><a href="${esc(p.source)}" target="_blank" rel="noopener noreferrer">查看来源 ↗</a></label>`).join('')||'<p>没有找到可用照片，联系人头像保持原样。</p>'}</div><div class="modal-footer"><button class="primary" data-action="accept-photo" ${job.items.length?'':'disabled'}>确认</button><button class="secondary" data-action="expand-photo">按人名扩大搜索（最多 10 张）</button></div>`);}
+function paintPhotoReview(message=''){const job=S.photoReview;overlay('确认联系人照片',`<p>${esc(message||'请核对照片与本人是否对应。候选照片未经你确认，不会写入联系人。')}</p><div class="photo-candidates">${job.items.map(p=>`<label class="photo-candidate"><input type="radio" name="photo_candidate" value="${p.id}" ${p.id===job.selected?'checked':''}><img src="${esc(p.url)}" alt="候选照片" loading="lazy"><strong>${p.name_only?'仅按人名匹配 · 待确认':p.exact?'身份线索匹配':'候选 · 身份待核实'}</strong><span>${esc(p.title||'公开照片')}</span><a href="${esc(p.source)}" target="_blank" rel="noopener noreferrer">查看来源 ↗</a></label>`).join('')||'<p>没有找到可用照片，联系人头像保持原样。</p>'}</div><div class="modal-footer"><button class="primary" data-action="accept-photo" ${job.items.length?'':'disabled'}>使用原图</button><button class="secondary" data-action="crop-match-photo" ${job.items.length?'':'disabled'}>裁剪后使用</button><button class="secondary" data-action="expand-photo">按人名扩大搜索（最多 10 张）</button></div>`);}
 function contactInfoSources(item){return (item.sources||[item]).map(source=>`<small class="contact-info-quote">${esc(source.quote||'')}</small>${/^https:\/\//i.test(source.source||'')?`<a class="contact-info-origin" href="${esc(source.source)}" target="_blank" rel="noopener noreferrer">${esc(source.source_label||'资料来源')} ↗</a>`:`<span class="contact-info-origin">${esc(source.source_label||'邮件 / 邮箱线索')}${source.inferred?' · 推测，需确认':''}</span>`}`).join('');}
 async function matchContactInfo(){const draft=contactDraft(),token=crypto.randomUUID();S.infoRequest=token;overlay('AI 匹配联系人信息','<p role="status">正在分析来往邮件、邮箱域名及公开资料…</p>');let r;try{r=await api('contact_info',{contact:draft});}catch(e){if(S.infoRequest===token&&$('#review-overlay'))overlay('联系人信息检索未完成','<p>'+esc(e.message)+'</p><div class="modal-footer"><button class="primary" data-action="match-contact-info">重新检索</button></div>');return;}if(S.infoRequest!==token||!$('#review-overlay'))return;S.infoReview=r.fields||{};overlay('确认联系人信息',`<form id="contact-info-form">${r.message?`<p>${esc(r.message)}</p>`:''}${Object.entries(S.infoReview).map(([key,item])=>`<label>${({name:'姓名',organization:'机构（国家 · 学校）',phone:'电话',profile_url:'资料页面',notes:'备注'})[key]}<input name="${key}" value="${esc(item.value)}">${contactInfoSources(item)}</label>`).join('')}<div class="modal-footer"><button class="primary" type="submit" ${Object.keys(S.infoReview).length?'':'disabled'}>确认并填入</button></div></form>`);}
 async function mergeContacts(source,target){if(source===target)return;const a=S.contacts.find(c=>c.id===source),b=S.contacts.find(c=>c.id===target);if(!a||!b)return;S.pendingMerge={source,target};overlay('确认合并联系人',`<p>保留「${esc(a.name||a.email)}」的姓名、机构、头像等主要信息，将「${esc(b.name||b.email)}」的邮箱追加到其后。</p><p>${esc([...new Set([...contactEmails(a),...contactEmails(b)])].join('，'))}</p><div class="modal-footer"><button class="secondary" data-action="close-modal">取消</button><button class="primary" data-action="confirm-merge">确认合并</button></div>`);}
@@ -361,11 +405,21 @@ async function handleAction(action,el){const id=el?.dataset.id;switch(action){
  case 'find-photo':contactModal(S.contacts.find(c=>c.id===id));await reviewPhotos();break;
  case 'review-photo':await reviewPhotos();break;
  case 'expand-photo':await reviewPhotos(true);break;
+ case 'crop-match-photo':{
+  const photo=S.photoReview.items.find(p=>p.id===S.photoReview.selected);
+  if(!photo)throw Error('请选择照片');
+  openPhotoInput({overlay,close:closeModal,onChoose:chooseContactPhoto,loadPhoto:async()=>{
+   const response=await fetch(photo.url,{signal:AbortSignal.timeout(15000)});
+   if(!response.ok)throw Error('读取照片失败，请返回后重新匹配');
+   return response.blob();
+  }});
+  break;
+ }
  case 'accept-photo':{const p=S.photoReview.items.find(p=>p.id===S.photoReview.selected);if(!p)throw Error('请选择照片');S.contactEdit.candidate=p.id;S.contactEdit.pendingPhoto=null;S.contactEdit.removePhoto=false;previewContactPhoto(p.url);closeModal();toast('照片已选定，保存联系人后生效');break;}
  case 'choose-self-photo':openPhotoInput({overlay,close:closeModal,onChoose:async file=>{S.selfPhoto=file;S.selfPhotoRemove=false;S.settingsDirty=true;$('#self-photo-preview').innerHTML='<span class="avatar large"><img src="'+esc(URL.createObjectURL(file))+'" alt="待保存个人头像"></span>';toast('照片已选择，保存个人资料后生效');}});break;
  case 'remove-self-photo':S.settingsDirty=true;S.selfPhoto=null;S.selfPhotoRemove=true;$('#self-photo-preview').innerHTML=avatar(null,'',true);toast('保存个人资料后移除头像');break;
  case 'match-contact-info':await matchContactInfo();break;
- case 'choose-photo':openPhotoInput({overlay,close:closeModal,onAutoMatch:()=>reviewPhotos(),onError:error,onChoose:async file=>{S.contactEdit.pendingPhoto=file;S.contactEdit.candidate=null;S.contactEdit.removePhoto=false;previewContactPhoto(URL.createObjectURL(file));toast('照片已选定，保存联系人后生效');}});break;
+ case 'choose-photo':openPhotoInput({overlay,close:closeModal,onAutoMatch:()=>reviewPhotos(),onError:error,onChoose:chooseContactPhoto});break;
  case 'zoom-avatar':{const c=id==='self'?{...S.profile,name:S.profile?.display_name}:S.contacts.find(c=>c.id===id);if(c?.photo_url)overlay('头像原图',`<div class="avatar-lightbox"><img src="${esc(c.photo_url)}" alt="${esc(c.name||c.email)}"></div>`);break;}
  case 'contact-layout':S.contactLayout=S.contactLayout==='list'?'grid':'list';localStorage.setItem('mail-contact-layout',S.contactLayout);render();break;
  case 'contact-letter':{const row=$$('[data-contact-card]').find(n=>n.dataset.letter===el.dataset.letter);row?.scrollIntoView({behavior:'smooth',block:'start'});break;}
@@ -384,7 +438,7 @@ async function handleAction(action,el){const id=el?.dataset.id;switch(action){
  case 'contact-trash':await contactTrashModal();break;
  case 'contact-trash-more':await contactTrashModal(true);break;
  case 'delete-contact':await api('contact_delete',{id});S.contacts=S.contacts.filter(c=>c.id!==id);cache().clear();if($('#contact-form'))closeModal();render();toast('已移入联系人垃圾箱，可在右下角垃圾箱撤回删除');break;
- case 'restore-contact':await api('contact_restore',{id});cache().clear();await bootstrap();render();await contactTrashModal();toast('已恢复联系人，照片和邮箱均已保留');break;
+ case 'restore-contact':{const query=$('#contact-trash-search')?.value||'';await api('contact_restore',{id});cache().clear();await bootstrap();render();await contactTrashModal(false,query);toast('已恢复联系人，照片和邮箱均已保留');break;}
  case 'add-contact':contactModal();break;case 'edit-contact':contactModal(S.contacts.find(c=>c.id===id));break;
  case 'write-contact':if(!await openCompose())break;S.compose.to=S.contacts.find(c=>c.id===id).email;render();break;
  case 'filter-contact':await navigate('inbox',{folder:'all',sender:S.contacts.find(c=>c.id===id).email});break;
