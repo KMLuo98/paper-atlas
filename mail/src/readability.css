@@ -1,6 +1,7 @@
 :root {
   --mail-text: #273832;
   --mail-label: #475a50;
+  --mail-compose-font-size: calc(16px + 1pt);
 }
 html[data-appearance="glass"] {
   --mail-text: #223c49;
@@ -15,7 +16,10 @@ html[data-appearance="glass"] {
 .info-card dd,.reader-category select,.compose-fields input,.compose-fields select,.rich-mail-editor {
   color: var(--mail-text);
 }
-.rich-mail-editor {font-size:calc(16px + 1pt)}
+.rich-mail-editor,.modal>.send-summary>.send-preview {
+  font-family:Arial,sans-serif;
+  font-size:var(--mail-compose-font-size);
+}
 
 .modal>.send-summary>p {
   color:var(--mail-text);
@@ -31,7 +35,8 @@ html[data-appearance="glass"] {
 .modal>.send-summary>p>strong {font-weight:650;min-width:0}
 .modal>.send-summary>.send-preview {
   color:var(--mail-text);
-  font-size:calc(12px + 3pt);
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
 }
 .modal>.send-summary>.send-preview p {
   display:block;
@@ -44,5 +49,4 @@ html[data-appearance="glass"] {
 @media(max-width:700px) {
   .modal>.send-summary>p {gap:8px}
   .modal>.send-summary>p>span {width:4.4em}
-  .modal>.send-summary>.send-preview {font-size:calc(13px + 3pt)}
 }
