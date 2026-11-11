@@ -80,7 +80,7 @@ document.addEventListener('pointermove', event => {
 const toolbarButtons = [
   '.head-actions button', '.reader-toolbar button', '.compose-bottom button',
   '.list-actions button', '.pagination button', '.translation-controls button',
-  '.email-bottom button', '.filter-controls button'
+  '.email-bottom button', '.filter-controls button', '.contact-card-actions button'
 ].join(',');
 const actionIcons = {
   'bulk-read':'check', 'bulk-category':'folder', 'load-older':'arrow-down',
@@ -126,3 +126,60 @@ export function prepareMailAppearance(icon) {
     if (!button.title) button.title = label;
   }
 }
+
+let heldButton, pressTimer, tip, tipTimer, startX, startY, pointerId, suppressUntil = 0;
+let suppressedButton;
+const mobileButtons = matchMedia('(max-width:700px)');
+function cancelPress() {
+  clearTimeout(pressTimer);
+  heldButton = null;
+}
+document.addEventListener('pointerdown', event => {
+  cancelPress();
+  if (!mobileButtons.matches || event.pointerType === 'mouse' || !event.isPrimary) return;
+  const button = event.target.closest?.('button');
+  if (!button || button.disabled || button.closest('[draggable="true"]')) return;
+  const label = (button.getAttribute('aria-label') || button.title || button.textContent).trim();
+  if (!label) return;
+  heldButton = button;
+  pointerId = event.pointerId;
+  startX = event.clientX;
+  startY = event.clientY;
+  pressTimer = setTimeout(() => {
+    if (!heldButton?.isConnected) return;
+    tip?.remove();
+    tip = document.createElement('div');
+    tip.className = 'mail-action-tip';
+    tip.textContent = label;
+    tip.setAttribute('role', 'tooltip');
+    document.body.append(tip);
+    const bounds = heldButton.getBoundingClientRect();
+    const left = Math.max(8, Math.min(innerWidth - tip.offsetWidth - 8, bounds.left + (bounds.width - tip.offsetWidth) / 2));
+    tip.style.left = left + 'px';
+    tip.style.top = (bounds.top > tip.offsetHeight + 12 ? bounds.top - tip.offsetHeight - 8 : bounds.bottom + 8) + 'px';
+    suppressedButton = heldButton;
+    suppressUntil = Infinity;
+  }, 500);
+}, {passive:true});
+document.addEventListener('pointermove', event => {
+  if (event.pointerId === pointerId && Math.hypot(event.clientX - startX, event.clientY - startY) > 12) cancelPress();
+}, {passive:true});
+function finishPress(event) {
+  if (event.pointerId !== pointerId) return;
+  cancelPress();
+  if (suppressUntil === Infinity) suppressUntil = Date.now() + 600;
+  clearTimeout(tipTimer);
+  tipTimer = setTimeout(() => tip?.remove(), 900);
+}
+document.addEventListener('pointerup', finishPress, {passive:true});
+document.addEventListener('pointercancel', finishPress, {passive:true});
+document.addEventListener('contextmenu', event => {
+  if (heldButton?.contains(event.target)) event.preventDefault();
+});
+document.addEventListener('click', event => {
+  if (Date.now() < suppressUntil && suppressedButton?.contains(event.target)) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    suppressUntil = 0;
+  }
+}, true);

@@ -1,0 +1,63 @@
+.contact-thread-modal.modal {max-width:920px}
+.contact-correspondence {min-width:0}
+.correspondence-search {width:100%}
+.correspondence-status {margin:12px 0;color:var(--mail-label,#475a50)}
+.correspondence-results {display:grid;gap:7px}
+.correspondence-more[hidden] {display:none}
+.correspondence-more {margin-top:12px}
+.correspondence-message {
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  min-height:65px;
+  padding:10px 12px;
+  text-align:left;
+  border:1px solid #dce6df;
+  border-radius:12px;
+  background:#fff;
+  color:var(--mail-text,#273832);
+}
+.correspondence-message:hover,.correspondence-message:focus-visible {border-color:#729f95;background:#edf6f2}
+.correspondence-copy {min-width:0;display:grid;gap:4px}
+.correspondence-copy strong,.correspondence-copy small {overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.correspondence-copy small,.correspondence-message time {color:var(--mail-label,#475a50);font-size:12px}
+.correspondence-direction {font-size:12px;color:#315a4f;background:#e5f2e9;border-radius:7px;padding:4px 6px}
+.correspondence-direction[data-sent="true"] {background:#e4eef5;color:#274c66}
+.contact-thread-columns {display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,30%);gap:22px;align-items:start}
+.contact-thread-panel {min-width:0;padding:18px;border:1px solid #dce6df;border-radius:18px;background:#fff}
+.contact-thread-profile {display:grid;gap:12px;overflow-wrap:anywhere}
+.contact-thread-profile ul {list-style:none;padding:0;margin:0;display:grid;gap:6px}
+.contact-thread-profile .avatar {width:64px;height:64px}
+.contact-alt-name {display:block;margin-top:4px;font-size:.82em;font-weight:500;color:var(--mail-label,#475a50)}
+.contact-open {display:block;text-align:left;color:inherit;font:inherit;padding:0;max-width:100%;overflow-wrap:anywhere}
+.contact-open:hover {text-decoration:underline}
+.contact-card:not(.mergeable) {cursor:pointer}
+.contact-layout-switch {display:inline-flex;align-items:center;border:1px solid #ceddd2;border-radius:999px;padding:2px;gap:2px}
+.contact-layout-switch button {min-height:36px;padding:4px 12px;border-radius:999px;color:var(--mail-label,#475a50)}
+.contact-layout-switch button[aria-pressed="true"] {background:#e3eee7;color:#243b32}
+.contact-layout-switch svg {display:none}
+[data-appearance="glass"] :is(.contact-thread-panel,.correspondence-message) {
+  background:var(--glass-surface);
+  border-color:var(--glass-edge);
+  -webkit-backdrop-filter:var(--mail-glass-blur);
+  backdrop-filter:var(--mail-glass-blur);
+}
+[data-appearance="glass"] .correspondence-message:hover {background:var(--glass-accent)}
+.mail-action-tip {
+  position:fixed;z-index:11000;max-width:calc(100vw - 16px);padding:7px 10px;
+  border-radius:8px;background:#203d38;color:#fff;font-size:13px;pointer-events:none;
+  box-shadow:0 3px 14px #0003;
+}
+@media(max-width:700px) {
+  .contact-thread-columns {grid-template-columns:minmax(0,1fr);gap:12px}
+  .contact-thread-panel {padding:12px}
+  .correspondence-message {grid-template-columns:auto minmax(0,1fr);gap:5px 9px}
+  .correspondence-message time {grid-column:2}
+  .contact-layout-switch button {min-width:44px;min-height:44px;padding:0;justify-content:center}
+  .contact-layout-switch svg {display:block}
+  .contact-layout-switch .layout-label {display:none}
+  .contacts-page .head-actions>button.mobile-icon-action {background:transparent;border-color:transparent;box-shadow:none;color:var(--mail-text,#273832)}
+  .contact-card-actions button.mobile-icon-action {background:transparent}
+}
