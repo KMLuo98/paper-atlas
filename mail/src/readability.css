@@ -1,0 +1,48 @@
+:root {
+  --mail-text: #273832;
+  --mail-label: #475a50;
+}
+html[data-appearance="glass"] {
+  --mail-text: #223c49;
+  --mail-label: #405964;
+}
+
+:is(.workspace,.modal,.mail-admin) :is(.muted,.eyebrow,.form-help,.section-footnote,.quiet-label,.sort-label),
+.page-head p,.block-heading p,.mail-row time,.row-subject p,.info-card dt,.reader-category,
+.compose-fields label,.settings-block label,.modal label,.contact-card>small,.contact-card>p {
+  color: var(--mail-label);
+}
+.info-card dd,.reader-category select,.compose-fields input,.compose-fields select,.rich-mail-editor {
+  color: var(--mail-text);
+}
+.rich-mail-editor {font-size:calc(16px + 1pt)}
+
+.modal>.send-summary>p {
+  color:var(--mail-text);
+  font-size:calc(11px + 3pt);
+  gap:12px;
+  align-items:baseline;
+}
+.modal>.send-summary>p>span {
+  color:var(--mail-label);
+  width:5em;
+  font-weight:600;
+}
+.modal>.send-summary>p>strong {font-weight:650;min-width:0}
+.modal>.send-summary>.send-preview {
+  color:var(--mail-text);
+  font-size:calc(12px + 3pt);
+}
+.modal>.send-summary>.send-preview p {
+  display:block;
+  margin:0 0 .7em;
+  color:inherit;
+  font-size:inherit;
+}
+.modal>.send-summary>.send-preview p>span {width:auto;color:inherit}
+.modal>.send-summary>.send-preview strong {font-weight:bold}
+@media(max-width:700px) {
+  .modal>.send-summary>p {gap:8px}
+  .modal>.send-summary>p>span {width:4.4em}
+  .modal>.send-summary>.send-preview {font-size:calc(13px + 3pt)}
+}

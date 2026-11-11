@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 
 const main=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
-const submitSource=main.slice(main.indexOf("document.addEventListener('submit',"),main.indexOf("\nwindow.addEventListener('beforeunload',"));
+const submitSource=main.slice(main.indexOf("document.addEventListener('submit',"),main.indexOf("\nfunction preserveInterruptedDraft("));
 
 function harness(formId,values,{provider='school',failAction=''}={}){
  const calls=[],feedback=[],button={disabled:false,isConnected:true},message={textContent:'',isConnected:true};
