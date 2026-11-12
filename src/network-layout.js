@@ -52,19 +52,14 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
   });
   const nodeTopics=new Map();
   for(const region of topics)for(const id of region.members)nodeTopics.set(id,region);
-  const nodeGlass=new Map();
-  function glassFor(id){
+  function topicNodeStyle(id){
     const topic=nodeTopics.get(id),hue=topic?topicColors.get(topic.id):210;
-    const depth=Math.min(topic?.depth || 0,2),saturation=topic?52:17,key=hue+':'+depth+':'+saturation;
-    if(nodeGlass.has(key))return nodeGlass.get(key);
-    const gradientId=markerId+'-node-'+nodeGlass.size;
-    const gradient=make('radialGradient',{id:gradientId,cx:'34%',cy:'24%',r:'80%'});
-    const shades=[[0,'#fff',.98],[.36,`hsl(${hue},${saturation}%,${88-depth*4}%)`,.94],[.82,`hsl(${hue},${saturation}%,${69-depth*4}%)`,.86],[1,`hsl(${hue},${saturation}%,${54-depth*4}%)`,.85]];
-    for(const [offset,color,opacity] of shades)gradient.append(make('stop',{offset,'stop-color':color,'stop-opacity':opacity}));
-    defs.append(gradient);
-    const style={fill:'url(#'+gradientId+')',ink:`hsl(${hue},${saturation}%,19%)`,rim:`hsl(${hue},${saturation}%,48%)`};
-    nodeGlass.set(key,style);
-    return style;
+    const depth=Math.min(topic?.depth || 0,2),saturation=topic?35:14;
+    return {
+      fill:`hsl(${hue},${saturation}%,${72-depth*4}%)`,
+      ink:`hsl(${hue},${saturation}%,19%)`,
+      rim:`hsl(${hue},${saturation}%,43%)`
+    };
   }
   function paintRegions() {
     for(const {el,region} of regionEls){
@@ -100,18 +95,12 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
   let photosVisible=false;
   const nodeEls = nodes.map((node, i) => {
     const r = radius(node.id), g = make('g', {class: 'node', tabindex: 0, role: 'button', 'aria-label': node.label, 'aria-pressed': 'false', 'data-node-id': node.id});
-    const glass=data.similarity?glassFor(node.id):null;
-    if(glass)g.style.setProperty('--topic-node-glow',glass.rim);
-    const ring = make('circle', {class: 'selection-ring', r: r + 8, fill: 'none', stroke: glass?.rim || '#d18b31', 'stroke-width': 4, opacity: 0}); rings.push(ring); g.append(ring);
-    g.append(make('circle', {r, fill: glass?.fill || ['#50764c', '#87a76b', '#b4bd87', '#729180', '#b49f6a'][i % 5], stroke: '#fffefa', 'stroke-width': 2}));
-    if(glass)g.append(make('path',{
-      d:`M${-.66*r} ${-.42*r} Q${-.34*r} ${-.86*r} ${.18*r} ${-.76*r}`,
-      fill:'none',stroke:'#fff','stroke-opacity':.8,'stroke-width':Math.max(1,r*.075),
-      'stroke-linecap':'round','pointer-events':'none'
-    }));
+    const topicStyle=data.similarity?topicNodeStyle(node.id):null;
+    const ring = make('circle', {class: 'selection-ring', r: r + 8, fill: 'none', stroke: topicStyle?.rim || '#d18b31', 'stroke-width': 4, opacity: 0}); rings.push(ring); g.append(ring);
+    g.append(make('circle', {r, fill: topicStyle?.fill || ['#50764c', '#87a76b', '#b4bd87', '#729180', '#b49f6a'][i % 5], stroke: topicStyle?'none':'#fffefa', 'stroke-width': 2}));
     const innerText = authors ? node.name.split(' ').map(part => part[0]).slice(0, 2).join('') : (node.short_label === '未发表' && getLanguage() === 'en' ? 'Unpub.' : node.short_label || 'PDF');
     const units = [...innerText].reduce((sum, char) => sum + (/[\p{Script=Han}]/u.test(char) ? 1 : .62), 0), innerSize = r * Math.min(12 / 14, 1.72 / Math.max(1, units)), labelSize = r * 12 / 14;
-    const inner = make('text', {'text-anchor': 'middle', dy: innerSize * .35, class: 'node-inner-label', style: `fill:${glass?.ink || '#fffef9'};font-size:calc(${innerSize}px + var(--interface-font-step, 1pt));font-weight:600`}); inner.textContent = innerText; g.append(inner);innerEls.push(inner);
+    const inner = make('text', {'text-anchor': 'middle', dy: innerSize * .35, class: 'node-inner-label', style: `fill:${topicStyle?.ink || '#fffef9'};font-size:calc(${innerSize}px + var(--interface-font-step, 1pt));font-weight:600`}); inner.textContent = innerText; g.append(inner);innerEls.push(inner);
     const label = make('text', {y: r + labelSize * 1.5, 'text-anchor': 'middle', class: 'node-label', style: `font-size:calc(${labelSize}px + var(--interface-font-step, 1pt))`});
     label.textContent = authors ? node.name : node.label.length > 27 ? node.label.slice(0, 25) + '…' : node.label; labelEls.push(label); g.append(label);
     const title = make('title'); title.textContent = node.label; g.append(title); viewport.append(g);
