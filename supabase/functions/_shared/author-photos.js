@@ -1,12 +1,12 @@
 import {discoverResearchGatePhotos} from './researchgate-photos.js';
 import {authorAffiliations} from './author-affiliations.js';
 import {englishName} from './author-directory.js';
-import {imageCandidateKey,discoverPhotoCandidates} from '../mail-api/photo-sources.js';
+import {imageCandidateKey,discoverPhotoCandidates,readImage} from '../mail-api/photo-sources.js';
 import {safeFetch,bounded,text,publicPhotoURL} from '../mail-api/photos.js';
 const fold=value=>String(value||'').normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
 const germanName=value=>String(value).replace(/[äöüÄÖÜß]/g,c=>({'ä':'ae','ö':'oe','ü':'ue','Ä':'Ae','Ö':'Oe','Ü':'Ue','ß':'ss'}[c]));
 export function authorSearchNames(person){return [...new Set([person.name,...(person.aliases||[])].filter(n=>typeof n==='string'&&n.trim()).flatMap(n=>[n.trim(),germanName(n).trim()]))].sort((a,b)=>Number(/\p{Script=Han}/u.test(b))-Number(/\p{Script=Han}/u.test(a)));}
-export function authorPhotoIdentity(person){const schools=authorAffiliations(person),school=schools[0];return {name:englishName([person.english_name,...person.aliases])||person.original_names[0]||'',organization:school?.school||person.institution||'',organization_aliases:school?.aliases||[],aliases:person.aliases||[],orcid:person.orcid||'',email:'',profile_url:person.profile_url||''};}
+export function authorPhotoIdentity(person){const schools=authorAffiliations(person),school=schools[0];return {name:englishName([person.english_name,...person.aliases])||person.original_names[0]||'',organization:school?.school||person.institution||'',organization_aliases:[...new Set(schools.flatMap(row=>[row.school,...(row.aliases||[])]))],aliases:person.aliases||[],orcid:person.orcid||'',email:'',profile_url:person.profile_url||'',scholar_url:person.scholar_url||'',researchgate_url:person.researchgate_url||''};}
 function nameParts(value){let name=String(value||'').replace(/,?\s*(?:Ph\.?D\.?|M\.?Sc\.?|M\.?D\.?)$/i,'').replace(/^(?:professor|prof\.?|dr\.?|mr\.?|mrs\.?)\s+/i,'').split(/\s+[–—-]\s+|\|/)[0].trim();if(name.includes(',')){const [last,...first]=name.split(',');name=first.join(' ').trim()+' '+last.trim();}const words=name.split(/\s+/).map(w=>fold(w)).filter(Boolean);return {name,words,last:words.at(-1)||'',given:words.slice(0,-1).join(''),initials:name.split(/\s+/).slice(0,-1).flatMap(w=>w.split(/[-.]+/)).map(w=>fold(w)[0]||'').join('')};}
 export function scholarlyNameMatch(expected,candidate){
  if(!expected||!candidate)return false;
@@ -32,13 +32,32 @@ export function photoIdentityEvidence(person,evidence){
  const organizationMatch=organizations.some(n=>{if(body.includes(orgFold(n)))return true;const words=String(n).normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().replace(/universit[\p{L}]*/gu,'university').split(/[^\p{L}\p{N}]+/u).filter(Boolean),distinctive=words.filter(w=>!['the','of','and','university','institute','college','school','national','research','for','science','technology','academy'].includes(w));return distinctive.length>=2&&distinctive.every(word=>body.includes(fold(word)))&&words.some(w=>['university','institute','college','academy'].includes(w)&&body.includes(w));});
  return nameMatch&&(organizationMatch||!!(orcid&&identifiers.includes(orcid)));
 }
+async function scholarPhoto(person,parseHTML,options){
+ const source=publicPhotoURL(person.scholar_url);
+ if(!source)return {items:[],unavailable:false};
+ const profile=new URL(source);
+ if(profile.hostname!=='scholar.google.com'||profile.pathname!=='/citations'||!profile.searchParams.get('user'))return {items:[],unavailable:false};
+ try{
+  const {response}=await safeFetch(source,'text/html',options);
+  if(!response.ok){await response.body?.cancel();return {items:[],unavailable:true};}
+  const {document}=parseHTML(text(await bounded(response,900000)));
+  const name=document.querySelector('#gsc_prf_in')?.textContent?.trim();
+  if(![person.name,...(person.aliases||[])].some(alias=>scholarlyNameMatch(alias,name)))return {items:[],unavailable:false};
+  const image=document.querySelector('#gsc_prf_pup img,img#gsc_prf_pup,#gsc_prf_pua img')?.getAttribute('src');
+  const url=publicPhotoURL(image,source);
+  if(!url||/avatar_scholar|placeholder|default/i.test(url)||options.exclude?.includes(imageCandidateKey(url)))return {items:[],unavailable:false};
+  const data=await readImage(url,options,parseHTML);
+  return {items:data?[{...data,url,source,title:name,key:imageCandidateKey(url),provider:'Google Scholar',exact:true,profile_avatar:true}]:[],unavailable:false};
+ }catch{return {items:[],unavailable:true};}
+}
 export async function discoverAuthorPhotos(person,parseHTML,options={}){
+ options={deadline:Date.now()+55000,...options};
  person={...person,search_names:authorSearchNames(person)};person.name=person.search_names[0]||person.name;
- const settled=await Promise.allSettled([discoverPhotoCandidates(person,parseHTML,options),discoverResearchGatePhotos(person,parseHTML,options,photoIdentityEvidence)]);
+ const settled=await Promise.allSettled([scholarPhoto(person,parseHTML,options),discoverPhotoCandidates(person,parseHTML,options),discoverResearchGatePhotos(person,parseHTML,options,photoIdentityEvidence)]);
  const successful=settled.filter(r=>r.status==='fulfilled').map(r=>r.value),unique=new Map();
- for(const item of successful.flatMap(r=>r.items).sort((a,b)=>Number(b.exact)-Number(a.exact))){const key=imageCandidateKey(item.url||item.key);if(!unique.has(key))unique.set(key,item);}
+ for(const item of successful.flatMap(r=>r.items).sort((a,b)=>Number(b.exact)-Number(a.exact)||Number(!!b.profile_avatar)-Number(!!a.profile_avatar))){const key=imageCandidateKey(item.url||item.key);if(!unique.has(key))unique.set(key,item);}
  const result={items:[...unique.values()],unavailable:settled.some(r=>r.status==='rejected')||successful.some(r=>r.unavailable)};
  const pages=[...new Set(result.items.filter(item=>!item.exact&&publicPhotoURL(item.source)).map(item=>item.source))].slice(0,4),evidence=new Map();
  await Promise.allSettled(pages.map(async source=>{const {response}=await safeFetch(source,'text/html',options);if(!response.headers.get('content-type')?.includes('text/html')){await response.body?.cancel();return;}const {document}=parseHTML(text(await bounded(response,900000)));for(const el of document.querySelectorAll('script,style,nav,footer'))el.remove();const headings=[...document.querySelectorAll('h1,h2,title')].map(el=>el.textContent.trim()),orcids=[...document.querySelectorAll('a[href*="orcid.org/"]')].map(el=>el.getAttribute('href').match(/\d{4}-\d{4}-\d{4}-\d{3}[\dX]/i)?.[0]).filter(Boolean);evidence.set(source,photoIdentityEvidence(person,{headings,orcids:[...new Set(orcids)],text:(document.body?.textContent||document.documentElement.textContent||'').slice(0,180000)}));}));
- return {...result,items:result.items.map(item=>({...item,exact:item.exact||evidence.get(item.source)===true}))};
+ return {...result,items:result.items.map(item=>({...item,exact:item.exact||(evidence.get(item.source)===true&&person.search_names.some(name=>scholarlyNameMatch(name,item.title)))}))};
 }

@@ -15,7 +15,15 @@ export function wikidataAcademicLinks(entity,person){
  return [...values('P1960').map(id=>academicProfileURL('https://scholar.google.com/citations?user='+encodeURIComponent(id))),...values('P2038').map(id=>academicProfileURL('https://www.researchgate.net/profile/'+encodeURIComponent(id)))].filter(Boolean);
 }
 const count=value=>{const s=String(value||'').trim().replace(/[,\s\u00a0]/g,'');return /^\d+$/.test(s)&&Number.isSafeInteger(Number(s))&&Number(s)<=1e10?Number(s):null;};
-export function indexedScholarMetrics(snippet){const match=String(snippet||'').match(/\bCited by\s+([\d,]+)(?=\s|[;|·—]|$)/i),value=match?count(match[1]):null;return value===null?{}:{citations:value};}
+export function indexedScholarMetrics(snippet){
+ const metrics={};
+ for(const [field,label] of [['citations','Cited by|Citations|被引次数'],['h_index','h[-‐‑– ]?index|h指数'],['i10_index','i10[-‐‑– ]?index|i10指数']]){
+  const match=String(snippet||'').match(new RegExp('(?:'+label+')\\s*[:：]?\\s*([\\d,]+)(?=\\s|[;|·—]|$)','i'));
+  const value=match?count(match[1]):null;
+  if(value!==null)metrics[field]=value;
+ }
+ return metrics;
+}
 export function parseAcademicMetrics(html,provider,parseHTML){
  const {document}=parseHTML(html),metrics={};
  if(provider==='scholar'){

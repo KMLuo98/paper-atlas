@@ -42,3 +42,19 @@ test('indexed Scholar citations remain explicit and RG stat cards are not confus
  const html='<main><div>Publications</div><section><span>9,876</span><span>Citations</span></section><section><span>200</span><span>Publications</span></section><section><span>h-index</span><span>36</span></section><div>999,999 Reads</div></main>';
  assert.deepEqual(parseAcademicMetrics(html,'researchgate',parseHTML),{publications:200,citations:9876,h_index:36});
 });
+
+test('ORCID record links fill only missing fields and do not depend on AI extraction',async()=>{
+ const {verifiedOrcidFields,authorInformationPatch}=await import('../supabase/functions/_shared/author-information.js');
+ const orcid='0000-0002-1825-0097';
+ const identity_fields=verifiedOrcidFields({'researcher-urls':{'researcher-url':[
+  {'url-name':'Personal homepage',url:{value:'https://www.example.edu/people/researcher'}},
+  {'url-name':'Scholar',url:{value:'https://scholar.google.com/citations?user=Example1&hl=en'}},
+  {'url-name':'ResearchGate',url:{value:'https://www.researchgate.net/profile/Example-Author'}}
+ ]}},orcid);
+ const sources=[{url:'https://orcid.org/'+orcid,text:'Verified profile',identity_fields}];
+ const patch=authorInformationPatch({},{profile_url:'https://www.example.edu/previous'}, {},sources);
+ assert.equal(patch.orcid,orcid);
+ assert.equal(patch.scholar_url,'https://scholar.google.com/citations?user=Example1');
+ assert.equal(patch.researchgate_url,'https://www.researchgate.net/profile/Example-Author');
+ assert.equal(patch.profile_url,undefined);
+});
