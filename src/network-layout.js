@@ -30,6 +30,15 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
   }
   svg.append(defs);
   const viewport = make('g', {'data-network-viewport': ''}); svg.append(viewport);
+  const topicGlows = data.regions?.length ? ['#85cdb8','#59c9a8','#34bf96'].map((color,depth)=>{
+    const id=markerId+'-topic-'+depth;
+    const gradient=make('radialGradient',{id});
+    for(const [offset,opacity] of [[0,.76],[.48,.43],[.78,.14],[1,0]]){
+      gradient.append(make('stop',{offset,'stop-color':color,'stop-opacity':opacity}));
+    }
+    defs.append(gradient);
+    return 'url(#'+id+')';
+  }) : [];
   const regionEls = [...(data.regions || [])].sort((a,b)=>a.depth-b.depth).map(region => {
     const label=region.labels[getLanguage()==='en'?1:0];
     const el=make('g',{class:'research-region-group','aria-label':label});
@@ -51,7 +60,7 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
       const padding=small?9:region.depth===0?45:region.depth===1?29:16;
       while(el.children.length>clusters.length)el.lastElementChild.remove();
       clusters.forEach((cluster,index)=>{
-        const shape=el.children[index]||make('ellipse',{class:'research-region','data-depth':region.depth});
+        const shape=el.children[index]||make('ellipse',{class:'research-region','data-depth':region.depth,fill:topicGlows[Math.min(2,region.depth)]});
         if(!shape.parentNode)el.append(shape);
         const left=Math.min(...cluster.map(n=>n.x-radius(n.id))),right=Math.max(...cluster.map(n=>n.x+radius(n.id)));
         const top=Math.min(...cluster.map(n=>n.y-radius(n.id))),bottom=Math.max(...cluster.map(n=>n.y+radius(n.id)));
