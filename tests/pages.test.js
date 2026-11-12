@@ -23,8 +23,21 @@ function fixture(width=1280){const highlights=[];const {document,window}=parseHT
 }
 test('home page renders six keywords, canonical multi-journal filters, citation counts and separate card dates',()=>{
  const f=fixture();f.qa.renderLibrary();const d=f.document;assert(d.querySelector('#ai-assistant'));assert(!d.querySelector('.sidebar [data-nav=api]'));assert(!d.querySelector('.sidebar [data-nav=settings]'));assert(d.querySelector('[data-nav=chat]'));assert(d.querySelector('[data-nav=literature-search]'));assert.equal(d.querySelector('tbody tr .keywords').querySelectorAll('.keyword-chip').length,10);assert.equal(d.querySelector('tbody tr .keywords').querySelectorAll(':scope > .keyword-chip').length,6);assert.match(d.querySelector('tbody tr .paper-authors').textContent,/12/);
- const checks=[...d.querySelectorAll('[data-journal]')];assert.deepEqual(checks.map(c=>c.value),['Nature Communications','Physical Review E']);checks[0].checked=true;checks[0].onchange();assert.equal(d.querySelectorAll('tbody tr').length,1);checks[1].checked=true;checks[1].onchange();assert.equal(d.querySelectorAll('tbody tr').length,2);
+ const checks=[...d.querySelectorAll('[data-journal]')];assert.deepEqual(checks.map(c=>c.value),['Nature Communications','Physical Review E']);checks[0].checked=true;checks[0].onchange();assert.equal(d.querySelectorAll('tbody tr').length,1);checks[1].checked=true;checks[1].onchange();assert.equal(d.querySelectorAll('tbody tr').length,3);
  const low=d.querySelector('[data-year-low]');low.value='2021';low.oninput({target:low});assert.equal(d.querySelectorAll('tbody tr').length,1);d.querySelector('[data-year-reset]').onclick();d.querySelector('#grid-view').onclick();assert(d.querySelector('.card-publication>small'));assert(!d.querySelector('.card-foot').textContent.includes('未分类'));assert(d.querySelector('.card-foot .favorite'));assert(d.querySelector('.paper-card .card-publisher-icon'));assert(!d.querySelector('.sidebar').textContent.includes('COLLECTIONS'));
+});
+test('library search waits for submit and journal controls track all, none and partial selections',()=>{
+ const f=fixture();f.qa.renderLibrary();const d=f.document;
+ const form=d.querySelector('.library-search'),input=form.querySelector('#search');
+ assert(form.querySelector('#ai-search'));
+ input.value='no-matching-paper';input.dispatchEvent(new f.window.Event('input',{bubbles:true}));
+ assert.equal(d.querySelectorAll('tbody tr').length,3);
+ form.onsubmit({preventDefault(){}});assert.equal(d.querySelectorAll('tbody tr').length,0);
+ input.value='';form.onsubmit({preventDefault(){}});
+ const all=d.querySelector('[data-journal-all]'),checks=[...d.querySelectorAll('[data-journal]')];
+ all.checked=false;all.onchange();assert(checks.every(check=>!check.checked));assert.equal(d.querySelectorAll('tbody tr').length,0);
+ all.checked=true;all.onchange();assert(checks.every(check=>check.checked));assert.equal(d.querySelectorAll('tbody tr').length,3);
+ checks[0].checked=false;checks[0].onchange();assert.equal(all.checked,false);assert.equal(d.querySelectorAll('tbody tr').length,1);
 });
 test('glass highlight moves between rows and the view picker stays mounted when switching',()=>{
  const f=fixture();f.qa.renderLibrary();const d=f.document;

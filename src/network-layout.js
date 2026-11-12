@@ -30,18 +30,23 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
   }
   svg.append(defs);
   const viewport = make('g', {'data-network-viewport': ''}); svg.append(viewport);
-  const topicGlows = data.regions?.length ? ['#85cdb8','#59c9a8','#34bf96'].map((color,depth)=>{
-    const id=markerId+'-topic-'+depth;
-    const gradient=make('radialGradient',{id});
+  const topics = [...(data.regions || [])].sort((a,b)=>a.depth-b.depth);
+  const topicColors=new Map(),topicGlows=new Map();
+  const topicHues=[158,221,32,282,193,345,104,255,57,10,313,133];
+  let rootIndex=0;
+  const regionEls=topics.map(region=>{
+    const hue=region.parent==null ? topicHues[rootIndex++%topicHues.length] : topicColors.get(region.parent);
+    topicColors.set(region.id,hue);
+    const gradientId=markerId+'-'+region.id;
+    const gradient=make('radialGradient',{id:gradientId});
+    const color=`hsl(${hue}, 63%, ${70-Math.min(region.depth,2)*7}%)`;
     for(const [offset,opacity] of [[0,.76],[.48,.43],[.78,.14],[1,0]]){
       gradient.append(make('stop',{offset,'stop-color':color,'stop-opacity':opacity}));
     }
     defs.append(gradient);
-    return 'url(#'+id+')';
-  }) : [];
-  const regionEls = [...(data.regions || [])].sort((a,b)=>a.depth-b.depth).map(region => {
+    topicGlows.set(region.id,'url(#'+gradientId+')');
     const label=region.labels[getLanguage()==='en'?1:0];
-    const el=make('g',{class:'research-region-group','aria-label':label});
+    const el=make('g',{class:'research-region-group','aria-label':label,style:`--topic-glow:${color}`});
     viewport.append(el);
     return {el,region,label};
   });
@@ -60,7 +65,7 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
       const padding=small?9:region.depth===0?45:region.depth===1?29:16;
       while(el.children.length>clusters.length)el.lastElementChild.remove();
       clusters.forEach((cluster,index)=>{
-        const shape=el.children[index]||make('ellipse',{class:'research-region','data-depth':region.depth,fill:topicGlows[Math.min(2,region.depth)]});
+        const shape=el.children[index]||make('ellipse',{class:'research-region','data-depth':region.depth,fill:topicGlows.get(region.id)});
         if(!shape.parentNode)el.append(shape);
         const left=Math.min(...cluster.map(n=>n.x-radius(n.id))),right=Math.max(...cluster.map(n=>n.x+radius(n.id)));
         const top=Math.min(...cluster.map(n=>n.y-radius(n.id))),bottom=Math.max(...cluster.map(n=>n.y+radius(n.id)));
@@ -119,6 +124,7 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
     if(topicTip){
       topicTip.hidden=!topic;
       topicTip.textContent=topic?.label || '';
+      topicTip.style.setProperty('--topic-glow',topic?.el.style.getPropertyValue('--topic-glow') || '');
     }
   }
   function previewTopic(event){

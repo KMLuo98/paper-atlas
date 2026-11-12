@@ -355,3 +355,16 @@ body{font-size:16px}
     backdrop-filter:none;
   }
 }
+
+[data-appearance=glass] :is(.publication-filter>.year-filter,.journal-multi>.journal-options){
+  background:var(--glass-surface);border:1px solid var(--glass-edge);border-radius:16px;
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);box-shadow:var(--glass-shadow);
+}
+[data-appearance=glass] .year-filter legend{color:var(--glass-ink)}
+[data-appearance=glass] .dual-range .range-track{background:#cee1e7}
+[data-appearance=glass] .dual-range .range-track>span{background:#6fa3b3}
+[data-appearance=glass] .dual-range input::-webkit-slider-thumb{background:#def3f9;border-color:#fff;box-shadow:0 1px 5px #4e829890}
+[data-appearance=glass] .dual-range input::-moz-range-thumb{background:#def3f9;border-color:#fff;box-shadow:0 1px 5px #4e829890}
+@media(prefers-reduced-transparency:reduce),(prefers-contrast:more){
+  [data-appearance=glass] :is(.publication-filter>.year-filter,.journal-multi>.journal-options){background:#f3f8fa;backdrop-filter:none;-webkit-backdrop-filter:none}
+}
