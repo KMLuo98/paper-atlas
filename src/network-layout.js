@@ -32,10 +32,10 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
   const viewport = make('g', {'data-network-viewport': ''}); svg.append(viewport);
   const topics = [...(data.regions || [])].sort((a,b)=>a.depth-b.depth);
   const topicColors=new Map(),topicGlows=new Map();
-  const topicHues=[158,221,32,282,193,345,104,255,57,10,313,133];
+  const topicHues=[221,32,193,345,104,57,10,313,133];
   let rootIndex=0;
   const regionEls=topics.map(region=>{
-    const hue=region.parent==null ? topicHues[rootIndex++%topicHues.length] : topicColors.get(region.parent);
+    const hue=region.parent==null ? (region.hue ?? topicHues[rootIndex++%topicHues.length]) : topicColors.get(region.parent);
     topicColors.set(region.id,hue);
     const gradientId=markerId+'-'+region.id;
     const gradient=make('radialGradient',{id:gradientId});

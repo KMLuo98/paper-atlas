@@ -3,7 +3,11 @@ import {titleIdentity} from './paper-duplicates.js';
 
 const stopWords = new Set('a an and are as at be by for from has in into is it of on or that the their these this to was were with using results study paper approach method model based show shows abstract problem question conclusion methods findings'.split(' '));
 const topics = [
-  {labels:['复杂网络','Complex networks'], pattern:/complex networks?|network science|复杂网络|网络科学|同步|synchroni[sz]/i, children:[
+  {labels:['量子光学','Quantum optics'], hue:271, pattern:/quantum optics|quantum (?:light|photonic|optical)|photon (?:antibunching|bunching)|cavity qed|量子光学|量子光子|腔量子电动力学/i, children:[
+    {labels:['腔量子电动力学','Cavity QED'], pattern:/cavity qed|cavity quantum electrodynamics|腔量子电动力学/i},
+    {labels:['单光子','Single photons'], pattern:/single[- ]photon|单光子/i}
+  ]},
+  {labels:['复杂网络','Complex networks'], hue:158, pattern:/complex networks?|network science|复杂网络|网络科学|同步|synchroni[sz]/i, children:[
     {labels:['同步','Synchronization'], pattern:/synchroni[sz]|同步/i, children:[
       {labels:['遥同步','Remote synchronization'], pattern:/remote synchroni[sz]|遥同步|远程同步/i},
       {labels:['簇同步','Cluster synchronization'], pattern:/cluster synchroni[sz]|簇同步/i},
@@ -85,7 +89,7 @@ export function researchNetwork(papers) {
     const matching = members.filter(index => topic.pattern.test(texts[index]));
     if (matching.length < 2) return [];
     const id = 'topic-' + regions.length;
-    regions.push({id, parent, depth, labels: topic.labels, members: matching.map(index => nodes[index].id)});
+    regions.push({id, parent, depth, labels: topic.labels, hue:topic.hue, members: matching.map(index => nodes[index].id)});
     const claimed = new Set();
     for (const child of topic.children || []) {
       for (const index of region(child, matching.filter(i => !claimed.has(i)), id, depth + 1)) claimed.add(index);
