@@ -32,7 +32,7 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
   const viewport = make('g', {'data-network-viewport': ''}); svg.append(viewport);
   const regionEls = [...(data.regions || [])].sort((a,b)=>a.depth-b.depth).map(region => {
     const label=region.labels[getLanguage()==='en'?1:0];
-    const el=make('ellipse',{class:'research-region','data-depth':region.depth,'aria-label':label});
+    const el=make('g',{class:'research-region-group','aria-label':label});
     viewport.append(el);
     return {el,region,label};
   });
@@ -40,11 +40,25 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
     for(const {el,region} of regionEls){
       const points=region.members.map(id=>nodesById.get(id)).filter(Boolean);
       if(!points.length)continue;
-      const padding=region.depth===0?45:region.depth===1?29:16;
-      const left=Math.min(...points.map(n=>n.x-radius(n.id))),right=Math.max(...points.map(n=>n.x+radius(n.id)));
-      const top=Math.min(...points.map(n=>n.y-radius(n.id))),bottom=Math.max(...points.map(n=>n.y+radius(n.id)));
-      el.setAttribute('cx',(left+right)/2);el.setAttribute('cy',(top+bottom)/2);
-      el.setAttribute('rx',(right-left)*.71+padding);el.setAttribute('ry',(bottom-top)*.71+padding);
+      const small=points.length<=8;
+      const clusters=[];
+      for(const point of points){
+        const nearby=small&&clusters.find(cluster=>cluster.every(member=>Math.hypot(member.x-point.x,member.y-point.y)<=105));
+        if(nearby)nearby.push(point);
+        else if(!small&&clusters.length)clusters[0].push(point);
+        else clusters.push([point]);
+      }
+      const padding=small?9:region.depth===0?45:region.depth===1?29:16;
+      while(el.children.length>clusters.length)el.lastElementChild.remove();
+      clusters.forEach((cluster,index)=>{
+        const shape=el.children[index]||make('ellipse',{class:'research-region','data-depth':region.depth});
+        if(!shape.parentNode)el.append(shape);
+        const left=Math.min(...cluster.map(n=>n.x-radius(n.id))),right=Math.max(...cluster.map(n=>n.x+radius(n.id)));
+        const top=Math.min(...cluster.map(n=>n.y-radius(n.id))),bottom=Math.max(...cluster.map(n=>n.y+radius(n.id)));
+        const expansion=cluster.length===1?.5:.71;
+        shape.setAttribute('cx',(left+right)/2);shape.setAttribute('cy',(top+bottom)/2);
+        shape.setAttribute('rx',(right-left)*expansion+padding);shape.setAttribute('ry',(bottom-top)*expansion+padding);
+      });
     }
   }
   const edgeEls = links.map(link => {
@@ -102,7 +116,7 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
     if(event.pointerType==='touch'||event.buttons){setHoveredTopic(null);return;}
     const item=event.target.closest?.('.research-region,.node');
     const id=item?.getAttribute('data-node-id');
-    const topic=regionEls.find(entry=>entry.el===item)
+    const topic=regionEls.find(entry=>entry.el===item?.parentElement)
       || (id?[...regionEls].reverse().find(entry=>entry.region.members.includes(id)):null);
     setHoveredTopic(topic || null);
     if(!topic||!topicTip)return;
@@ -137,7 +151,7 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
   function fit(visible = nodes) {
     if (!visible.length) {scale = 1; tx = 0; ty = 0; transform(); return;}
     let left = Math.min(...visible.map(n => n.x - radius(n.id))) - 50, right = Math.max(...visible.map(n => n.x + radius(n.id))) + 50, top = Math.min(...visible.map(n => n.y - radius(n.id))) - 50, bottom = Math.max(...visible.map(n => n.y + radius(n.id))) + 60;
-    if(visible===nodes)for(const {el} of regionEls){
+    if(visible===nodes)for(const region of regionEls)for(const el of region.el.children){
       const x=Number(el.getAttribute('cx')),y=Number(el.getAttribute('cy'));
       const rx=Number(el.getAttribute('rx')),ry=Number(el.getAttribute('ry'));
       left=Math.min(left,x-rx-14);right=Math.max(right,x+rx+14);

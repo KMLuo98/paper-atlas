@@ -51,10 +51,10 @@ export function networkPhysics(data, width, height) {
     return {id: n.id, community, x: center.x + Math.cos(angle) * r, y: center.y + Math.sin(angle) * r};
   }), links = (data.layoutEdges || data.edges).map(edge => ({...edge}));
   const simulation = forceSimulation(nodes)
-    .force('link', forceLink(links).id(n => n.id).distance(link => data.similarity ? 65 + 105 * (1 - link.weight) : (clustering.groups.get(idOf(link.source)) === clustering.groups.get(idOf(link.target)) ? 105 : 270) / (1 + Math.log1p(link.weight || 1) * .08)).strength(link => data.similarity ? .18 + .38 * link.weight : Math.min(.16, (.12 + Math.log1p(link.weight || 1) * .015) / Math.sqrt(Math.max(1, Math.min(degree.get(idOf(link.source)) || 1, degree.get(idOf(link.target)) || 1))))))
+    .force('link', forceLink(links).id(n => n.id).distance(link => data.similarity ? 65 + 105 * (1 - link.weight) : (clustering.groups.get(idOf(link.source)) === clustering.groups.get(idOf(link.target)) ? 105 : 270) / (1 + Math.log1p(link.weight || 1) * .08)).strength(link => data.similarity ? (link.source.community===link.target.community ? .18 + .38 * link.weight : .035) : Math.min(.16, (.12 + Math.log1p(link.weight || 1) * .015) / Math.sqrt(Math.max(1, Math.min(degree.get(idOf(link.source)) || 1, degree.get(idOf(link.target)) || 1))))))
     .force('charge', forceManyBody().strength(data.similarity ? -95 : -390).distanceMax(750))
     .force('center', forceCenter(width / 2, height / 2).strength(.025))
-    .force('x', forceX(n => clustering.centers.get(n.community).x).strength(data.similarity ? .14 : .06)).force('y', forceY(n => clustering.centers.get(n.community).y).strength(data.similarity ? .14 : .06))
+    .force('x', forceX(n => clustering.centers.get(n.community).x).strength(data.similarity ? .21 : .06)).force('y', forceY(n => clustering.centers.get(n.community).y).strength(data.similarity ? .21 : .06))
     .force('collision', forceCollide(n => radii.get(n.id) + (data.similarity ? 4 : 29)).strength(1).iterations(4)).stop();
   return {nodes, simulation, ticks: Math.min(260, 120 + Math.floor(nodes.length / 3))};
 }
