@@ -9,7 +9,8 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
   const make = (name, attrs = {}) => {const el = doc.createElementNS(ns, name); for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value)); return el;};
   const {radii} = networkMetrics(data), radius = id => radii.get(id) || 14;
-  const layoutInput = {nodes: data.nodes.map(n => ({id: n.id})), edges: data.edges.map(e => ({source: idOf(e.source), target: idOf(e.target), weight: e.weight || 1}))};
+  const directed = !authors && !data.similarity;
+  const layoutInput = {similarity:!!data.similarity,nodes: data.nodes.map(n => ({id: n.id})), edges: data.edges.map(e => ({source: idOf(e.source), target: idOf(e.target), weight: e.weight || 1}))};
   const layoutKey = JSON.stringify([authors, width, height, layoutInput]);
   const cached = networkLayouts.get(layoutKey), cachedPositions = new Map((cached || []).map(n => [n.id, n]));
   let saved = new Map();
@@ -30,7 +31,7 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
   svg.append(defs);
   const viewport = make('g', {'data-network-viewport': ''}); svg.append(viewport);
   const edgeEls = links.map(link => {
-    const el = make('line', {class: 'network-edge', stroke: '#aec29e', 'stroke-width': authors ? Math.min(4, 1 + Math.log1p(link.weight || 1)) : 1.3, 'stroke-opacity': links.length > nodes.length * 3 ? .18 : .42, ...(!authors ? {'marker-end': `url(#${markerId})`} : {})});
+    const el = make('line', {class: 'network-edge', stroke: '#aec29e', 'stroke-width': authors ? Math.min(4, 1 + Math.log1p(link.weight || 1)) : 1.3, 'stroke-opacity': links.length > nodes.length * 3 ? .18 : .42, ...(directed ? {'marker-end': `url(#${markerId})`} : {})});
     viewport.append(el); return el;
   });
   let selected = null, group = new Set(), labels = nodes.length <= 40, scale = 1, tx = 0, ty = 0, disposed = false;
@@ -86,10 +87,10 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
       rings[i].setAttribute('opacity', active ? '1' : '0'); labelEls[i].style.display = labels || active ? '' : 'none';
     });
     edgeEls.forEach((el, i) => {
-      const edge = links[i], active = group.size ? group.has(edge.source.id) && group.has(edge.target.id) : !!selected && incident.get(selected)?.has(i), incoming = !authors && active && edge.target.id === selected, outgoing = !authors && active && edge.source.id === selected;
+      const edge = links[i], active = group.size ? group.has(edge.source.id) && group.has(edge.target.id) : !!selected && incident.get(selected)?.has(i), incoming = directed && active && edge.target.id === selected, outgoing = directed && active && edge.source.id === selected;
       el.classList.toggle('selected-edge', !!active); el.classList.toggle('incoming-edge', !!incoming); el.classList.toggle('outgoing-edge', !!outgoing);
       el.setAttribute('stroke', incoming ? '#2879b8' : outgoing ? '#d46b38' : '#aec29e');
-      if (!authors) el.setAttribute('marker-end', `url(#${markerId}${incoming ? '-incoming' : outgoing ? '-outgoing' : ''})`);
+      if (directed) el.setAttribute('marker-end', `url(#${markerId}${incoming ? '-incoming' : outgoing ? '-outgoing' : ''})`);
       el.classList.toggle('network-muted', !!nearby && !active);
     });
   }

@@ -1,3 +1,4 @@
+import {researchNetwork} from './research-network.js';
 import {profiledAuthorNetwork} from '../supabase/functions/_shared/author-directory.js';
 import {normalize, journalShort} from './core.js';
 import {collaborationGroups} from '../supabase/functions/_shared/collaboration.js';
@@ -33,13 +34,14 @@ export function indexedCitationNetwork(papers) {
 
 export function cachedNetwork(kind, papers, owner = 'local', profiles = [], library = papers) {
   if (currentOwner !== owner) {networks.clear(); networkLayouts.clear(); currentOwner = owner;}
-  // Include only graph inputs, never PDFs, extracted text or research summaries.
+  // Include only graph inputs, never PDFs or extracted full text.
   const records = papers.map(p => kind === 'authors'
     ? [p.id, p.authors]
+    : kind === 'research' ? [p.id, p.title, p.journal, p.journal_abbr, p.publication_status, p.keywords, p.keyword_pairs, p.summary]
     : [p.id, p.title, p.doi, p.journal, p.journal_abbr, p.publication_status, (p.references || []).map(r => [r.title, r.doi])]);
   const key = JSON.stringify([owner, kind, records, profiles, profiles.length && library.map(p=>[p.id,p.authors])]);
   let data = networks.get(key);
-  if (!data) {data = kind === 'authors' ? profiledAuthorNetwork(library,profiles,papers) : indexedCitationNetwork(papers); networks.set(key, data);}
+  if (!data) {data = kind === 'authors' ? profiledAuthorNetwork(library,profiles,papers) : kind === 'research' ? researchNetwork(papers) : indexedCitationNetwork(papers); networks.set(key, data);}
   return data;
 }
 
