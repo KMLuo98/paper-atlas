@@ -1,4 +1,5 @@
 import './appearance.css';
+import {mountMobileRail} from '../../src/mobile-rail.js';
 
 const appearanceKey = 'pa-appearance';
 const transparencyKey = 'pa-glass-transparency';
@@ -90,8 +91,15 @@ const actionIcons = {
   'toggle-advertising':'shield-check'
 };
 
+const mountedRails = new WeakSet();
 export function prepareMailAppearance(icon) {
   paintAppearanceControls();
+  const sidebar = document.querySelector('.app-shell .sidebar');
+  if (sidebar && !mountedRails.has(sidebar)) {
+    mountedRails.add(sidebar);
+    for (const item of sidebar.querySelectorAll('[data-action]')) item.classList.add('nav-link');
+    mountMobileRail(sidebar,sidebar.closest('.app-shell'),()=>mobileButtons.matches);
+  }
   for (const button of document.querySelectorAll('.sidebar :is(button,a)')) {
     const mailbox = button.querySelector('.color-dot + span');
     const label = mailbox
@@ -130,6 +138,32 @@ export function prepareMailAppearance(icon) {
 let heldButton, pressTimer, tip, tipTimer, startX, startY, pointerId, suppressUntil = 0;
 let suppressedButton;
 const mobileButtons = matchMedia('(max-width:700px)');
+function showActionTip(button,label) {
+  clearTimeout(tipTimer);
+  tip?.remove();
+  tip = document.createElement('div');
+  tip.className = 'mail-action-tip';
+  tip.textContent = label;
+  tip.setAttribute('role','tooltip');
+  document.body.append(tip);
+  const bounds = button.getBoundingClientRect();
+  const left = Math.max(8,Math.min(innerWidth-tip.offsetWidth-8,bounds.left+(bounds.width-tip.offsetWidth)/2));
+  tip.style.left = left+'px';
+  tip.style.top = (bounds.top>tip.offsetHeight+12?bounds.top-tip.offsetHeight-8:bounds.bottom+8)+'px';
+}
+let hoverTimer;
+document.addEventListener('pointerover',event=>{
+  const button=event.target.closest?.('.contact-layout-switch button');
+  if(mobileButtons.matches||event.pointerType!=='mouse'||!button||button.contains(event.relatedTarget))return;
+  clearTimeout(hoverTimer);
+  hoverTimer=setTimeout(()=>{if(button.isConnected&&button.matches(':hover'))showActionTip(button,button.getAttribute('aria-label'));},500);
+});
+document.addEventListener('pointerout',event=>{
+  const button=event.target.closest?.('.contact-layout-switch button');
+  if(event.pointerType!=='mouse'||!button||button.contains(event.relatedTarget))return;
+  clearTimeout(hoverTimer);
+  tip?.remove();
+});
 function cancelPress() {
   clearTimeout(pressTimer);
   heldButton = null;
@@ -138,7 +172,7 @@ document.addEventListener('pointerdown', event => {
   cancelPress();
   if (!mobileButtons.matches || event.pointerType === 'mouse' || !event.isPrimary) return;
   const button = event.target.closest?.('button');
-  if (!button || button.disabled || button.closest('[draggable="true"]')) return;
+  if (!button || button.disabled || button.closest('[draggable="true"],.sidebar')) return;
   const label = (button.getAttribute('aria-label') || button.title || button.textContent).trim();
   if (!label) return;
   heldButton = button;
@@ -147,16 +181,7 @@ document.addEventListener('pointerdown', event => {
   startY = event.clientY;
   pressTimer = setTimeout(() => {
     if (!heldButton?.isConnected) return;
-    tip?.remove();
-    tip = document.createElement('div');
-    tip.className = 'mail-action-tip';
-    tip.textContent = label;
-    tip.setAttribute('role', 'tooltip');
-    document.body.append(tip);
-    const bounds = heldButton.getBoundingClientRect();
-    const left = Math.max(8, Math.min(innerWidth - tip.offsetWidth - 8, bounds.left + (bounds.width - tip.offsetWidth) / 2));
-    tip.style.left = left + 'px';
-    tip.style.top = (bounds.top > tip.offsetHeight + 12 ? bounds.top - tip.offsetHeight - 8 : bounds.bottom + 8) + 'px';
+    showActionTip(heldButton,label);
     suppressedButton = heldButton;
     suppressUntil = Infinity;
   }, 500);

@@ -42,8 +42,12 @@ try{
    const rect=await avatar.boundingBox();assert.equal(rect.width,expected);assert.equal(rect.height,expected);
   }
   await swipe();assert.equal(await page.locator('.inbox-page').count(),1); // No predecessor: stay in the app.
-  await page.locator('#category-filter').selectOption('research');
-  await page.locator('#sender-filter').selectOption('alice@example.edu');
+  await page.locator('[data-inbox-filter=category] summary').click();
+  await page.locator('[data-inbox-filter=category] [data-value=research]').click();
+  await page.locator('[data-inbox-filter=sender] summary').click();
+  await page.locator('.inbox-filter-search').fill('alic');
+  assert.equal(await page.locator('[data-inbox-filter=sender] [data-value="bob@example.edu"]').isVisible(),false);
+  await page.locator('[data-inbox-filter=sender] [data-value="alice@example.edu"]').click();
   await page.locator('#mail-search').fill('fixture');await page.waitForTimeout(550);
   await page.evaluate(()=>window.scrollTo(0,400));
   // Capture scroll after Playwright has scrolled the chosen row into view.
@@ -69,8 +73,8 @@ try{
    assert.equal(await page.evaluate(()=>window.__draft.body),'A reply that must survive back navigation.');
    assert.equal(await page.evaluate(()=>window.__calls.filter(c=>c.action==='send').length),0);
    await swipe();await page.locator('.inbox-page').waitFor();
-   assert.equal(await page.locator('#category-filter').inputValue(),'research');
-   assert.equal(await page.locator('#sender-filter').inputValue(),'alice@example.edu');
+   assert.equal(await page.locator('[data-inbox-filter=category] [data-value=research]').getAttribute('aria-pressed'),'true');
+   assert.equal(await page.locator('[data-inbox-filter=sender] [data-value="alice@example.edu"]').getAttribute('aria-pressed'),'true');
    assert.equal(await page.locator('#mail-search').inputValue(),'fixture');
    assert.ok(Math.abs(await page.evaluate(()=>scrollY)-originalScroll)<3);
    await noOverflow();
