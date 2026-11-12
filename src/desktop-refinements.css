@@ -251,7 +251,7 @@ html[data-appearance="glass"] {--toolbar-control-radius:999px}
 .research-topic-hover .node.research-region-member{opacity:1}
 .research-topic-hover .node.research-region-muted{opacity:.18}
 .research-region-active .research-region{opacity:1;filter:drop-shadow(0 0 8px #52c7a77a)}
-.research-topic-hover .research-region-member>circle:not(.selection-ring){filter:drop-shadow(0 0 4px #66dab5b3)}
+.research-topic-hover .research-region-member>circle:not(.selection-ring){filter:drop-shadow(0 0 4px var(--topic-node-glow,#66dab5b3))}
 .research-region-label:not([hidden]){
   position:absolute;z-index:4;pointer-events:none;max-width:min(240px,80%);
   padding:7px 12px;border:1px solid #b6d9cb;border-radius:999px;
