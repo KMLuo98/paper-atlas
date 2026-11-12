@@ -32,16 +32,16 @@ export function indexedCitationNetwork(papers) {
   return {nodes: papers.map(p => ({id: p.id, label: p.title, short_label: journalShort(p)})), edges};
 }
 
-export function cachedNetwork(kind, papers, owner = 'local', profiles = [], library = papers, threshold = .72) {
+export function cachedNetwork(kind, papers, owner = 'local', profiles = [], library = papers) {
   if (currentOwner !== owner) {networks.clear(); networkLayouts.clear(); currentOwner = owner;}
   // Include only graph inputs, never PDFs or extracted full text.
   const records = papers.map(p => kind === 'authors'
     ? [p.id, p.authors]
     : kind === 'research' ? [p.id, p.title, p.journal, p.journal_abbr, p.publication_status, p.abstract, p.summary]
     : [p.id, p.title, p.doi, p.journal, p.journal_abbr, p.publication_status, (p.references || []).map(r => [r.title, r.doi])]);
-  const key = JSON.stringify([owner, kind, threshold, records, profiles, profiles.length && library.map(p=>[p.id,p.authors])]);
+  const key = JSON.stringify([owner, kind, records, profiles, profiles.length && library.map(p=>[p.id,p.authors])]);
   let data = networks.get(key);
-  if (!data) {data = kind === 'authors' ? profiledAuthorNetwork(library,profiles,papers) : kind === 'research' ? researchNetwork(papers,threshold) : indexedCitationNetwork(papers); networks.set(key, data);}
+  if (!data) {data = kind === 'authors' ? profiledAuthorNetwork(library,profiles,papers) : kind === 'research' ? researchNetwork(papers) : indexedCitationNetwork(papers); networks.set(key, data);}
   return data;
 }
 

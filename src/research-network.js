@@ -32,7 +32,7 @@ function words(text) {
   }));
 }
 
-export function researchNetwork(papers, threshold = .72) {
+export function researchNetwork(papers) {
   const nodes = papers.map(paper => ({id: paper.id, label: paper.title, short_label: journalShort(paper)}));
   const titles = papers.map(paper => titleIdentity(paper.title));
   const abstracts = papers.map(paper => String(paper.abstract || paper.summary || '').slice(0, 5000));
@@ -70,13 +70,12 @@ export function researchNetwork(papers, threshold = .72) {
     matches.push(index); identicalTitles.set(title, matches);
   });
 
-  const edges = [], related = [];
+  const related = [];
   for (const [key, [title, abstract]] of scores) {
     const first = Math.floor(key / nodes.length), second = key % nodes.length;
     const bothAbstracts = !!abstracts[first].trim() && !!abstracts[second].trim();
     const weight = Math.min(1, bothAbstracts ? .7 * title + .3 * abstract : title);
     const edge = {source: nodes[first].id, target: nodes[second].id, weight};
-    if (weight > 0 && weight >= threshold) edges.push(edge);
     if (weight >= .16) related.push(edge);
   }
 
@@ -125,5 +124,5 @@ export function researchNetwork(papers, threshold = .72) {
       if (neighbors.length < 4) neighbors.push(edge);
     }
   }
-  return {nodes, edges, regions, layoutEdges:[...new Set([...affinity.values()].flat())], similarity:true};
+  return {nodes, edges:[], regions, layoutEdges:[...new Set([...affinity.values()].flat())], similarity:true};
 }

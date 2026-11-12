@@ -30,11 +30,11 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
   }
   svg.append(defs);
   const viewport = make('g', {'data-network-viewport': ''}); svg.append(viewport);
-  const regionEls = (data.regions || []).map(region => {
+  const regionEls = [...(data.regions || [])].sort((a,b)=>a.depth-b.depth).map(region => {
     const label=region.labels[getLanguage()==='en'?1:0];
     const el=make('ellipse',{class:'research-region','data-depth':region.depth,'aria-label':label});
-    const title=make('title');title.textContent=label;el.append(title);viewport.append(el);
-    return {el,region};
+    viewport.append(el);
+    return {el,region,label};
   });
   function paintRegions() {
     for(const {el,region} of regionEls){
@@ -70,6 +70,49 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
     g.onmouseleave = g.onblur = () => g.classList.remove('hovered');
     return g;
   });
+  const graphWrap=svg.closest('.graph-wrap');
+  const topicTip=regionEls.length&&graphWrap?doc.createElement('div'):null;
+  let hoveredTopic=null;
+  if(topicTip){
+    topicTip.className='research-region-label';
+    topicTip.hidden=true;
+    graphWrap.append(topicTip);
+  }
+  function setHoveredTopic(topic){
+    if(topic===hoveredTopic)return;
+    hoveredTopic=topic;
+    viewport.classList.toggle('research-topic-hover',!!topic);
+    const members=new Set(topic?.region.members || []);
+    for(const {el,region} of regionEls){
+      const active=region===topic?.region;
+      const related=active||region.members.some(id=>members.has(id));
+      el.classList.toggle('research-region-active',active);
+      el.classList.toggle('research-region-muted',!!topic&&!related);
+    }
+    nodeEls.forEach((el,i)=>{
+      el.classList.toggle('research-region-member',members.has(nodes[i].id));
+      el.classList.toggle('research-region-muted',!!topic&&!members.has(nodes[i].id));
+    });
+    if(topicTip){
+      topicTip.hidden=!topic;
+      topicTip.textContent=topic?.label || '';
+    }
+  }
+  function previewTopic(event){
+    if(event.pointerType==='touch'||event.buttons){setHoveredTopic(null);return;}
+    const item=event.target.closest?.('.research-region,.node');
+    const id=item?.getAttribute('data-node-id');
+    const topic=regionEls.find(entry=>entry.el===item)
+      || (id?[...regionEls].reverse().find(entry=>entry.region.members.includes(id)):null);
+    setHoveredTopic(topic || null);
+    if(!topic||!topicTip)return;
+    const rect=graphWrap.getBoundingClientRect(),gap=12;
+    const left=Math.max(4,Math.min(event.clientX-rect.left+gap,rect.width-topicTip.offsetWidth-4));
+    const top=Math.max(4,Math.min(event.clientY-rect.top+gap,rect.height-topicTip.offsetHeight-4));
+    topicTip.style.left=left+'px';topicTip.style.top=top+'px';
+  }
+  const clearTopic=()=>setHoveredTopic(null);
+  if(regionEls.length){svg.addEventListener('pointermove',previewTopic);svg.addEventListener('pointerleave',clearTopic);}
   function setPhotos(photos,visible=true){
     if(!authors||disposed)return;photosVisible=visible;
     nodes.forEach((node,i)=>{
@@ -182,5 +225,5 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
       } catch {worker?.terminate(); worker = null; fallback();}
     } else fallback();
   }
-  return {ready, setPhotos, highlightGroup, destroy() {disposed = true; worker?.terminate(); cancelFallback(); if (frame !== null) host.cancelAnimationFrame?.(frame); gestures.destroy(); finishReady();}, reset() {gestures.cancel(); highlight(null, {focus: false}); fit();}, restoreLayout() {gestures.cancel(); saved.clear(); manuallyMoved.clear(); try {if (positionKey) host.localStorage.removeItem(positionKey);} catch {} const defaults = networkLayouts.get(layoutKey); if (defaults) applyPositions(defaults); else if (nodes.length && !worker) {cancelFallback(); fallback();} highlight(null, {focus: false});}, toggleLabels() {labels = !labels; paintSelection(); return labels;}, highlight};
+  return {ready, setPhotos, highlightGroup, destroy() {disposed = true; svg.removeEventListener('pointermove',previewTopic); svg.removeEventListener('pointerleave',clearTopic); topicTip?.remove(); worker?.terminate(); cancelFallback(); if (frame !== null) host.cancelAnimationFrame?.(frame); gestures.destroy(); finishReady();}, reset() {gestures.cancel(); highlight(null, {focus: false}); fit();}, restoreLayout() {gestures.cancel(); saved.clear(); manuallyMoved.clear(); try {if (positionKey) host.localStorage.removeItem(positionKey);} catch {} const defaults = networkLayouts.get(layoutKey); if (defaults) applyPositions(defaults); else if (nodes.length && !worker) {cancelFallback(); fallback();} highlight(null, {focus: false});}, toggleLabels() {labels = !labels; paintSelection(); return labels;}, highlight};
 }

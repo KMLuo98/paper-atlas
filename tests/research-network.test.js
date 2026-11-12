@@ -11,13 +11,12 @@ const papers=[
  {id:'other',title:'Optical spectroscopy of distant galaxies'}
 ];
 
-test('exact titles score one despite independent summaries; threshold controls visible links',()=>{
- const strict=researchNetwork(papers,.95),relaxed=researchNetwork(papers,.1);
- assert.deepEqual(strict.edges,[{source:'one',target:'copy',weight:1}]);
- assert(relaxed.edges.length>strict.edges.length);
- assert.deepEqual(relaxed.regions,strict.regions);
- assert.deepEqual(strict.regions.map(region=>region.labels[1]),['Complex networks','Synchronization','Remote synchronization']);
- const [one,copy,,other]=computeNetworkLayout(strict,840,620);
+test('research map uses invisible affinities and keeps nested topic regions',()=>{
+ const graph=researchNetwork(papers);
+ assert.deepEqual(graph.edges,[]);
+ assert(graph.layoutEdges.some(edge=>edge.source==='one'&&edge.target==='copy'&&edge.weight===1));
+ assert.deepEqual(graph.regions.map(region=>region.labels[1]),['Complex networks','Synchronization','Remote synchronization']);
+ const [one,copy,,other]=computeNetworkLayout(graph,840,620);
  const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
  assert(distance(one,copy)<distance(one,other));
 });
