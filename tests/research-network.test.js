@@ -25,3 +25,15 @@ test('duplicate review groups normalized titles and prioritizes the analyzed cop
  const groups=duplicatePaperGroups(papers);
  assert.deepEqual(groups.map(group=>group.map(paper=>paper.id)),[['one','copy']]);
 });
+
+test('cross-disciplinary papers are members of each relevant broad topic',()=>{
+ const graph=researchNetwork([
+  {id:'both',title:'Machine learning for quantum many-body physics'},
+  {id:'quantum',title:'Ground states in quantum many-body systems'},
+  {id:'learning',title:'Machine learning for image classification'}
+ ]);
+ const roots=graph.regions.filter(region=>region.parent===null);
+ assert.deepEqual(roots.filter(region=>region.members.includes('both')).map(region=>region.labels[1]),['Quantum physics','Machine learning']);
+ const positions=computeNetworkLayout(graph,840,620);
+ assert(positions.find(node=>node.id==='both').community.includes('|'));
+});

@@ -23,19 +23,34 @@ function researchAnchors(clustering, regions, width, height) {
     .force('x',forceX(width/2).strength(.10))
     .force('y',forceY(height/2).strength(.13)).stop();
   pack.tick(145);
-  function assign(region,center) {
+  const memberships=new Map();
+  function assign(region,center,branch) {
     clustering.centers.set(region.id,center);
-    for(const id of region.members)clustering.groups.set(id,region.id);
+    for(const id of region.members){
+      if(!memberships.has(id))memberships.set(id,new Map());
+      const membership=memberships.get(id),prior=membership.get(branch);
+      if(!prior||prior.depth<region.depth)membership.set(branch,{id:region.id,depth:region.depth,center});
+    }
     const children=regions.filter(child=>child.parent===region.id);
     const offset=children.length>1?17*Math.sqrt(region.members.length):0;
     children.forEach((child,index)=>{
       const angle=index*2*Math.PI/children.length;
-      assign(child,{x:center.x+Math.cos(angle)*offset,y:center.y+Math.sin(angle)*offset});
+      assign(child,{x:center.x+Math.cos(angle)*offset,y:center.y+Math.sin(angle)*offset},branch);
     });
   }
   for(const block of blocks){
-    if(block.region)assign(block.region,block);
+    if(block.region)assign(block.region,block,block.id);
     else clustering.centers.set(block.id,block);
+  }
+  for(const [id,membership] of memberships){
+    const entries=[...membership.values()];
+    if(entries.length===1){clustering.groups.set(id,entries[0].id);continue;}
+    const key=entries.map(entry=>entry.id).sort().join('|');
+    clustering.centers.set(key,{
+      x:entries.reduce((sum,entry)=>sum+entry.center.x,0)/entries.length,
+      y:entries.reduce((sum,entry)=>sum+entry.center.y,0)/entries.length
+    });
+    clustering.groups.set(id,key);
   }
 }
 export function networkPhysics(data, width, height) {

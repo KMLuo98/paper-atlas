@@ -3,9 +3,12 @@ import {titleIdentity} from './paper-duplicates.js';
 
 const stopWords = new Set('a an and are as at be by for from has in into is it of on or that the their these this to was were with using results study paper approach method model based show shows abstract problem question conclusion methods findings'.split(' '));
 const topics = [
-  {labels:['量子光学','Quantum optics'], hue:271, pattern:/quantum optics|quantum (?:light|photonic|optical)|photon (?:antibunching|bunching)|cavity qed|量子光学|量子光子|腔量子电动力学/i, children:[
-    {labels:['腔量子电动力学','Cavity QED'], pattern:/cavity qed|cavity quantum electrodynamics|腔量子电动力学/i},
-    {labels:['单光子','Single photons'], pattern:/single[- ]photon|单光子/i}
+  {labels:['量子物理','Quantum physics'], hue:271, pattern:/quantum|量子|腔量子电动力学/i, children:[
+    {labels:['量子光学','Quantum optics'], pattern:/quantum optics|quantum (?:light|photonic|optical)|photon (?:antibunching|bunching)|cavity qed|量子光学|量子光子|腔量子电动力学/i, children:[
+      {labels:['腔量子电动力学','Cavity QED'], pattern:/cavity qed|cavity quantum electrodynamics|腔量子电动力学/i},
+      {labels:['单光子','Single photons'], pattern:/single[- ]photon|单光子/i}
+    ]},
+    {labels:['量子多体','Quantum many-body physics'], pattern:/quantum.{0,30}many[- ]body|many[- ]body.{0,30}quantum|quantum spin (?:chains?|systems?)|量子多体/i}
   ]},
   {labels:['复杂网络','Complex networks'], hue:158, pattern:/complex networks?|network science|复杂网络|网络科学|同步|synchroni[sz]/i, children:[
     {labels:['同步','Synchronization'], pattern:/synchroni[sz]|同步/i, children:[
@@ -90,14 +93,12 @@ export function researchNetwork(papers) {
     if (matching.length < 2) return [];
     const id = 'topic-' + regions.length;
     regions.push({id, parent, depth, labels: topic.labels, hue:topic.hue, members: matching.map(index => nodes[index].id)});
-    const claimed = new Set();
-    for (const child of topic.children || []) {
-      for (const index of region(child, matching.filter(i => !claimed.has(i)), id, depth + 1)) claimed.add(index);
-    }
+    for (const child of topic.children || []) region(child,matching,id,depth+1);
     return matching;
   }
+  const paperIndices=papers.map((_,index)=>index);
   for (const topic of topics) {
-    for (const index of region(topic, papers.map((_, i) => i).filter(i => !assigned.has(i)))) assigned.add(index);
+    for (const index of region(topic,paperIndices)) assigned.add(index);
   }
   // For directions outside the vocabulary, name a region using a distinctive shared title term.
   const titleTerms = titleTexts.map(words), candidates = new Map(), indices=new Map(nodes.map((node,i)=>[node.id,i]));

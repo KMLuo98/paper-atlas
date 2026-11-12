@@ -139,3 +139,15 @@ test('mobile rail previews one label at a time while a touch moves between butto
  assert.equal(tip.textContent,'我的收藏');assert.match(highlight.style.transform,/,80px,/);
  fire('pointerup',buttons[0],100);assert(tip.hidden);
 });
+
+test('network pages open a standalone graph and place citation refresh before the new-tab action',()=>{
+ const f=fixture();const d=f.document;let opened;
+ f.window.open=url=>{opened=url;};
+ f.qa.renderNetwork('citations');
+ assert.deepEqual([...d.querySelectorAll('.network-head-actions button')].map(b=>b.id),['refresh-citations','open-network-tab']);
+ assert.deepEqual([...d.querySelectorAll('[data-citation-tab]')].map(b=>b.textContent.trim()),['实际被引','库内被引']);
+ d.querySelector('#open-network-tab').onclick();
+ assert.equal(opened,'/paper-atlas/#/citations?view=graph');
+ f.context.location.hash='#/citations?view=graph';f.qa.renderNetwork('citations');
+ assert(d.querySelector('.network-fullpage svg.network'));
+});

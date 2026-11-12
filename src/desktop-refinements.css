@@ -278,3 +278,16 @@ html[data-appearance="glass"] {--toolbar-control-radius:999px}
   .library-search>input#search{padding-inline-end:48px}
   .library-search>#ai-search{width:40px;justify-content:center;padding:0}
 }
+
+.network-head-actions,.citation-tabs{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
+.citation-tabs>button{flex:1;min-width:0;white-space:nowrap;padding-inline:5px}
+.shell:has(.network-fullpage){display:block}
+.shell:has(.network-fullpage)>:is(.sidebar,.mobile-sidebar-scrim),
+.main:has(>.network-fullpage)>.topbar,
+.network-fullpage>:is(.page-head,.network-scope,.network-note),
+.network-fullpage .network-side{display:none}
+.network-fullpage.content{max-width:none;margin:0;padding:0}
+.network-fullpage .network-layout{display:block;min-height:0;border:0;border-radius:0;background:white}
+.network-fullpage .graph-wrap{width:100%;height:100vh;height:100dvh}
+.network-fullpage .graph-wrap svg.network{display:block;width:100%;height:100%}
+.network-fullpage .graph-legend{position:absolute;inset:auto 0 0;padding-bottom:max(10px,env(safe-area-inset-bottom))}
