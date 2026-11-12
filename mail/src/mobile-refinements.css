@@ -61,7 +61,7 @@
   .row-account {display:flex;align-items:center;gap:6px}
   .row-account .mobile-category-label {display:inline-block}
   .row-subject .desktop-category-label {display:none}
-  .contacts-grid:not(.contacts-list) .contact-card-actions {display:flex;flex-wrap:nowrap;justify-content:flex-start;gap:8px}
+  .contacts-grid:not(.contacts-list) .contact-card-actions {display:flex;flex-flow:row nowrap;justify-content:flex-start;gap:8px}
   .contact-thread-profile {grid-row:1}
   .sidebar .nav-link {touch-action:none;z-index:1}
 }
