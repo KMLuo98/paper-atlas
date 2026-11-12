@@ -2,19 +2,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {researchNetwork} from '../src/research-network.js';
 import {computeNetworkLayout} from '../src/network-physics.js';
+import {duplicatePaperGroups} from '../src/paper-duplicates.js';
 
-test('research graph links bilingual related papers and keeps unrelated papers locatable',()=>{
- const papers=[
-  {id:'en',title:'Synchronization on complex networks',keyword_pairs:[{zh:'复杂网络',en:'complex networks'},{zh:'同步',en:'synchronization'}]},
-  {id:'zh',title:'复杂网络中的同步动力学',keywords:['复杂网络','同步']},
-  {id:'other',title:'Optical spectroscopy of distant galaxies',keywords:['galaxy evolution']}
- ];
- const graph=researchNetwork(papers);
- assert.deepEqual(graph.nodes.map(node=>node.id),['en','zh','other']);
- assert.equal(graph.edges.length,1);
- assert.equal(graph.edges[0].source,'en');
- assert.equal(graph.edges[0].target,'zh');
- const [en,zh,other]=computeNetworkLayout(graph,840,620);
+const papers=[
+ {id:'one',title:'Remote synchronization in complex networks',abstract:'Oscillators in a network exhibit remote synchronization.',status:'ready'},
+ {id:'copy',title:'[PRE 2026.3] Remote synchronization in complex networks',summary:'A different AI summary',keywords:['unrelated keywords']},
+ {id:'sync',title:'Phase synchronization in complex networks',abstract:'Synchronization is observed in coupled oscillators.'},
+ {id:'other',title:'Optical spectroscopy of distant galaxies'}
+];
+
+test('exact titles score one despite independent summaries; threshold controls visible links',()=>{
+ const strict=researchNetwork(papers,.95),relaxed=researchNetwork(papers,.1);
+ assert.deepEqual(strict.edges,[{source:'one',target:'copy',weight:1}]);
+ assert(relaxed.edges.length>strict.edges.length);
+ assert.deepEqual(relaxed.regions,strict.regions);
+ assert.deepEqual(strict.regions.map(region=>region.labels[1]),['Complex networks','Synchronization','Remote synchronization']);
+ const [one,copy,,other]=computeNetworkLayout(strict,840,620);
  const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
- assert(distance(en,zh)<distance(en,other));
+ assert(distance(one,copy)<distance(one,other));
+});
+
+test('duplicate review groups normalized titles and prioritizes the analyzed copy',()=>{
+ const groups=duplicatePaperGroups(papers);
+ assert.deepEqual(groups.map(group=>group.map(paper=>paper.id)),[['one','copy']]);
 });

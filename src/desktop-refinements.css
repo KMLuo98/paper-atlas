@@ -237,3 +237,12 @@ html[data-appearance="glass"] {--toolbar-control-radius:999px}
   .mobile-paper-sort .sort-direction{height:38px;min-height:38px;border-radius:var(--toolbar-control-radius)}
   .mobile-paper-sort .mobile-sort-wrap{border-radius:var(--toolbar-control-radius)}
 }
+
+.research-region{fill:#a8d7c7;fill-opacity:.18;stroke:#83baa8;stroke-opacity:.22;stroke-width:1.5;pointer-events:all}
+.research-region[data-depth="1"]{fill:#80c4ad;fill-opacity:.24}
+.research-region[data-depth="2"]{fill:#4ba88d;fill-opacity:.30}
+.research-region:hover{stroke-opacity:.65}
+.duplicate-group{margin:0 0 14px;border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.duplicate-group label{display:flex;align-items:flex-start;gap:8px}
+.duplicate-group input{flex:none;width:auto;margin-top:4px}
+.duplicate-group small{display:block;color:var(--muted)}

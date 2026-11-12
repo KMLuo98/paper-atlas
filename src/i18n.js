@@ -196,6 +196,7 @@ AI 状态|AI status
 返回文献库|Back to library
 返回上一页|Back
 研究方向网络|Research topics
+删除重复论文|Remove duplicates
 筛选期刊|Filter journals
 筛选发表时间|Filter by publication date
 升序或降序|Sort direction

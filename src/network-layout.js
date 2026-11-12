@@ -10,7 +10,7 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
   const make = (name, attrs = {}) => {const el = doc.createElementNS(ns, name); for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value)); return el;};
   const {radii} = networkMetrics(data), radius = id => radii.get(id) || 14;
   const directed = !authors && !data.similarity;
-  const layoutInput = {similarity:!!data.similarity,nodes: data.nodes.map(n => ({id: n.id})), edges: data.edges.map(e => ({source: idOf(e.source), target: idOf(e.target), weight: e.weight || 1}))};
+  const layoutInput = {similarity:!!data.similarity,regions:data.regions,layoutEdges:data.layoutEdges,nodes: data.nodes.map(n => ({id: n.id})), edges: data.edges.map(e => ({source: idOf(e.source), target: idOf(e.target), weight: e.weight || 1}))};
   const layoutKey = JSON.stringify([authors, width, height, layoutInput]);
   const cached = networkLayouts.get(layoutKey), cachedPositions = new Map((cached || []).map(n => [n.id, n]));
   let saved = new Map();
@@ -30,6 +30,23 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
   }
   svg.append(defs);
   const viewport = make('g', {'data-network-viewport': ''}); svg.append(viewport);
+  const regionEls = (data.regions || []).map(region => {
+    const label=region.labels[getLanguage()==='en'?1:0];
+    const el=make('ellipse',{class:'research-region','data-depth':region.depth,'aria-label':label});
+    const title=make('title');title.textContent=label;el.append(title);viewport.append(el);
+    return {el,region};
+  });
+  function paintRegions() {
+    for(const {el,region} of regionEls){
+      const points=region.members.map(id=>nodesById.get(id)).filter(Boolean);
+      if(!points.length)continue;
+      const padding=region.depth===0?45:region.depth===1?29:16;
+      const left=Math.min(...points.map(n=>n.x-radius(n.id))),right=Math.max(...points.map(n=>n.x+radius(n.id)));
+      const top=Math.min(...points.map(n=>n.y-radius(n.id))),bottom=Math.max(...points.map(n=>n.y+radius(n.id)));
+      el.setAttribute('cx',(left+right)/2);el.setAttribute('cy',(top+bottom)/2);
+      el.setAttribute('rx',(right-left)*.71+padding);el.setAttribute('ry',(bottom-top)*.71+padding);
+    }
+  }
   const edgeEls = links.map(link => {
     const el = make('line', {class: 'network-edge', stroke: '#aec29e', 'stroke-width': authors ? Math.min(4, 1 + Math.log1p(link.weight || 1)) : 1.3, 'stroke-opacity': links.length > nodes.length * 3 ? .18 : .42, ...(directed ? {'marker-end': `url(#${markerId})`} : {})});
     viewport.append(el); return el;
@@ -73,10 +90,16 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
     el.setAttribute('x1', edge.source.x + dx / distance * from); el.setAttribute('y1', edge.source.y + dy / distance * from);
     el.setAttribute('x2', edge.target.x - dx / distance * to); el.setAttribute('y2', edge.target.y - dy / distance * to);
   }
-  function paint() {links.forEach((_, i) => paintEdge(i)); nodeEls.forEach((el, i) => {el.setAttribute('transform', `translate(${nodes[i].x},${nodes[i].y})`); el.setAttribute('data-community', nodes[i].community || '');});}
+  function paint() {paintRegions(); links.forEach((_, i) => paintEdge(i)); nodeEls.forEach((el, i) => {el.setAttribute('transform', `translate(${nodes[i].x},${nodes[i].y})`); el.setAttribute('data-community', nodes[i].community || '');});}
   function fit(visible = nodes) {
     if (!visible.length) {scale = 1; tx = 0; ty = 0; transform(); return;}
-    const left = Math.min(...visible.map(n => n.x - radius(n.id))) - 50, right = Math.max(...visible.map(n => n.x + radius(n.id))) + 50, top = Math.min(...visible.map(n => n.y - radius(n.id))) - 50, bottom = Math.max(...visible.map(n => n.y + radius(n.id))) + 60;
+    let left = Math.min(...visible.map(n => n.x - radius(n.id))) - 50, right = Math.max(...visible.map(n => n.x + radius(n.id))) + 50, top = Math.min(...visible.map(n => n.y - radius(n.id))) - 50, bottom = Math.max(...visible.map(n => n.y + radius(n.id))) + 60;
+    if(visible===nodes)for(const {el} of regionEls){
+      const x=Number(el.getAttribute('cx')),y=Number(el.getAttribute('cy'));
+      const rx=Number(el.getAttribute('rx')),ry=Number(el.getAttribute('ry'));
+      left=Math.min(left,x-rx-14);right=Math.max(right,x+rx+14);
+      top=Math.min(top,y-ry-14);bottom=Math.max(bottom,y+ry+14);
+    }
     scale = Math.min(1, (width - 24) / (right - left), (height - 24) / (bottom - top)); tx = width / 2 - (left + right) / 2 * scale; ty = height / 2 - (top + bottom) / 2 * scale; transform();
   }
   function paintSelection() {
@@ -124,7 +147,7 @@ export function drawNetwork(svg, data, {authors = false, positionKey, onClick = 
     frame = null; if (disposed) return;
     const dirtyEdges = new Set();
     for (const id of dirty) {const node = nodesById.get(id), i = nodeIndices.get(id); nodeEls[i].setAttribute('transform', `translate(${node.x},${node.y})`); for (const edge of incident.get(id)) dirtyEdges.add(edge);}
-    dirty.clear(); for (const edge of dirtyEdges) paintEdge(edge);
+    dirty.clear(); for (const edge of dirtyEdges) paintEdge(edge);if(regionEls.length)paintRegions();
   }
   const gestures = mountNetworkGestures(svg, {width, height, getTransform: () => ({scale, tx, ty}), setTransform: next => {scale = next.scale; tx = next.tx; ty = next.ty; transform();}, nodeForTarget: target => nodesById.get(target?.closest?.('.node')?.getAttribute('data-node-id')),
     onNodeMove: (node, point) => {node.x = point.x; node.y = point.y; manuallyMoved.add(node.id); dirty.add(node.id); if (host.requestAnimationFrame) {if (frame === null) frame = host.requestAnimationFrame(paintMoved);} else paintMoved();},
