@@ -202,3 +202,38 @@
 .chat-container :is(.chat-heading,.chat-workspace,.chat-tasks,.chat-main,.chat-options,.chat-messages,.chat-compose,.chat-note){
   background:transparent;
 }
+
+html {
+  --toolbar-control-height: 42px;
+  --toolbar-control-radius: 7px;
+}
+html[data-appearance="glass"] {--toolbar-control-radius:999px}
+
+:is(.library-controls,.author-toolbar,.author-paper-tools,.literature-search-controls,.network-scope,.graph-controls,.network-node-search,.dialog)
+:is(.search-wrap input,input[type="search"],select,.view-switch,summary[data-mobile-icon]),
+:is(.library-controls,.author-paper-tools,.literature-search-controls,.network-scope,.graph-controls) button:not(.view-switch button,.journal-options button,.year-filter button),
+.author-directory .page-head>button,
+.library-controls :is(#ai-search,.sort-direction) {
+  box-sizing:border-box;
+  height:var(--toolbar-control-height);
+  min-height:var(--toolbar-control-height);
+  border-radius:var(--toolbar-control-radius);
+  padding-block:0;
+}
+:is(.library-controls,.author-toolbar) .view-switch {align-items:center}
+:is(.library-controls,.author-toolbar) .view-switch button {border-radius:var(--toolbar-control-radius)}
+.search-wrap svg {top:50%;transform:translateY(-50%)}
+:is(.library-controls,.dialog) summary[data-mobile-icon] {display:flex;align-items:center;gap:4px}
+.literature-search-controls {align-items:end}
+.author-directory {--author-button-size:calc(13px + var(--interface-font-step, 1pt) - 1pt)}
+.author-directory :is(button,select) {font-size:var(--author-button-size)}
+.appearance-options button {min-height:0;padding-block:6px;line-height:1.25}
+
+@media(max-width:700px){
+  html{--toolbar-control-height:44px}
+  .author-toolbar>label.author-mobile-select{height:var(--toolbar-control-height);border-radius:var(--toolbar-control-radius)}
+  .author-toolbar>label.author-mobile-select select{height:100%;min-height:0}
+  .library-controls .view-switch{height:var(--toolbar-control-height)}
+  .mobile-paper-sort .sort-direction{height:38px;min-height:38px;border-radius:var(--toolbar-control-radius)}
+  .mobile-paper-sort .mobile-sort-wrap{border-radius:var(--toolbar-control-radius)}
+}
