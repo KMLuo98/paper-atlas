@@ -64,12 +64,14 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
     paint();load(false,{loadPhotos:false}).then(async()=>{if(!active())return;paint();const paths=resolve().map(row=>row.person?.photo_path).filter(Boolean),signed=await cachedAuthorPhotos(db,id,paths);if(!active())return;for(const [path,url]of signed)photos.set(path,url);paint();}).catch(()=>{});
     return()=>{stopped=true;};
   }
+  const initialsOf=person=>[person.first_name,person.last_name].filter(Boolean).map(n=>[...n][0]).join('').toUpperCase()||'?';
   function photo(person, large = false) {
-    const url = photos.get(person.photo_path), initials = [person.first_name, person.last_name].filter(Boolean).map(n => [...n][0]).join('').toUpperCase() || '?';
-    return `<span class="author-avatar ${large ? 'large' : ''}" data-author-photo="${e(person.photo_path||'')}">${url ? `<img src="${e(url)}" alt="${e(nameOf(person))}" loading="lazy" referrerpolicy="no-referrer">` : e(initials)}</span>`;
+    const url = photos.get(person.photo_path);
+    return `<span class="author-avatar ${large ? 'large' : ''}" data-author-photo="${e(person.photo_path||'')}">${url ? `<img src="${e(url)}" alt="${e(nameOf(person))}" loading="lazy" referrerpolicy="no-referrer">` : e(initialsOf(person))}</span>`;
   }
   function photoPreview(person,id) {
-    return `<button type="button" class="author-photo-preview" id="${id}" data-author-photo-preview aria-label="${l('查看作者照片','View author photo')}" ${photos.has(person.photo_path)?'':'hidden'}>${person.photo_path?photo(person,true):''}</button>`;
+    const hasPhoto=photos.has(person.photo_path);
+    return `<button type="button" class="author-photo-preview" id="${id}" data-author-photo-preview aria-label="${l('查看作者照片','View author photo')}" ${hasPhoto?'':'hidden'}>${person.photo_path?photo(person,true):''}</button><span class="author-avatar large author-photo-placeholder" aria-hidden="true" ${hasPhoto?'hidden':''}>${e(initialsOf(person))}</span>`;
   }
   function bindPhotoPreview(preview,getPerson) {
     preview.onclick=()=>{const person=getPerson(),url=photos.get(person.photo_path);if(url)modal(l('作者照片','Author photo'),`<img class="author-photo-full" src="${e(url)}" alt="${e(nameOf(person))}">`,{wide:true});};
@@ -77,8 +79,10 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
   }
   function syncPhotoPreview(preview) {
     const image=preview.querySelector('img');
-    preview.hidden=!image;
-    if(image)image.onerror=()=>{if(preview.contains(image))preview.hidden=true;};
+    const placeholder=preview.nextElementSibling;
+    const showPhoto=visible=>{preview.hidden=!visible;placeholder.hidden=visible;};
+    showPhoto(!!image&&!image.dataset.failed);
+    if(image)image.onerror=()=>{image.dataset.failed='true';if(preview.contains(image))showPhoto(false);};
   }
   function academicStats(person){const best=person.academic_metrics?.best||{};return '<div class="author-academic-stats">'+[['publications',l('公开论文数','Public papers')],['citations',l('引用数','Citations')],['h_index','h-index'],['i10_index','i10-index']].map(([key,label])=>{const m=best[key],value=Number.isSafeInteger(m?.value)?m.value:'—',source=m?({scholar:'Google Scholar',researchgate:'ResearchGate',orcid:'ORCID'}[m.provider]||m.provider)+(m.method==='indexed_snippet'||m.method==='public_snapshot'?' · '+l('检索摘录','Search excerpt'):'')+' · '+(m.checked_at||'').slice(0,10):'',url=safeURL(m?.url);return '<div><span>'+label+'</span><strong>'+e(value)+'</strong>'+(url?'<a href="'+e(url)+'" target="_blank" rel="noopener" title="'+e(source)+'">'+e(source)+'</a>':'')+'</div>';}).join('')+'</div>';}
   function formatOptions(value, allowDefault = false) {return `${allowDefault ? `<option value="default" ${value === 'default' ? 'selected' : ''}>${l('跟随作者库设置', 'Use directory setting')}</option>` : ''}${formats().map(([id, label]) => `<option value="${id}" ${value === id ? 'selected' : ''}>${label}</option>`).join('')}`;}
@@ -233,7 +237,7 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
     const d = modal(l('编辑作者信息', 'Edit author profile'), `<form id="author-edit-form">${photoPreview(person,'author-edit-photo-preview')}<details class="author-photo-menu"><summary>${l('照片设置', 'Photo options')}</summary><div class="author-photo-actions"><button type="button" id="author-photo-match">${l('一键匹配照片','Match photo')}</button><button type="button" id="author-photo-auto">${l('查看候选','Review candidates')}</button><button type="button" id="author-photo-manual">${l('选择照片', 'Choose photo')}</button></div></details><div class="author-edit-fields"><label>${l('名 / Given name', 'Given name')}<input name="first_name" maxlength="200" value="${e(person.first_name)}"></label><label>${l('姓 / Family name', 'Family name')}<input name="last_name" maxlength="200" value="${e(person.last_name)}"></label><label>${l('姓名格式', 'Name format')}<select name="name_format">${formatOptions(person.name_format, true)}</select></label><label>ORCID<input name="orcid" value="${e(person.orcid)}" placeholder="0000-0000-0000-0000"></label></div><label>${l('其他姓名写法（一行一个）', 'Other names (one per line)')}<textarea name="aliases" rows="5">${e(person.aliases.join('\n'))}</textarea></label><label>${l('机构', 'Institution')}<textarea name="institution" rows="2" maxlength="1500">${e(person.institution)}</textarea></label><label>${l('邮箱', 'Email')}<input name="email" type="email" value="${e(person.email)}"></label><label>${l('作者主页', 'Homepage')}<input name="profile_url" type="url" value="${e(person.profile_url)}"></label><label>Google Scholar<input name="scholar_url" type="url" value="${e(person.scholar_url||'')}" placeholder="https://scholar.google.com/citations?user=…"></label><label>ResearchGate<input name="researchgate_url" type="url" value="${e(person.researchgate_url||'')}" placeholder="https://www.researchgate.net/profile/…"></label><label>${l('学术关键词（一行一个，可填写 中文 | English）', 'Research keywords (one per line; Chinese | English)')}<textarea name="research_keywords" rows="5">${e(person.keywords.map(k => k.zh + (k.en ? ' | ' + k.en : '')).join('\n'))}</textarea></label><div class="actions"><button id="author-edit-match" type="button">${l('自动匹配信息','Match information')}</button><button class="primary" type="submit">${l('保存作者信息', 'Save profile')}</button></div></form>`, {wide: true});
     const preview=d.el.querySelector('#author-edit-photo-preview');
     bindPhotoPreview(preview,()=>person);
-    const updatePhotoPreview=updated=>{person=updated;preview.innerHTML=person.photo_path?photo(person,true):'';syncPhotoPreview(preview);};
+    const updatePhotoPreview=updated=>{person=updated;preview.innerHTML=person.photo_path?photo(person,true):'';preview.nextElementSibling.textContent=initialsOf(person);syncPhotoPreview(preview);};
     d.el.querySelector('#author-photo-match').onclick=event=>busy(event.currentTarget,async()=>{
       const id=ownerId();
       const result=await api('author_match_photo',{author_key:person.key});

@@ -64,12 +64,14 @@ test('author edit displays the signed photo without exposing an empty preview co
  d.querySelector('#author-edit').onclick();
  const preview=d.querySelector('#author-edit-photo-preview');
  assert.equal(preview.hidden,false);
+ assert.equal(preview.nextElementSibling.hidden,true);
  assert.equal(preview.querySelector('img').getAttribute('src'),'https://example.edu/lu.jpg');
- preview.querySelector('img').onerror();assert.equal(preview.hidden,true);
+ preview.querySelector('img').onerror();assert.equal(preview.hidden,true);assert.equal(preview.nextElementSibling.hidden,false);
  const empty=fixture();await empty.ui.renderDetail('orcid:'+orcid);
  empty.document.querySelector('#author-edit').onclick();
  const missing=empty.document.querySelector('#author-edit-photo-preview');
  assert.equal(missing.hidden,true);assert.equal(missing.hasAttribute('disabled'),false);assert.equal(missing.querySelector('img'),null);
+ assert.equal(missing.nextElementSibling.textContent,'JL');assert.equal(missing.nextElementSibling.hidden,false);assert.equal(missing.nextElementSibling.matches('button,a'),false);
 });
 test('author details link all papers, allow editable names and email, and request research keywords for the selected author',async()=>{
  const f=fixture(),key='orcid:'+orcid,snapshot=structuredClone(f.state.papers);await f.ui.renderDetail(key);const d=f.document;
