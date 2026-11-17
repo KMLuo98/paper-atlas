@@ -3,6 +3,7 @@ import {safeFetch,bounded,text,publicPhotoURL} from '../mail-api/photos.js';
 import {engineResults} from '../mail-api/people-search.js';
 import {photoIdentityEvidence,authorPhotoIdentity,authorSearchNames,scholarlyNameMatch} from './author-photos.js';
 import {normalizeORCID} from './author-identity.js';
+import {discoverAuthorMetricIndexes} from './author-metric-indexes.js';
 export function academicProfileURL(value){
  const safe=publicPhotoURL(value);if(!safe)return null;const u=new URL(safe);
  if(['com','com.hk','com.cn','co.uk','de','fr','es','it','ch','at','nl','ca','com.au','co.in','co.jp','co.kr','com.br'].some(domain=>u.hostname==='scholar.google.'+domain)&&u.pathname==='/citations'&&/^[\w-]{4,80}$/.test(u.searchParams.get('user')||''))return {provider:'scholar',url:'https://scholar.google.com/citations?user='+u.searchParams.get('user')};
@@ -48,10 +49,13 @@ export function parseAcademicMetrics(html,provider,parseHTML){
  return metrics;
 }
 export function orcidPublicationCount(data){return (data.group||[]).filter(g=>(g['work-summary']||[]).some(w=>['journal-article','conference-paper','preprint','working-paper','dissertation','review'].includes(w.type))).length;}
-export function bestAcademicMetrics(sources){const result={};for(const source of sources||[])if(['scholar','researchgate','orcid'].includes(source.provider))for(const field of ['publications','citations','h_index','i10_index']){const n=source.metrics?.[field];if(Number.isSafeInteger(n)&&n>=0&&(!result[field]||n>result[field].value))result[field]={value:n,provider:source.provider,url:source.url,checked_at:source.metric_dates?.[field]||source.checked_at,method:source.metric_methods?.[field]||'profile_page'};}return result;}
+export function bestAcademicMetrics(sources){const result={};for(const source of sources||[])if(['scholar','researchgate','orcid','OpenAlex','Semantic Scholar'].includes(source.provider))for(const field of ['publications','citations','h_index','i10_index']){const n=source.metrics?.[field];if(Number.isSafeInteger(n)&&n>=0&&(!result[field]||n>result[field].value))result[field]={value:n,provider:source.provider,url:source.url,checked_at:source.metric_dates?.[field]||source.checked_at,method:source.metric_methods?.[field]||'profile_page'};}return result;}
 export function academicInformationPatch(base,sources,{missingOnly=false}={}){
  const patch={},observations=sources.map(s=>s.academic).filter(Boolean),byURL=new Map((base.academic_metrics?.sources||[]).map(s=>[s.url,s]));
  for(const row of observations){
+  if(!missingOnly&&['OpenAlex','Semantic Scholar'].includes(row.provider)&&Object.keys(row.metrics||{}).length){
+   for(const [url,prior] of byURL)if(url!==row.url&&prior.provider===row.provider)byURL.delete(url);
+  }
   const old=byURL.get(row.url);
   const metrics={...old?.metrics},metric_methods={...old?.metric_methods},metric_dates={...old?.metric_dates};
   for(const [field,value] of Object.entries(row.metrics||{})){
@@ -72,6 +76,18 @@ export async function discoverAcademicProfiles(person,parseHTML,options={}){
  for(const value of [person.scholar_url,person.researchgate_url,person.profile_url]){const p=academicProfileURL(value);if(p)candidates.set(p.url,{...p,explicit:true});}
  const diagnostics=new Map();const read=async(url,accept='text/html')=>{const host=new URL(url).hostname,entry=diagnostics.get(host)||{host,readable:0,blocked:0,failed:0};diagnostics.set(host,entry);try{const result=await safeFetch(url,accept,options);if(!result.response.ok){if([401,403,429].includes(result.response.status))entry.blocked++;else entry.failed++;await result.response.body?.cancel();throw Error('Public source unavailable');}const body=text(await bounded(result.response,1800000));if(/<title[^>]*>[^<]*(?:captcha|access denied|just a moment|temporarily unavailable|sign in)/i.test(body)){entry.blocked++;throw Error('Public source restricted');}entry.readable++;return body;}catch(error){if(!entry.blocked&&!entry.failed)entry.failed++;throw error;}};
  const best=person.academic_metrics?.best||{},needsMetric=field=>!options.missingOnly||!Number.isSafeInteger(best[field]?.value),needsProvider=provider=>!person[provider==='scholar'?'scholar_url':'researchgate_url']||(provider==='scholar'?['publications','citations','h_index','i10_index']:['publications','citations','h_index']).some(needsMetric);
+ const scholarDirectoryTask=(async()=>{
+  if(!needsProvider('scholar')||person.scholar_url||!identity.name)return;
+  const url=new URL('https://scholar.google.com/citations');
+  url.search=new URLSearchParams({view_op:'search_authors',mauthors:identity.name,hl:'en'});
+  const {document}=parseHTML(await read(url.href));
+  for(const result of document.querySelectorAll('.gsc_1usr')){
+   const link=result.querySelector('.gs_ai_name a,.gsc_oai_name a');
+   if(!link||!photoIdentityEvidence(identity,{headings:[link.textContent],text:result.textContent}))continue;
+   const profile=academicProfileURL(new URL(link.getAttribute('href'),url).href);
+   if(profile?.provider==='scholar'&&!candidates.has(profile.url))candidates.set(profile.url,profile);
+  }
+ })();
  const homepageTask=(async()=>{if(!person.profile_url||academicProfileURL(person.profile_url)||!['scholar','researchgate'].some(needsProvider))return;try{const {document}=parseHTML(await read(person.profile_url)),heading=document.querySelector('h1,title')?.textContent||'',body=document.body?.textContent||document.documentElement.textContent||'';if(![identity.name,...identity.aliases].some(n=>scholarlyNameMatch(n,heading))&&!photoIdentityEvidence(identity,{headings:[heading],text:body,orcids:body.match(/\d{4}-\d{4}-\d{4}-\d{3}[\dX]/gi)||[]}))return;for(const link of document.querySelectorAll('a[href]')){let url;try{url=new URL(link.getAttribute('href'),person.profile_url).href;}catch{continue;}const p=academicProfileURL(url);if(p&&needsProvider(p.provider)&&!candidates.has(p.url))candidates.set(p.url,{...p,orcid_linked:true});}}catch{}})();
  const knowledgeTask=(async()=>{if(!person.orcid||!['scholar','researchgate'].some(provider=>!person[provider==='scholar'?'scholar_url':'researchgate_url']))return;try{const u=new URL('https://www.wikidata.org/w/api.php');u.search=new URLSearchParams({action:'wbsearchentities',format:'json',language:'en',search:identity.name,limit:'3'}).toString();const data=JSON.parse(await read(u.href,'application/json'));await Promise.allSettled((data.search||[]).filter(hit=>/^Q\d+$/.test(hit.id)).slice(0,3).map(async hit=>{const data=JSON.parse(await read('https://www.wikidata.org/wiki/Special:EntityData/'+hit.id+'.json','application/json'));for(const p of wikidataAcademicLinks(data.entities?.[hit.id],person)){const existing=person[p.provider==='scholar'?'scholar_url':'researchgate_url'];if(!existing&&!candidates.has(p.url))candidates.set(p.url,{...p,orcid_linked:true});}}));}catch{}})();
  let orcidText='';const orcid=normalizeORCID(person.orcid),orcidTask=(async()=>{if(!/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(orcid))return;try{const personData=JSON.parse(await read(`https://pub.orcid.org/v3.0/${orcid}/person`,'application/json'));orcidText=JSON.stringify(personData);for(const link of personData['researcher-urls']?.['researcher-url']||[]){const p=academicProfileURL(link.url?.value);if(p)candidates.set(p.url,{...p,orcid_linked:true});}}catch{}try{if(!needsMetric('publications'))return;const data=JSON.parse(await read(`https://pub.orcid.org/v3.0/${orcid}/works`,'application/json'));if(Array.isArray(data.group))rows.push({url:'https://orcid.org/'+orcid,title:identity.name,text:identity.name+' '+orcid+' '+orcidText,academic:{provider:'orcid',url:'https://orcid.org/'+orcid,metrics:{publications:orcidPublicationCount(data)},checked_at:stamp}});}catch{}})();
@@ -102,7 +118,9 @@ export async function discoverAcademicProfiles(person,parseHTML,options={}){
    }));
   }
  };
- await Promise.allSettled([worker(),worker(),orcidTask,homepageTask,knowledgeTask]);
+ const indexTask = identity.name && ['publications','citations','h_index','i10_index'].some(needsMetric)
+   ? discoverAuthorMetricIndexes(person,identity,read,stamp).then(found => rows.push(...found)) : null;
+ await Promise.allSettled([worker(),worker(),orcidTask,homepageTask,knowledgeTask,scholarDirectoryTask,indexTask]);
  const priority=p=>p.explicit?3:p.orcid_linked?2:p.indexed?1:0;
  const choices=[...candidates.values()].filter(p=>needsProvider(p.provider)).sort((a,b)=>priority(b)-priority(a));
  const verifiedProfiles=[];
