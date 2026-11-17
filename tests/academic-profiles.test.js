@@ -58,3 +58,21 @@ test('ORCID record links fill only missing fields and do not depend on AI extrac
  assert.equal(patch.researchgate_url,'https://www.researchgate.net/profile/Example-Author');
  assert.equal(patch.profile_url,undefined);
 });
+
+test('refresh reads verified Scholar hits from HTML and recomputes saved metrics',async()=>{
+ const url='https://scholar.google.com/citations?user=Alice123';
+ const person={english_name:'Alice Smith',aliases:['Alice Smith'],original_names:['Alice Smith'],institution:'Example University',papers:[]};
+ const rows=await discoverAcademicProfiles(person,parseHTML,{
+  missingOnly:false,resolve:async()=>['8.8.8.8'],fetcher:async address=>{
+   const hostname=new URL(address).hostname;
+   if(hostname==='www.google.com')return new Response('<div class="g"><a href="'+url+'"><h3>A. Smith</h3></a> Example University</div>');
+   if(hostname==='scholar.google.com')return new Response('<html><body><h1>A. Smith</h1><p>Example University</p><table id="gsc_rsb_st"><tr><td>Citations</td><td>21</td></tr><tr><td>i10-index</td><td>3</td></tr></table></body></html>');
+   return new Response('<rss></rss>');
+  }
+ });
+ const old={provider:'scholar',url,checked_at:'2026-01-01',metrics:{citations:27},metric_methods:{citations:'indexed_snippet'}};
+ const patch=academicInformationPatch({academic_metrics:{sources:[old]}},rows);
+ assert.equal(patch.scholar_url,url);
+ assert.equal(patch.academic_metrics.best.citations.value,21);
+ assert.equal(patch.academic_metrics.best.i10_index.value,3);
+});

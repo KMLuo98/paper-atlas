@@ -51,8 +51,19 @@ export function orcidPublicationCount(data){return (data.group||[]).filter(g=>(g
 export function bestAcademicMetrics(sources){const result={};for(const source of sources||[])if(['scholar','researchgate','orcid'].includes(source.provider))for(const field of ['publications','citations','h_index','i10_index']){const n=source.metrics?.[field];if(Number.isSafeInteger(n)&&n>=0&&(!result[field]||n>result[field].value))result[field]={value:n,provider:source.provider,url:source.url,checked_at:source.metric_dates?.[field]||source.checked_at,method:source.metric_methods?.[field]||'profile_page'};}return result;}
 export function academicInformationPatch(base,sources,{missingOnly=false}={}){
  const patch={},observations=sources.map(s=>s.academic).filter(Boolean),byURL=new Map((base.academic_metrics?.sources||[]).map(s=>[s.url,s]));
- for(const row of observations){const old=byURL.get(row.url);if(Object.keys(row.metrics||{}).length)byURL.set(row.url,{...row,metrics:{...(old?.metrics||{}),...row.metrics},metric_methods:{...(old?.metric_methods||{}),...(row.metric_methods||{})},metric_dates:{...(old?.metric_dates||{}),...Object.fromEntries(Object.keys(row.metrics).map(k=>[k,row.metric_dates?.[k]||row.checked_at]))}});else if(!old)byURL.set(row.url,row);const field=row.provider==='scholar'?'scholar_url':row.provider==='researchgate'?'researchgate_url':null;if(field&&!base[field]&&academicProfileURL(row.url)?.provider===row.provider)patch[field]=row.url;}
- if(observations.length){let merged=[...byURL.values()];if(missingOnly){const filled=base.academic_metrics?.best||bestAcademicMetrics(base.academic_metrics?.sources||[]);merged=merged.map(row=>({...row,metrics:Object.fromEntries(Object.entries(row.metrics||{}).filter(([field])=>!Number.isSafeInteger(filled[field]?.value)))}));const old=base.academic_metrics?.sources||[];const additions=merged.filter(row=>Object.keys(row.metrics).length);merged=[...old,...additions];const best={...bestAcademicMetrics(additions),...filled};if(additions.length)patch.academic_metrics={sources:merged,best};}else patch.academic_metrics={sources:merged,best:bestAcademicMetrics(merged)};}return patch;
+ for(const row of observations){
+  const old=byURL.get(row.url);
+  const metrics={...old?.metrics},metric_methods={...old?.metric_methods},metric_dates={...old?.metric_dates};
+  for(const [field,value] of Object.entries(row.metrics||{})){
+   const method=row.metric_methods?.[field]||'profile_page';
+   if(Number.isSafeInteger(metrics[field])&&(metric_methods[field]||'profile_page')==='profile_page'&&method!=='profile_page')continue;
+   metrics[field]=value;metric_methods[field]=method;metric_dates[field]=row.metric_dates?.[field]||row.checked_at;
+  }
+  byURL.set(row.url,{...old,...row,metrics,metric_methods,metric_dates});
+  const field=row.provider==='scholar'?'scholar_url':row.provider==='researchgate'?'researchgate_url':null;
+  if(field&&!base[field]&&academicProfileURL(row.url)?.provider===row.provider)patch[field]=row.url;
+ }
+ if(observations.some(row=>Object.keys(row.metrics||{}).length)){let merged=[...byURL.values()];if(missingOnly){const filled=base.academic_metrics?.best||bestAcademicMetrics(base.academic_metrics?.sources||[]);merged=merged.map(row=>({...row,metrics:Object.fromEntries(Object.entries(row.metrics||{}).filter(([field])=>!Number.isSafeInteger(filled[field]?.value)))}));const old=base.academic_metrics?.sources||[];const additions=merged.filter(row=>Object.keys(row.metrics).length);merged=[...old,...additions];const best={...bestAcademicMetrics(additions),...filled};if(additions.length)patch.academic_metrics={sources:merged,best};}else patch.academic_metrics={sources:merged,best:bestAcademicMetrics(merged)};}return patch;
 }
 export async function discoverAcademicProfiles(person,parseHTML,options={}){
  options={deadline:Date.now()+55000,...options};const identity=authorPhotoIdentity(person);identity.organization_aliases=[...new Set([...(identity.organization_aliases||[]),...authorAffiliations(person).flatMap(r=>[r.school,...(r.aliases||[])])])];const names=authorSearchNames(identity),candidates=new Map(),rows=[],stamp=new Date().toISOString();
@@ -62,10 +73,38 @@ export async function discoverAcademicProfiles(person,parseHTML,options={}){
  const homepageTask=(async()=>{if(!person.profile_url||academicProfileURL(person.profile_url)||!['scholar','researchgate'].some(needsProvider))return;try{const {document}=parseHTML(await read(person.profile_url)),heading=document.querySelector('h1,title')?.textContent||'',body=document.body?.textContent||document.documentElement.textContent||'';if(![identity.name,...identity.aliases].some(n=>scholarlyNameMatch(n,heading))&&!photoIdentityEvidence(identity,{headings:[heading],text:body,orcids:body.match(/\d{4}-\d{4}-\d{4}-\d{3}[\dX]/gi)||[]}))return;for(const link of document.querySelectorAll('a[href]')){let url;try{url=new URL(link.getAttribute('href'),person.profile_url).href;}catch{continue;}const p=academicProfileURL(url);if(p&&needsProvider(p.provider)&&!candidates.has(p.url))candidates.set(p.url,{...p,orcid_linked:true});}}catch{}})();
  const knowledgeTask=(async()=>{if(!person.orcid||!['scholar','researchgate'].some(provider=>!person[provider==='scholar'?'scholar_url':'researchgate_url']))return;try{const u=new URL('https://www.wikidata.org/w/api.php');u.search=new URLSearchParams({action:'wbsearchentities',format:'json',language:'en',search:identity.name,limit:'3'}).toString();const data=JSON.parse(await read(u.href,'application/json'));await Promise.allSettled((data.search||[]).filter(hit=>/^Q\d+$/.test(hit.id)).slice(0,3).map(async hit=>{const data=JSON.parse(await read('https://www.wikidata.org/wiki/Special:EntityData/'+hit.id+'.json','application/json'));for(const p of wikidataAcademicLinks(data.entities?.[hit.id],person)){const existing=person[p.provider==='scholar'?'scholar_url':'researchgate_url'];if(!existing&&!candidates.has(p.url))candidates.set(p.url,{...p,orcid_linked:true});}}));}catch{}})();
  let orcidText='';const orcid=normalizeORCID(person.orcid),orcidTask=(async()=>{if(!/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(orcid))return;try{const personData=JSON.parse(await read(`https://pub.orcid.org/v3.0/${orcid}/person`,'application/json'));orcidText=JSON.stringify(personData);for(const link of personData['researcher-urls']?.['researcher-url']||[]){const p=academicProfileURL(link.url?.value);if(p)candidates.set(p.url,{...p,orcid_linked:true});}}catch{}try{if(!needsMetric('publications'))return;const data=JSON.parse(await read(`https://pub.orcid.org/v3.0/${orcid}/works`,'application/json'));if(Array.isArray(data.group))rows.push({url:'https://orcid.org/'+orcid,title:identity.name,text:identity.name+' '+orcid+' '+orcidText,academic:{provider:'orcid',url:'https://orcid.org/'+orcid,metrics:{publications:orcidPublicationCount(data)},checked_at:stamp}});}catch{}})();
- let next=0;const worker=async()=>{while(next<names.length){const name=names[next++];await Promise.allSettled(['scholar.google.com/citations','researchgate.net/profile/'].filter(site=>{const provider=site.startsWith('scholar')?'scholar':'researchgate';return needsProvider(provider);}).flatMap(site=>{const provider=site.startsWith('scholar')?'scholar':'researchgate',known=academicProfileURL(person[provider==='scholar'?'scholar_url':'researchgate_url'])?.url;const query='site:'+(known||site)+' "'+name+'"';return ['https://www.bing.com/search?'+new URLSearchParams({q:query,format:'rss'}),'https://www.google.com/search?'+new URLSearchParams({q:query,num:'6'})].map(async url=>{const html=await read(url,'text/html,application/rss+xml');for(const hit of engineResults(html,url,parseHTML,{name})){const p=academicProfileURL(hit.url);if(p&&(!known||p.url===known)&&(!candidates.has(p.url)||!candidates.get(p.url).indexed)&&photoIdentityEvidence(identity,{headings:[hit.title],text:hit.snippet,orcids:(hit.snippet||'').match(/\d{4}-\d{4}-\d{4}-\d{3}[\dX]/gi)||[]}))candidates.set(p.url,{...candidates.get(p.url),...p,indexed:hit});}});}));}};
+ const variants=names.slice(0,5);
+ let next=0;
+ const worker=async()=>{
+  while(next<variants.length){
+   const name=variants[next++];
+   await Promise.allSettled(['scholar','researchgate'].filter(needsProvider).flatMap(provider=>{
+    const site=provider==='scholar'?'scholar.google.com/citations':'researchgate.net/profile/';
+    const known=academicProfileURL(person[provider==='scholar'?'scholar_url':'researchgate_url'])?.url;
+    const quoted='site:'+(known||site)+' "'+name+'"';
+    const fuzzy='site:'+(known||site)+' '+name+' '+identity.organization;
+    return [
+     'https://www.bing.com/search?'+new URLSearchParams({q:fuzzy,format:'rss'}),
+     'https://www.google.com/search?'+new URLSearchParams({q:quoted,num:'6'})
+    ].map(async url=>{
+     const html=await read(url,'text/html,application/rss+xml');
+     for(const hit of engineResults(html,url,parseHTML,{name,matchName:()=>true,acceptSearchHost:candidate=>academicProfileURL(candidate)?.provider===provider})){
+      const profile=academicProfileURL(hit.url);
+      if(profile?.provider!==provider||(known&&profile.url!==known))continue;
+      const verified=photoIdentityEvidence(identity,{headings:[hit.title],text:hit.snippet,orcids:(hit.snippet||'').match(/\d{4}-\d{4}-\d{4}-\d{3}[\dX]/gi)||[]});
+      const prior=candidates.get(profile.url);
+      if(verified&&!prior?.indexed)candidates.set(profile.url,{...prior,...profile,indexed:hit});
+      else if(!prior)candidates.set(profile.url,profile);
+     }
+    });
+   }));
+  }
+ };
  await Promise.allSettled([worker(),worker(),orcidTask,homepageTask,knowledgeTask]);
- const choices=[...candidates.values()].filter(p=>needsProvider(p.provider)&&(p.explicit||p.orcid_linked||[...candidates.values()].filter(q=>q.provider===p.provider).length===1));
- await Promise.allSettled(choices.slice(0,8).map(async p=>{
+ const priority=p=>p.explicit?3:p.orcid_linked?2:p.indexed?1:0;
+ const choices=[...candidates.values()].filter(p=>needsProvider(p.provider)).sort((a,b)=>priority(b)-priority(a));
+ const verifiedProfiles=[];
+ await Promise.allSettled([...choices.filter(p=>p.provider==='scholar').slice(0,4),...choices.filter(p=>p.provider==='researchgate').slice(0,4)].map(async p=>{
   // A verified search hit or ORCID link can establish the URL even if the page is unavailable.
   const escape=value=>String(value||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');const indexed=p.indexed?(p.provider==='scholar'?indexedScholarMetrics(p.indexed.snippet):parseAcademicMetrics('<main>'+escape(p.indexed.snippet)+'</main>',p.provider,parseHTML)):{};
   const entry={url:p.url,title:identity.name,text:identity.name+' '+p.url+' '+(p.indexed?.snippet||''),academic:{provider:p.provider,url:p.url,metrics:indexed,metric_methods:Object.fromEntries(Object.keys(indexed).map(k=>[k,'indexed_snippet'])),checked_at:stamp}};
@@ -81,6 +120,14 @@ export async function discoverAcademicProfiles(person,parseHTML,options={}){
     }
    }else if(!p.indexed&&!p.orcid_linked)return;
   }catch{if(!p.indexed&&!p.orcid_linked&&!p.explicit)return;}
-  rows.push(entry);
- }));rows.diagnostics=[...diagnostics.values()];return rows;
+  verifiedProfiles.push({entry,priority:priority(p)>=2?priority(p):0});
+ }));
+ for(const provider of ['scholar','researchgate']){
+  const candidates=verifiedProfiles.filter(row=>row.entry.academic.provider===provider);
+  if(!candidates.length)continue;
+  const highest=Math.max(...candidates.map(row=>row.priority));
+  const matches=candidates.filter(row=>row.priority===highest);
+  if(matches.length===1)rows.push(matches[0].entry);
+ }
+ rows.diagnostics=[...diagnostics.values()];return rows;
 }

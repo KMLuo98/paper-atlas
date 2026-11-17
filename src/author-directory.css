@@ -18,3 +18,8 @@
 .author-merge-source .author-entry {outline:2px solid #51847d;outline-offset:-2px}
 .author-merge-hint {color:var(--muted);margin:0 0 10px}
 .author-card-wrapper .author-entry[draggable=false] {cursor:pointer}
+
+.author-metrics-panel{margin-block:14px}
+.author-metrics-panel>.row{justify-content:space-between;gap:8px}
+.author-metrics-panel>.row h2{margin:0;font-size:15px}
+#author-refresh-metrics{flex:none}

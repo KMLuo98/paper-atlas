@@ -40,7 +40,7 @@ export function verifiedOrcidFields(profile,orcid){
 export async function discoverAuthorInformation(person,parseHTML,options={}){
  options={deadline:Date.now()+65000,missingOnly:true,...options};const identity=authorPhotoIdentity(person),names=authorSearchNames(identity),rows=[];
  const registry=person.orcid?Promise.resolve([]):doiOrcidCandidates(person,names,options);
- const snapshots=(async()=>{if(['h_index','i10_index'].every(field=>Number.isSafeInteger(person.academic_metrics?.best?.[field]?.value)))return [];const found=[];await Promise.allSettled(names.filter(name=>/\p{Script=Latin}/u.test(name)).slice(0,2).flatMap(name=>{const query='"'+name+'" '+identity.organization+' "Google Scholar" ("h-index" OR "i10-index")';return ['https://www.google.com/search?'+new URLSearchParams({q:query,num:'6'}),'https://www.bing.com/search?'+new URLSearchParams({q:query,count:'10'})].map(async url=>{const {response}=await safeFetch(url,'text/html',options);if(!response.ok){await response.body?.cancel();return;}const html=text(await bounded(response,900000));for(const hit of engineResults(html,url,parseHTML,{name}))if(photoIdentityEvidence(identity,{headings:[hit.title],text:hit.snippet,orcids:(hit.snippet||'').match(/\d{4}-\d{4}-\d{4}-\d{3}[\dX]/gi)||[]}))found.push({url:hit.url,title:hit.title,text:hit.snippet});});}));return found;})();
+ const snapshots=(async()=>{if(options.missingOnly&&['h_index','i10_index'].every(field=>Number.isSafeInteger(person.academic_metrics?.best?.[field]?.value)))return [];const found=[];await Promise.allSettled(names.filter(name=>/\p{Script=Latin}/u.test(name)).slice(0,2).flatMap(name=>{const query='"'+name+'" '+identity.organization+' "Google Scholar" ("h-index" OR "i10-index")';return ['https://www.google.com/search?'+new URLSearchParams({q:query,num:'6'}),'https://www.bing.com/search?'+new URLSearchParams({q:query,count:'10'})].map(async url=>{const {response}=await safeFetch(url,'text/html',options);if(!response.ok){await response.body?.cancel();return;}const html=text(await bounded(response,900000));for(const hit of engineResults(html,url,parseHTML,{name}))if(photoIdentityEvidence(identity,{headings:[hit.title],text:hit.snippet,orcids:(hit.snippet||'').match(/\d{4}-\d{4}-\d{4}-\d{3}[\dX]/gi)||[]}))found.push({url:hit.url,title:hit.title,text:hit.snippet});});}));return found;})();
  const publications=Promise.allSettled((person.papers||[]).filter(p=>p.doi&&!/^10\.48550/i.test(p.doi)).slice(0,3).map(async p=>{
   const url='https://api.crossref.org/works/'+encodeURIComponent(p.doi),response=await (options.fetcher||fetch)(url,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(8000)});if(!response.ok)return;const work=(await response.json()).message;if(!exactPublishedMatch(p,work))return;
   const authors=(work.author||[]).filter(a=>sameAuthor({name:identity.name,aliases:identity.aliases,orcid:identity.orcid},{name:[a.given,a.family].filter(Boolean).join(' '),orcid:a.ORCID}));if(authors.length!==1)return;
@@ -83,7 +83,7 @@ export async function discoverAuthorInformation(person,parseHTML,options={}){
  sources.diagnostics=academicRows.diagnostics||[];sources.orcidConflict=ids.length>1&&!person.orcid;
  return sources;
 }
-export function authorInformationPatch(person,base,raw,sources){
+export function authorInformationPatch(person,base,raw,sources,{refreshMetrics=false}={}){
  const byURL=new Map(sources.map(s=>[s.url,s])),allowed=(field)=>{const value=typeof field?.value==='string'?field.value.trim():'',row=byURL.get(field?.source);return value&&row&&compact(row.text+' '+row.url).includes(compact(value))?value:'';},patch={};
  for(const field of ['first_name','last_name','institution','email','orcid','profile_url']){
   if(base[field]||person[field]||(field==='orcid'&&sources.orcidConflict))continue;let value=sources.find(row=>row.identity_fields?.[field])?.identity_fields[field]||allowed(raw?.[field]);if(!value)continue;
@@ -105,5 +105,5 @@ export function authorInformationPatch(person,base,raw,sources){
   if(!publicPhotoURL(m.source))continue;
   academicSources.push({academic:{provider,url:parsed?.url||m.source,metrics:{[m.field]:m.value},checked_at:stamp,metric_methods:{[m.field]:parsed?'indexed_snippet':'public_snapshot'}}});
  }
- return {...patch,...academicInformationPatch({...person,...base},academicSources,{missingOnly:true})};
+ return {...patch,...academicInformationPatch({...person,...base},academicSources,{missingOnly:!refreshMetrics})};
 }
