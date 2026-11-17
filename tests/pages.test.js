@@ -155,8 +155,8 @@ test('network pages open a standalone graph and place citation refresh before th
 
 test('core author filtering counts a paper once even when it has several coauthors',()=>{
  const f=fixture(),d=f.document;
- const alice={name:'Alice Smith'},bob={name:'Bob Smith'};
- f.qa.state.papers=Array.from({length:6},(_,i)=>({id:'coauthored-'+i,title:'Collaboration '+i,authors:i===0?[alice,bob,...Array.from({length:8},(_,n)=>({name:'Guest '+n}))]:[alice,bob]}));
+ const alice={name:'Alice Smith'},bob={name:'Bob Smith'},charlie={name:'Charlie Smith'};
+ f.qa.state.papers=Array.from({length:4},(_,i)=>({id:'coauthored-'+i,title:'Collaboration '+i,authors:[alice,bob,...(i<3?[charlie]:[]),...(i===0?Array.from({length:8},(_,n)=>({name:'Guest '+n})):[])]}));
  f.qa.state.authorCoreOnly=true;
  f.qa.renderNetwork('authors');
  assert.match(d.querySelector('.network-node-count').textContent,/2 个节点 · 1 条关联/);

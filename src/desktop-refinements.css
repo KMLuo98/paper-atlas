@@ -52,6 +52,10 @@
 
 .mobile-filter-icon{display:none}
 .mobile-sort-wrap{display:contents}
+.graph-controls :is(#graph-photos,#graph-core-authors)[aria-pressed="true"]{
+  color:#245c53;
+  box-shadow:inset 0 0 0 1px currentColor;
+}
 @media(max-width:700px){
   [data-mobile-icon]{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:0}
   [data-mobile-icon] .mobile-control-label{display:none}
