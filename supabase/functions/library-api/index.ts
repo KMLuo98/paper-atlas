@@ -180,14 +180,24 @@ Deno.serve(async(req:Request)=>{
         if(action==='analyze_reduce'&&!validNotes(body.notes))throw new HTTPError(400,'无效的分段笔记');
         const boundary=(offset:number)=>offset+Number(/^[\uDC00-\uDFFF]$/.test(p.full_text.charAt(offset)));
         const input=action==='analyze_segment'?{section:index+1,total:segments,text:p.full_text.slice(boundary(index*step),boundary((index+1)*step))}:{notes:body.notes};
-        const readNote=(value:unknown)=>typeof value==='string'?value.trim():Array.isArray(value)?value.filter(item=>typeof item==='string'&&item.trim()).join('\n').trim():'';
+        const readNote=(value:unknown):string=>typeof value==='string'?value.trim():Array.isArray(value)?value.map(readNote).filter(Boolean).join('\n'):value&&typeof value==='object'?Object.values(value).map(readNote).filter(Boolean).join('\n'):'';
+        const compactNote=(note:string,cap=2400)=>note.length<=cap?note:note.slice(0,Math.floor(cap*.7))+'\n…\n'+note.slice(-Math.floor(cap*.29));
         let note=readNote((await model(notesPrompt,input,true,4096)).note);
         if(!note||note.length>2400){
           const retry=await model(notesPrompt+' 只使用 note 字段，值必须是非空字符串。将笔记压缩为 1,200 字符以内，先保留研究要点和明确的书目信息。',note?{notes:[note]}:input,true,3072);
-          note=readNote(retry.note);
+          note=readNote(retry.note)||note;
         }
-        if(!note||note.length>2400)throw new HTTPError(502,action==='analyze_segment'?`第 ${index+1}/${segments} 段未生成有效笔记，请重试解析`:'分段汇总未生成有效笔记，请重试解析');
-        return json({note});
+        if(!note&&action==='analyze_segment'){
+          const start=boundary(index*step),end=boundary((index+1)*step);
+          const offsets=[start,boundary(Math.floor(start+(end-start)/3)),boundary(Math.floor(start+2*(end-start)/3)),end];
+          const parts=await Promise.all(offsets.slice(0,-1).map(async (offset,i)=>{
+            const result=await model(notesPrompt+' 每个子段写简短非空笔记；只有参考文献、图表文字或附录时也要概括。',{section:index+1,subsection:i+1,text:p.full_text.slice(offset,offsets[i+1])},true,2048);
+            return readNote(result.note);
+          }));
+          if(parts.every(Boolean))note=parts.map(part=>compactNote(part,790)).join('\n\n');
+        }
+        if(!note)throw new HTTPError(502,action==='analyze_segment'?`第 ${index+1}/${segments} 段未生成有效笔记，请重试解析`:'分段汇总未生成有效笔记，请重试解析');
+        return json({note:compactNote(note)});
       }
       if(long&&body.notes===undefined)return json({segments});
       let expectedNotes=segments;while(expectedNotes>24)expectedNotes=Math.ceil(expectedNotes/24);
