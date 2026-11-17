@@ -82,11 +82,19 @@ export function profiledAuthorNetwork(papers, profiles, scopedPapers=papers) {
   }
   return {nodes,edges:[...pairs.values()].sort((a,b)=>b.weight-a.weight)};
 }
+export function authorSortValue(person, sort) {
+  switch (sort) {
+    case 'papers': return person.paper_count;
+    case 'public-papers': return person.academic_metrics?.best?.publications?.value;
+    case 'public-citations': return person.academic_metrics?.best?.citations?.value;
+    case 'library-citations': return person.library_citations;
+  }
+}
 export function filterAuthors(authors, query = '', sort = 'name', format = 'given_family') {
   const fold=value=>normalize(String(value||'').normalize('NFKD').replace(/\p{M}/gu,''));
   const words = fold(query).split(' ').filter(Boolean);
   return authors.filter(a => {const names=[a.english_name,...a.aliases],text = fold([...names,...names.map(n=>n.replace(/[-.]/g,'')), a.institution, ...a.institutions, a.email, a.orcid].join(' '));const tokens=text.split(' ');return words.every(w => text.includes(w) || tokens.some(token => fuzzyAuthorWord(w, token)));})
-    .sort((a, b) => (sort === 'papers' ? b.paper_count - a.paper_count : 0) || formattedAuthorName(a, format).localeCompare(formattedAuthorName(b, format), 'en', {sensitivity: 'base'}) || a.key.localeCompare(b.key));
+    .sort((a, b) => ((authorSortValue(b, sort) ?? -1) - (authorSortValue(a, sort) ?? -1)) || formattedAuthorName(a, format).localeCompare(formattedAuthorName(b, format), 'en', {sensitivity: 'base'}) || a.key.localeCompare(b.key));
 }
 
 function fuzzyAuthorWord(a, b) {
@@ -102,7 +110,7 @@ export function authorInstitutions(person) {
   return unique([...(person.institution ? lines(person.institution) : []), ...(person.institutions || []).flatMap(lines)]);
 }
 export function authorIndexValue(person, sort, format) {
-  if (sort === 'papers') return String(person.paper_count);
+  if (sort !== 'name') return String(authorSortValue(person, sort) ?? '—');
   const initial = [...formattedAuthorName(person, format).normalize('NFKD').replace(/\p{M}/gu,'')][0]?.toUpperCase();
   return /^[A-Z]$/.test(initial || '') ? initial : '#';
 }
