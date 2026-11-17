@@ -21,7 +21,11 @@ function fixture({modelStatus = 200, rateLimited = false, fullText='Unpublished 
     fetch:async(url,options)=>{
       if(url.endsWith('/models'))return Response.json({data:[{id:'deepseek-flash'}]});
       assert(url.endsWith('/chat/completions'));const body=JSON.parse(options.body);assert.equal(body.temperature,0);attempts++;if(modelStatus!==200)return new Response('{}',{status:modelStatus,headers:{'Retry-After':'17'}});
-      const input=JSON.parse(body.messages[1].content);if(input.section){assert.equal(body.max_tokens,4096);segments.push(input.text);return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({note:'section '+input.section})}}]});}assert.equal(body.max_tokens,16384);
+      const input=JSON.parse(body.messages[1].content);if(input.section||input.notes){
+        if(input.section)segments.push(input.text);
+        const note=input.section===2?'long note '.repeat(300):input.notes?['section 2']:['section '+input.section];
+        return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({note})}}]});
+      }assert.equal(body.max_tokens,16384);
       return Response.json({choices:[attempts===1?{finish_reason:'length',message:{content:'{"title":"paper","references":['}}:{finish_reason:'stop',message:{content:JSON.stringify({title:'Unpublished research',publication_status:'unpublished',authors:[{name:'Researcher'}],keyword_pairs:pairs,summary:'研究问题：重构网络。方法：变分方法。主要结论/现象：恢复稳定态网络。局限与待核验：未发表稿件。'})}}]});
     }});
   return {request:(body,token='test-token')=>handler(new Request('https://project.supabase.co/functions/v1/library-api',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)})),segments,get attempts(){return attempts;},get saved(){return saved;}};
@@ -32,7 +36,7 @@ test('analyzes every segment of a paper above 600,000 characters before saving',
  const notes=[];for(let index=0;index<segments;index++){
   const r=await f.request({action:'analyze_segment',paper_id:id,index});assert.equal(r.status,200);notes.push((await r.json()).note);
  }
- assert(f.segments.join('')===fullText);assert.equal(f.saved,undefined);
+ assert(f.segments.join('')===fullText);assert.equal(f.attempts,segments+1);assert.equal(notes[1],'section 2');assert.equal(f.saved,undefined);
  assert.equal((await f.request({action:'analyze',paper_id:id,notes:notes.slice(1)})).status,400);
  assert.equal((await f.request({action:'analyze',paper_id:id,notes})).status,200);
  assert.match(f.saved.analysis_coverage,/全部逐段分析/);
