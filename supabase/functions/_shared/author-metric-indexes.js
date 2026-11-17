@@ -49,7 +49,8 @@ async function openAlexAuthors(person, identity, titles, get) {
   const orcid = normalizeORCID(identity.orcid);
   const key = globalThis.Deno?.env.get('OPENALEX_API_KEY');
   const query = (resource, params) => get('https://api.openalex.org/' + resource + '?' + new URLSearchParams(key ? {...params,api_key:key} : params));
-  const authors = params => query('authors', {select:'id,orcid,display_name,display_name_alternatives,affiliations,works_count,cited_by_count,summary_stats', per_page:'20', ...params});
+  const select = 'id,orcid,display_name,display_name_alternatives,affiliations,works_count,cited_by_count,summary_stats';
+  const authors = params => query('authors', {select, per_page:'20', ...params});
   const isAuthorID = id => /^https:\/\/openalex\.org\/A\d+$/.test(id);
   const dois = [...new Set((person.papers || []).map(p => normalizeDOI(p.doi)).filter(doi => /^10\.\d{4,9}\/[\w.()/;+\-]+$/i.test(doi)))].slice(0, 8);
   const [byIdentity, byDOI] = await Promise.allSettled([
@@ -57,6 +58,12 @@ async function openAlexAuthors(person, identity, titles, get) {
     dois.length ? query('works', {filter:'doi:' + dois.map(doi => 'https://doi.org/' + doi).join('|'), select:'doi,authorships', per_page:String(dois.length)}) : null
   ]);
   const records = new Map((byIdentity.value?.results || []).filter(row => isAuthorID(row.id)).map(row => [row.id,row]));
+  if (validOrcid(orcid) && ![...records.values()].some(row => normalizeORCID(row.orcid) === orcid)) {
+    try {
+      const row = await query('authors/orcid:' + orcid,{select});
+      if (isAuthorID(row.id) && normalizeORCID(row.orcid) === orcid) records.set(row.id,row);
+    } catch { /* The public ORCID endpoint can fail independently of DOI evidence. */ }
+  }
   const evidence = new Map();
   for (const work of byDOI.value?.results || []) {
     const doi = normalizeDOI(work.doi);

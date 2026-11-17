@@ -4,6 +4,16 @@ import {discoverAuthorMetricIndexes} from '../supabase/functions/_shared/author-
 import {academicInformationPatch} from '../supabase/functions/_shared/academic-profiles.js';
 import {academicSearchIdentity} from '../supabase/functions/_shared/author-information.js';
 
+test('an exact ORCID still resolves when the OpenAlex list endpoint is limited', async () => {
+  const rows=await discoverAuthorMetricIndexes({},identity,async value=>{
+    const url=new URL(value);
+    if(url.pathname==='/authors/orcid:'+orcid)return JSON.stringify({id:'https://openalex.org/A99',orcid,works_count:246,cited_by_count:7102,summary_stats:{h_index:42,i10_index:156}});
+    throw Error('429');
+  },stamp);
+  const cached={academic_metrics:{sources:[{provider:'Semantic Scholar',url:'https://www.semanticscholar.org/author/1',metrics:{publications:13}}]}};
+  assert.equal(academicInformationPatch(cached,rows).academic_metrics.best.publications.value,246);
+});
+
 const orcid = '0009-0003-3727-4187';
 const identity = {name:'Kaiming Luo', aliases:[], organization:'Fudan University', orcid};
 const person = {papers:[{title:'Controlling synchronization dynamics via physics-informed neural networks'}]};
