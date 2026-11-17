@@ -10,6 +10,7 @@ const institutions=[
  ['University of Chinese Academy of Sciences','CN','中国科学院大学','University of the Chinese Academy of Sciences'],['Hong Kong Polytechnic University','CN','香港理工大学','The Hong Kong Polytechnic University'],
  ['Hong Kong University of Science and Technology','CN','香港科技大学'],['University of Hong Kong','CN','香港大学'],['City University of Hong Kong','CN','香港城市大学'],
  ['Harvard University','US','哈佛大学'],['Stanford University','US','斯坦福大学'],['Princeton University','US','普林斯顿大学'],
+ ['United States Naval Research Laboratory','US','US Naval Research Laboratory','U.S. Naval Research Laboratory','Naval Research Laboratory','Naval Research Lab','美国海军研究实验室'],
  ['Massachusetts Institute of Technology','US','MIT','麻省理工学院'],['California Institute of Technology','US','Caltech','加州理工学院'],
  ['University of Wisconsin-Madison','US','University of Wisconsin–Madison','威斯康星大学麦迪逊分校'],['University of Colorado Boulder','US','University of Colorado, Boulder','科罗拉多大学博尔德分校'],
  ['University of California, Berkeley','US','University of California at Berkeley','加州大学伯克利分校'],['University of California, Los Angeles','US','UCLA','加州大学洛杉矶分校'],
@@ -49,7 +50,7 @@ function parseAffiliationsUncached(value){
   // A university takes precedence over its internal departments and laboratories.
   if(matches.length){const universities=matches.filter(m=>/university|universit|école|polytechnique|college|大学|理工学院/i.test(m.school));result.push(...(universities.length?universities:matches));continue;}
   const segments=raw.split(/[,，]/).map(cleanSegment).filter(Boolean),university=segments.find(s=>/大学|\bunivers(?:it|id)[\p{L}]*\b|\b(?:polytechnic|college)\b/iu.test(s));
-  let school=university||segments.find(s=>!/^(?:department|school|faculty|laboratory|lab|center|centre)\b/i.test(s)&&/\binstitute\b|\bacademy\b|fondazione|foundation|研究院|研究所|科学院|医院|公司/i.test(s));
+  let school=university||segments.find(s=>!/^(?:department|school|faculty|laboratory|lab|center|centre)\b/i.test(s)&&/\b(?:institute|academy|laborator(?:y|ies))\b|fondazione|foundation|研究院|研究所|科学院|医院|公司/i.test(s));
   if(school){const han=school.match(/[\p{Script=Han}·]{2,45}大学/u);if(han)school=han[0];else if(/^(?:department|school|faculty)\b/i.test(school)){school=school.match(/\bat\s+(.+)$/i)?.[1]||school.match(/\bUniversity\s+of\s+.+/i)?.[0]||'';}
    school=school.replace(/\s+\d{4,}.*$/,'').trim();
   }

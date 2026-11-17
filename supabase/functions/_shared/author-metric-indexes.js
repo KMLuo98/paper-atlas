@@ -37,8 +37,18 @@ async function verifiedRegistryOrcid(rows, identity, dois, titles, get) {
     const employment = (activities?.employments?.['affiliation-group'] || []).flatMap(group => group.summaries || []).map(row => row['employment-summary']?.organization?.name).filter(Boolean);
     if ([full,credit].filter(Boolean).some(name => hasAffiliation(identity,name,employment))) return id;
     const entries = (activities?.works?.group || []).flatMap(group => group['work-summary'] || []);
-    if (entries.some(work => titles.has(titleKey(work.title?.title?.value)) || (work['external-ids']?.['external-id'] || []).some(ext =>
-      ext['external-id-type'] === 'doi' && ext['external-id-relationship'] === 'self' && dois.includes(normalizeDOI(ext['external-id-value']))))) return id;
+    const registryDois = [...new Set(entries.flatMap(work => work['external-ids']?.['external-id'] || []).filter(ext =>
+      ext['external-id-type'] === 'doi' && ext['external-id-relationship'] === 'self').map(ext => normalizeDOI(ext['external-id-value'])).filter(doi => /^10\.\d{4,9}\/\S+$/.test(doi)))];
+    if (entries.some(work => titles.has(titleKey(work.title?.title?.value))) || registryDois.some(doi => dois.includes(doi))) return id;
+    const evidence = await Promise.allSettled(registryDois.slice(0,3).map(async doi => {
+      const {message} = await get('https://api.crossref.org/works/' + encodeURIComponent(doi));
+      if(normalizeDOI(message?.DOI)!==doi)return false;
+      return (message.author || []).some(author => {
+        const byline=[author.given,author.family].filter(Boolean).join(' ');
+        return normalizeORCID(author.ORCID)===id && hasAffiliation(identity,byline,(author.affiliation||[]).map(org=>org.name));
+      });
+    }));
+    if (evidence.some(check=>check.value===true)) return id;
     return '';
   }));
   const matches = checks.map(check => check.value).filter(Boolean);

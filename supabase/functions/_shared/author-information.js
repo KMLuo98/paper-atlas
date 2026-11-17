@@ -18,7 +18,11 @@ export function academicSearchIdentity(identity, toPinyin) {
   return [given+' '+surname,surname+' '+given];
  });
  const name=/^\p{Script=Han}+$/u.test(identity.name)?romanized[0]||identity.name:identity.name;
- return {...identity,name,aliases:[...new Set([...names,...romanized])].filter(alias=>alias&&alias!==name)};
+ const short=names.flatMap(value=>{
+  const parts=(value.includes(',')?[...value.split(',').slice(1),value.split(',')[0]].join(' '):value).trim().split(/\s+/);
+  return parts.length>2&&parts.slice(1,-1).every(part=>/^\p{Script=Latin}\.?$/u.test(part))?[parts[0]+' '+parts.at(-1)]:[];
+ });
+ return {...identity,name,aliases:[...new Set([...names,...short,...romanized])].filter(alias=>alias&&alias!==name)};
 }
 async function publicOrcidJSON(path,options){
  const {response}=await safeFetch('https://pub.orcid.org/v3.0/'+path,'application/json',options);

@@ -17,6 +17,7 @@ export function scholarlyNameMatch(expected,candidate){
  if(fold(a.name)===fold(b.name))return true;
  if(a.words.length===b.words.length&&a.words.every(w=>b.words.includes(w)))return true;
  if(a.words.length<2||b.words.length<2||a.last!==b.last)return false;
+ if(a.words[0].length>1&&a.words[0]===b.words[0]&&Math.min(a.words.length,b.words.length)===2)return true;
  if(a.given===b.given)return true;
  const initialsOnly=value=>value.split(/\s+/).slice(0,-1).flatMap(w=>w.split(/[-.]+/)).filter(Boolean).every(w=>fold(w).length===1);
  return initialsOnly(a.name)&&a.given===b.initials||initialsOnly(b.name)&&b.given===a.initials;

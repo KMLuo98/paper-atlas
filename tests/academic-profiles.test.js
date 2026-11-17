@@ -1,5 +1,12 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {parseHTML} from 'linkedom';
 import {academicProfileURL,indexedScholarMetrics,parseAcademicMetrics,orcidPublicationCount,bestAcademicMetrics,academicInformationPatch,discoverAcademicProfiles,wikidataAcademicLinks} from '../supabase/functions/_shared/academic-profiles.js';
+test('ResearchGate verifies a first-last profile URL even when search misses and the byline has a middle initial',async()=>{
+ const person={english_name:'Louis M. Pecora',aliases:[],original_names:['Louis M. Pecora'],institution:'Naval Research Laboratory, Code 6340, Washington, D.C.',papers:[]};
+ const url='https://www.researchgate.net/profile/Louis-Pecora';
+ const rows=await discoverAcademicProfiles(person,parseHTML,{resolve:async()=>['8.8.8.8'],fetcher:async value=>value===url?
+  new Response('<html><body><h1>Louis Pecora</h1><p>United States Naval Research Laboratory</p><div>166 Publications</div></body></html>'):new Response('',{status:403})});
+ assert.equal(academicInformationPatch({},rows).researchgate_url,url);
+});
 test('Bing HTML can confirm profile links after unrelated results even when the profile blocks reading',async()=>{
  const person={english_name:'Alice Smith',aliases:['Alice Smith'],original_names:['Alice Smith'],institution:'Example University',papers:[]};
  const scholar='https://scholar.google.com/citations?user=Alice123';

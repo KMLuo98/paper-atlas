@@ -78,15 +78,18 @@ export async function discoverAcademicProfiles(person,parseHTML,options={}){
  const best=person.academic_metrics?.best||{},needsMetric=field=>!options.missingOnly||!Number.isSafeInteger(best[field]?.value),needsProvider=provider=>!person[provider==='scholar'?'scholar_url':'researchgate_url']||(provider==='scholar'?['publications','citations','h_index','i10_index']:['publications','citations','h_index']).some(needsMetric);
  const scholarDirectoryTask=(async()=>{
   if(!needsProvider('scholar')||person.scholar_url||!identity.name)return;
-  const url=new URL('https://scholar.google.com/citations');
-  url.search=new URLSearchParams({view_op:'search_authors',mauthors:identity.name,hl:'en'});
-  const {document}=parseHTML(await read(url.href));
-  for(const result of document.querySelectorAll('.gsc_1usr')){
-   const link=result.querySelector('.gs_ai_name a,.gsc_oai_name a');
-   if(!link||!photoIdentityEvidence(identity,{headings:[link.textContent],text:result.textContent}))continue;
-   const profile=academicProfileURL(new URL(link.getAttribute('href'),url).href);
-   if(profile?.provider==='scholar'&&!candidates.has(profile.url))candidates.set(profile.url,profile);
-  }
+  const queries=[...new Set([identity.name,...names])].slice(0,3);
+  await Promise.allSettled(queries.map(async name=>{
+   const url=new URL('https://scholar.google.com/citations');
+   url.search=new URLSearchParams({view_op:'search_authors',mauthors:name,hl:'en'});
+   const {document}=parseHTML(await read(url.href));
+   for(const result of document.querySelectorAll('.gsc_1usr')){
+    const link=result.querySelector('.gs_ai_name a,.gsc_oai_name a');
+    if(!link||!photoIdentityEvidence(identity,{headings:[link.textContent],text:result.textContent}))continue;
+    const profile=academicProfileURL(new URL(link.getAttribute('href'),url).href);
+    if(profile?.provider==='scholar'&&!candidates.has(profile.url))candidates.set(profile.url,profile);
+   }
+  }));
  })();
  const homepageTask=(async()=>{
   if(!['scholar','researchgate'].some(needsProvider))return;
@@ -138,6 +141,11 @@ export async function discoverAcademicProfiles(person,parseHTML,options={}){
  const indexTask = identity.name && ['publications','citations','h_index','i10_index'].some(needsMetric)
    ? discoverAuthorMetricIndexes(person,identity,read,stamp).then(found => rows.push(...found)) : null;
  await Promise.allSettled([worker(),worker(),orcidTask,homepageTask,knowledgeTask,scholarDirectoryTask,indexTask]);
+ if(needsProvider('researchgate')&&!person.researchgate_url&&![...candidates.values()].some(p=>p.provider==='researchgate'&&(p.indexed||p.orcid_linked))){
+  const slugs=[...new Set([identity.name,...names].filter(name=>/^[\p{Script=Latin} .’'\-]+$/u.test(name))
+   .map(name=>{const parts=name.trim().split(/\s+/);return parts.length>1?[parts[0],parts.at(-1)].join('-'):'';}).filter(Boolean))].slice(0,2);
+  for(const slug of slugs){const profile=academicProfileURL('https://www.researchgate.net/profile/'+encodeURIComponent(slug));if(profile&&!candidates.has(profile.url))candidates.set(profile.url,profile);}
+ }
  const priority=p=>p.explicit?3:p.orcid_linked?2:p.indexed?1:0;
  const choices=[...candidates.values()].filter(p=>needsProvider(p.provider)).sort((a,b)=>priority(b)-priority(a));
  const verifiedProfiles=[];

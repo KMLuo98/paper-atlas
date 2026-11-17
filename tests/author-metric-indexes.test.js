@@ -80,3 +80,17 @@ test('romanizes a Chinese-only name and re-verifies a stronger profile against O
   assert.equal(rows[0].academic.metrics.publications,100);
   assert.equal(rows[0].identity_fields.orcid,match);
 });
+
+test('checks publisher metadata for an ORCID whose registry works differ from the library', async () => {
+  const name=academicSearchIdentity({name:'Pecora, Louis M.',aliases:[],organization:'Naval Research Laboratory'});
+  assert(name.aliases.includes('Louis Pecora'));
+  const id='0000-0003-3075-0913', doi='10.1063/1.5081023';
+  const rows=await discoverAuthorMetricIndexes({papers:[]},name,async value=>{
+    const url=new URL(value);
+    if(url.hostname==='api.openalex.org')return JSON.stringify({results:[{id:'https://openalex.org/A1',display_name:'Louis M. Pecora',orcid:id,works_count:195,affiliations:[{institution:{display_name:'United States Naval Research Laboratory'}}]}]});
+    if(url.hostname==='pub.orcid.org')return JSON.stringify({person:{name:{'given-names':{value:'Louis'},'family-name':{value:'Pecora'}}},'activities-summary':{works:{group:[{'work-summary':[{'external-ids':{'external-id':[{'external-id-type':'doi','external-id-value':doi,'external-id-relationship':'self'}]}}]}]}}});
+    if(url.hostname==='api.crossref.org')return JSON.stringify({message:{DOI:doi,author:[{given:'Louis M.',family:'Pecora',ORCID:id,affiliation:[{name:'Naval Research Laboratory'}]}]}});
+    throw Error('429');
+  },stamp);
+  assert.equal(rows[0].identity_fields.orcid,id);
+});

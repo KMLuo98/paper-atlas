@@ -11,6 +11,15 @@ import './author-directory.css';
 const l = (zh, en) => getLanguage() === 'en' ? en : zh;
 const formats = () => [['given_family', 'First Last'], ['family_given', 'Last, First'], ['initial_family', 'F. Last']];
 const sorts = () => [['name',l('姓名首字母','Name A–Z')],['papers',l('库内论文数量','Library paper count')],['public-papers',l('公开论文数','Public paper count')],['public-citations',l('公开被引数','Public citation count')],['library-citations',l('库内被引数','Library citation count')]];
+function authorIndexStops(groups,limit=10) {
+  const entries=[...groups];
+  if(entries.length<=limit)return entries;
+  const unknown=entries.at(-1)[0]==='—'?entries.pop():null;
+  const count=limit-Number(!!unknown);
+  const stops=Array.from({length:count},(_,i)=>entries[Math.round(i*(entries.length-1)/(count-1))]);
+  if(unknown)stops.push(unknown);
+  return stops;
+}
 export function createAuthorDirectory({state, shell, icon, modal, busy, toast, go, goBack=()=>go('author-directory'), uiIcons}) {
   let owner = '', profiles = [], photos = new Map(), loadedAt = 0, loading = null, revision = 0;
   let maintenance=null, maintenanceTimer=null, repaintTimer=null, rescan=false, paused=false, listPaint=null, pendingRequest=null;
@@ -96,7 +105,7 @@ export function createAuthorDirectory({state, shell, icon, modal, busy, toast, g
     const metric=preferences.sort==='name'?'papers':preferences.sort;
     const metricLabel=sorts().find(([id])=>id===metric)?.[1] || l('库内论文数量','Library paper count');
     const items=rows.map(person=>{const group=authorIndexValue(person,preferences.sort,preferences.format);let anchor='';if(!groups.has(group)){anchor='author-index-'+groups.size;groups.set(group,anchor);}return `<article ${anchor?`id="${anchor}"`:''} class="author-card-wrapper" data-author-card="${e(person.key)}"><a class="author-entry" draggable="${mergeMode}" href="#/${routeFor(person)}">${photo(person)}<h2 data-user-content>${e(nameOf(person))}</h2><p class="author-institution" data-user-content>${institutionMarkup(person)}</p><div class="author-paper-count"><strong aria-label="${metricLabel}" title="${metricLabel}">${authorSortValue(person,metric) ?? '—'}</strong></div></a><button type="button" class="author-card-edit" data-author-card-edit="${e(person.key)}" aria-label="${l('编辑作者信息','Edit author profile')}：${e(nameOf(person))}" title="${l('编辑信息','Edit profile')}">${icon('square-pen')}</button></article>`;}).join('');
-    return `<div class="author-results-count">${rows.length} ${l('位作者','authors')}</div><div class="author-browser"><div class="author-entries ${list?'is-list':''}">${list&&rows.length?`<div class="author-list-head"><span></span><span>${l('姓名','Name')}</span><span>${l('机构','Institution')}</span><span>${metric==='papers'?l('论文数','Papers'):metricLabel}</span></div>`:''}${items||`<div class="notice">${l('没有匹配的作者。','No matching authors.')}</div>`}</div><nav class="author-index" aria-label="${l('作者索引','Author index')}">${[...groups].map(([label,anchor])=>`<button data-author-index="${anchor}" type="button">${e(label)}</button>`).join('')}</nav></div>`;
+    return `<div class="author-results-count">${rows.length} ${l('位作者','authors')}</div><div class="author-browser"><div class="author-entries ${list?'is-list':''}">${list&&rows.length?`<div class="author-list-head"><span></span><span>${l('姓名','Name')}</span><span>${l('机构','Institution')}</span><span>${metric==='papers'?l('论文数','Papers'):metricLabel}</span></div>`:''}${items||`<div class="notice">${l('没有匹配的作者。','No matching authors.')}</div>`}</div><nav class="author-index" aria-label="${l('作者索引','Author index')}">${authorIndexStops(groups).map(([label,anchor])=>`<button data-author-index="${anchor}" type="button">${e(label)}</button>`).join('')}</nav></div>`;
   }
   async function renderList(isCurrent = () => true) {
     const version = ++revision; switchOwner();mergeMode=false;mergeSource='';

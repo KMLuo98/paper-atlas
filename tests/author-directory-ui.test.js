@@ -30,6 +30,17 @@ test('author rankings show public metrics and distinct incoming library citation
  select('public-citations');assert.deepEqual(counts(),['0','—']);assert.match(d.querySelector('.author-entry h2').textContent,/Lu/);
  select('library-citations');assert.deepEqual(counts(),['1','1']);assert.deepEqual(index(),['1']);
 });
+test('author index keeps the first and last ranks and samples a small set of jump targets',()=>{
+ const f=fixture(),groups=new Map(Array.from({length:50},(_,i)=>[String(50-i),'rank-'+i]));
+ groups.set('—','rank-missing');
+ const stops=f.context.authorIndexStops(groups);
+ assert.equal(stops.length,10);
+ assert.equal(stops[0][1],'rank-0');
+ assert.equal(stops.at(-2)[1],'rank-49');
+ assert.equal(stops.at(-1)[1],'rank-missing');
+ assert.equal(new Set(stops.map(stop=>stop[1])).size,10);
+ assert.equal(groups.size,51);
+});
 test('author cards/list show one English name, institution and published count with both sorts and three formats',async()=>{
  const f=fixture();await f.ui.renderList();const d=f.document;assert.equal(d.querySelectorAll('.author-entry').length,2);assert.equal(d.querySelector('.author-entry h2').textContent,'Alice Smith');assert(!d.querySelector('#authors-results').textContent.includes('陆君安'));
  d.querySelector('#authors-list').onclick();assert(d.querySelector('.author-entries.is-list'));const sort=d.querySelector('#authors-sort');sort.value='papers';sort.onchange({target:sort});assert.match(d.querySelector('.author-entry h2').textContent,/Lu/);assert.equal(d.querySelector('.author-entry .author-paper-count strong').textContent,'2');
