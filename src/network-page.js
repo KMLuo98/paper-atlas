@@ -65,6 +65,12 @@ export function networkPage(kind,{state,shell,icon,modal,busy,toast,go,render,do
  const graph=drawNetwork(document.querySelector('#network'),data,{authors,positionKey:state.user?.id?'pa-network-positions-v1:'+state.user.id+':'+kind:undefined,onClick:openNode,onSelectionChange:id=>{
   if(authors)markAuthor(id);else if(research)paintResearchNeighbors(id);else{selectedCitationId=id;markCitationRows(true);}
  }});
+ if(authors&&state.focusAuthorKey){
+  const key=state.focusAuthorKey;
+  state.focusAuthorKey=null;
+  const node=data.nodes.find(item=>item.profileKey===key||item.id===key||item.identityKeys?.includes(key));
+  if(node)graph.highlight(node.id);
+ }
  for(const button of authorButtons)button.onclick=()=>graph.highlight(button.dataset.authorInfo);
  for(const row of groupRows)row.onclick=event=>{
   if(event.target.closest('button:not(.network-group-button),a,input'))return;

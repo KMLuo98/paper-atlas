@@ -21,7 +21,9 @@
 .author-merge-hint {color:var(--muted);margin:0 0 10px}
 .author-card-wrapper .author-entry[draggable=false] {cursor:pointer}
 
-.author-metrics-panel{margin-block:14px}
-.author-metrics-panel>.row{justify-content:space-between;gap:8px}
-.author-metrics-panel>.row h2{margin:0;font-size:15px}
+.author-metrics-panel{margin-block:14px;position:relative}
+.author-metrics-panel #author-refresh-metrics{position:absolute;top:6px;right:0}
+.author-metrics-panel .author-academic-stats>div:nth-child(2)>span{padding-right:36px}
+.author-info-card>.row:has(#author-view-network){justify-content:space-between;flex-wrap:wrap;gap:8px}
+#author-view-network{font-size:inherit;padding:5px 8px}
 #author-refresh-metrics{flex:none}
