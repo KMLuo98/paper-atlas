@@ -176,9 +176,9 @@ Deno.serve(async(req:Request)=>{
       const second=first?pageMarkers.exec(full):null;
       const third=second?pageMarkers.exec(full):null;
       const excerpt=first?full.slice(first.index,third?.index):full;
-      const text=long?excerpt.slice(0,12000).replace(/[\uD800-\uDBFF]$/u,''):full;
+      const text=long?excerpt.slice(0,first?40000:12000).replace(/[\uD800-\uDBFF]$/u,''):full;
       const coverage=long
-        ? first?('分析覆盖：仅分析 PDF 开头'+(second?'两页':'一页')+'的可提取文字'+(excerpt.length>text.length?'（最多 12,000 字符）':'')+'。其他页面未分析。')
+        ? first?('分析覆盖：仅分析 PDF 开头'+(second?'两页':'一页')+'的可提取文字'+(excerpt.length>text.length?'（最多 40,000 字符）':'')+'。其他页面未分析。')
           :'分析覆盖：此文献没有分页标记，仅分析开头 12,000 字符，其余未分析。'
         :'分析覆盖：PDF 提取的全部文本（不含图片和不可提取的公式）。';
       try{const raw=await model(long?system+" 仅提供文献开头的节选。不得推断未提供的章节、结论或参考文献；无法核实的内容留空，并在局限中说明覆盖范围。":system,{text,coverage},true,16384);let pairs=normalizeKeywordPairs(raw.keyword_pairs);if(!validKeywordHierarchy(pairs)){try{const fixed=await model(keywordPrompt,{title:raw.title,summary:raw.summary,text:text.slice(0,12000)},true);pairs=normalizeKeywordPairs(fixed.keyword_pairs);}catch{/* Keep the other analysis fields if keyword repair is temporarily unavailable. */}}raw.keyword_pairs=pairs;let result=validateAnalysis(raw,p);if(arxivID({...p,...result})||result.doi){const enriched=await lookupPublication({...p,...result});for(const key of ['authors','title','publication_status','journal','journal_abbr','published_at','doi','volume','issue','pages','citation_count','citation_source','citation_url','citation_checked_at','arxiv_id','arxiv_date','preprint_url','publication_lookup_at','publication_lookup_status'])if(key in enriched)result[key]=enriched[key];}const warning=validKeywordHierarchy(pairs)?null:'论文信息与摘要已保存，双语关键词尚不完整，可在详情中重试解析，或选中文献后再次分析';const {data,error}=await service.from('papers').update({...result,status:'ready',analysis_error:warning,analysis_coverage:coverage,analyzed_at:new Date().toISOString()}).eq('id',p.id).eq('user_id',userId).select(metadataColumns).single();if(error)throw new HTTPError(503,'分析完成，但保存失败，请重试');return json({paper:data});}catch(err){await service.from('papers').update({status:'error',analysis_error:err instanceof Error?err.message:'分析失败'}).eq('id',p.id).eq('user_id',userId);throw err;}

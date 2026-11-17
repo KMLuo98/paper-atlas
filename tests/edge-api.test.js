@@ -27,7 +27,7 @@ function fixture({modelStatus = 200, rateLimited = false, fullText='Unpublished 
   return {request:(body,token='test-token')=>handler(new Request('https://project.supabase.co/functions/v1/library-api',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)})),inputs,get attempts(){return attempts;},get saved(){return saved;}};
 }
 test('long papers send only the first two pages to the model',async()=>{
- const sample='[Page 1]\nOpening page.\n[Page 2]\nSecond page.\n';
+ const sample='[Page 1]\nOpening page.\n[Page 2]\nSecond page.'+'乙'.repeat(18000)+'\n';
  const fullText=sample+'[Page 3]\nThird page '+ '甲'.repeat(600000);
  const f=fixture({fullText});
  assert.equal((await f.request({action:'analyze',paper_id:id})).status,200);
