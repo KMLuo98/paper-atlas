@@ -6,7 +6,7 @@ const browser = await chromium.launch({
   args:['--disable-site-isolation-trials'],
   ...(process.env.MAIL_BROWSER_CHANNEL ? {channel:process.env.MAIL_BROWSER_CHANNEL} : {})
 });
-const pixel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jdk8AAAAASUVORK5CYII=';
+const pixel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGO48x8AAroB3MAKGRkAAAAASUVORK5CYII=';
 const mock = `
 export const db={auth:{getSession:async()=>({data:{session:{user:{id:'image-qa',email:'qa@example.edu'}}}}),onAuthStateChange(){}}};
 export const login=async()=>{};
