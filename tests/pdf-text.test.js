@@ -25,9 +25,9 @@ test('scan-only PDF reports the OCR requirement rather than a missing destroy me
   assert.equal(task.destroyed, true);
 });
 
-test('oversized extracted text is rejected and still releases the worker', async () => {
+test('long extracted text is retained and still releases the worker', async () => {
   const task = fixture(['x'.repeat(600001)]);
-  await assert.rejects(extractDocumentText(task), /全文超过 60 万字符/);
+  assert((await extractDocumentText(task)).includes('x'.repeat(600001)));
   assert.equal(task.destroyed, true);
 });
 

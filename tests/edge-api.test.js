@@ -11,20 +11,32 @@ import {arxivID} from '../supabase/functions/_shared/publication.js';
 
 const id='12345678-1234-1234-1234-123456789012';
 const source=stripTypeScriptTypes(fs.readFileSync(new URL('../supabase/functions/library-api/index.ts',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,''),{mode:'transform'});
-function fixture({modelStatus = 200, rateLimited = false} = {}) {
-  let handler, attempts=0, saved;
-  const row={id,title:'Manuscript',full_text:'Unpublished manuscript on complex networks. '.repeat(2500)};
+function fixture({modelStatus = 200, rateLimited = false, fullText='Unpublished manuscript on complex networks. '.repeat(1500)} = {}) {
+  let handler, attempts=0, saved;const segments=[];
+  const row={id,title:'Manuscript',full_text:fullText};
   const service={rpc:async(name,args)=>({data:!(rateLimited&&args.bucket_key?.startsWith('ai:'))}),auth:{getUser:async token=>token==='test-token'?{data:{user:{id:'owner'}}}:{data:{user:null},error:Error('denied')}},from(table){assert.equal(table,'papers');return {select(){return this;},eq(key,value){if(key==='user_id')assert.equal(value,'owner');return this;},is(){return this;},maybeSingle:async()=>({data:row}),update(patch){saved=patch;return this;},single:async()=>({data:{...row,...saved}})};}};
   const pairs=[['domain','复杂网络'],['topic','同步'],['problem','结构重构'],['method','变分方法'],['method','数值模拟'],['phenomenon','稳定态'],['conclusion','稀疏恢复'],['conclusion','鲁棒性']].map(([kind,zh],n)=>({kind,zh,en:'term '+n,importance:100-n}));
   const settings={SUPABASE_URL:'https://project.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'fake-service-key',LLM_API_KEY:'fake-llm-key'};
   vm.runInNewContext(source,{Deno:{env:{get:key=>settings[key]},serve:fn=>{handler=fn;}},createClient:()=>service,system:analysisPrompt,keywordPrompt,validateAnalysis,normalizeKeywordPairs,validKeywordHierarchy,keywordFields,requestModelJSON,normalizePaperJournal,arxivID,literatureSearch:async payload=>({source:'Crossref',query:payload.query,results:[]}),URL,Request,Response,AbortSignal,DOMException,TextEncoder,crypto,console,
     fetch:async(url,options)=>{
       if(url.endsWith('/models'))return Response.json({data:[{id:'deepseek-flash'}]});
-      assert(url.endsWith('/chat/completions'));const body=JSON.parse(options.body);assert.equal(body.max_tokens,16384);assert.equal(body.temperature,0);attempts++;if(modelStatus!==200)return new Response('{}',{status:modelStatus,headers:{'Retry-After':'17'}});
+      assert(url.endsWith('/chat/completions'));const body=JSON.parse(options.body);assert.equal(body.temperature,0);attempts++;if(modelStatus!==200)return new Response('{}',{status:modelStatus,headers:{'Retry-After':'17'}});
+      const input=JSON.parse(body.messages[1].content);if(input.section){assert.equal(body.max_tokens,4096);segments.push(input.text);return Response.json({choices:[{finish_reason:'stop',message:{content:JSON.stringify({note:'section '+input.section})}}]});}assert.equal(body.max_tokens,16384);
       return Response.json({choices:[attempts===1?{finish_reason:'length',message:{content:'{"title":"paper","references":['}}:{finish_reason:'stop',message:{content:JSON.stringify({title:'Unpublished research',publication_status:'unpublished',authors:[{name:'Researcher'}],keyword_pairs:pairs,summary:'研究问题：重构网络。方法：变分方法。主要结论/现象：恢复稳定态网络。局限与待核验：未发表稿件。'})}}]});
     }});
-  return {request:(body,token='test-token')=>handler(new Request('https://project.supabase.co/functions/v1/library-api',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)})),get attempts(){return attempts;},get saved(){return saved;}};
+  return {request:(body,token='test-token')=>handler(new Request('https://project.supabase.co/functions/v1/library-api',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(body)})),segments,get attempts(){return attempts;},get saved(){return saved;}};
 }
+test('analyzes every segment of a paper above 600,000 characters before saving',async()=>{
+ const fullText='甲'.repeat(59999)+'😀'+'乙'.repeat(600001-59999);
+ const f=fixture({fullText}),start=await f.request({action:'analyze',paper_id:id}),{segments}=await start.json();
+ const notes=[];for(let index=0;index<segments;index++){
+  const r=await f.request({action:'analyze_segment',paper_id:id,index});assert.equal(r.status,200);notes.push((await r.json()).note);
+ }
+ assert(f.segments.join('')===fullText);assert.equal(f.saved,undefined);
+ assert.equal((await f.request({action:'analyze',paper_id:id,notes:notes.slice(1)})).status,400);
+ assert.equal((await f.request({action:'analyze',paper_id:id,notes})).status,200);
+ assert.match(f.saved.analysis_coverage,/全部逐段分析/);
+});
 test('complete Edge handler keeps model probe and rate limiting operational', async()=>{
   const f=fixture();const response=await f.request({action:'health',probe_model:true});assert.equal(response.status,200);assert.equal((await response.json()).model_probe.model_available,true);assert.equal(f.attempts,0);
 });
