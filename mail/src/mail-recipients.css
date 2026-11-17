@@ -1,0 +1,24 @@
+.mail-row .row-recipients {
+  flex-direction:column;
+  align-items:stretch;
+  gap:3px;
+}
+.row-recipient {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-width:0;
+}
+.mail-row .row-recipient .avatar {
+  display:inline-flex;
+  width:23px;
+  min-width:23px;
+  height:23px;
+  font-size:10px;
+}
+.mail-row .row-recipient strong {font-size:calc(11px + 2pt)}
+.row-recipient-more {line-height:1;color:var(--mail-label,#475a50);padding-inline-start:30px}
+@media(max-width:700px) {
+  .mail-row .row-recipient .avatar {width:20px;min-width:20px;height:20px}
+  .row-recipient-more {padding-inline-start:27px}
+}

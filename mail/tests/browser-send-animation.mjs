@@ -12,7 +12,29 @@ try{for(const width of [390,1440]){
  if(width<700)await page.locator('.mobile-menu').click();await page.locator('[data-action=compose]').click();
  await page.locator('[name=to]').fill('recipient@example.edu');await page.locator('[name=subject]').fill('Animation fixture');await page.locator('#compose-body').fill('A synthetic letter for animation verification.');
  await page.locator('#compose-form .compose-bottom>button.primary').click();await page.locator('[data-action=confirm-send]').click();await page.locator('.mail-send-stage').waitFor();
- await page.waitForTimeout(1100);assert.equal(await page.locator('.is-departing').count(),0);assert.equal(await page.locator('.send-letter').innerText().then(x=>x.includes('Animation fixture')),true);
+ const scene=page.locator('.mail-send-stage');
+ const opened=await scene.evaluate(stage=>{
+  const flap=stage.querySelector('.send-envelope-flap');
+  const seal=stage.querySelector('.send-wax-seal');
+  const animations=stage.getAnimations({subtree:true});
+  for(const animation of animations){animation.pause();animation.currentTime=400;}
+  const state={flapBelowLetter:Number(getComputedStyle(flap).zIndex)<Number(getComputedStyle(stage.querySelector('.send-letter-pocket')).zIndex),sealOpacity:getComputedStyle(seal).opacity};
+  for(const animation of animations)animation.play();
+  return state;
+ });
+ assert.deepEqual(opened,{flapBelowLetter:true,sealOpacity:'0'});
+ await page.waitForFunction(()=>{
+  const stage=document.querySelector('.mail-send-stage');
+  return stage&&getComputedStyle(stage.querySelector('.send-wax-seal')).opacity==='1';
+ });
+ const packed=await scene.evaluate(stage=>{
+  const rect=selector=>stage.querySelector(selector).getBoundingClientRect();
+  const letter=rect('.send-letter'),envelope=rect('.send-envelope'),seal=rect('.send-wax-seal');
+  return {paperInside:letter.top>envelope.top&&letter.bottom<envelope.bottom,sealCentered:Math.abs(seal.left+seal.width/2-envelope.left-envelope.width/2)<1};
+ });
+ assert.deepEqual(packed,{paperInside:true,sealCentered:true});
+ assert.equal(await page.locator('.is-departing').count(),0);
+ assert.match(await page.locator('.send-letter').innerText(),/Animation fixture/);
  await page.keyboard.press('Escape');assert.equal(await page.locator('.mail-send-stage').count(),1);
  await page.evaluate(()=>document.querySelector('[data-action=confirm-send]').click());assert.equal(await page.evaluate(()=>window.__calls.filter(c=>c.action==='send').length),1);
  await page.screenshot({path:'test-results/send-packed-'+width+'.png'});
