@@ -56,7 +56,9 @@ export function academicInformationPatch(base,sources,{missingOnly=false}={}){
   const metrics={...old?.metrics},metric_methods={...old?.metric_methods},metric_dates={...old?.metric_dates};
   for(const [field,value] of Object.entries(row.metrics||{})){
    const method=row.metric_methods?.[field]||'profile_page';
-   if(Number.isSafeInteger(metrics[field])&&(metric_methods[field]||'profile_page')==='profile_page'&&method!=='profile_page')continue;
+   const priorMethod=metric_methods[field]||'profile_page';
+   if(Number.isSafeInteger(metrics[field])&&['profile_page','manual_snapshot'].includes(priorMethod)&&method!=='profile_page')continue;
+   if(method==='indexed_snippet'&&priorMethod===method&&metrics[field]===value)continue;
    metrics[field]=value;metric_methods[field]=method;metric_dates[field]=row.metric_dates?.[field]||row.checked_at;
   }
   byURL.set(row.url,{...old,...row,metrics,metric_methods,metric_dates});
