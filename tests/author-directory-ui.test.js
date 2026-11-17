@@ -45,6 +45,21 @@ test('author list is displayed before slow avatar downloads finish',async()=>{
 test('reader authors link to their profiles and show real cached photos without initials placeholders',async()=>{
  const f=fixture();f.rows.push({id:'lu-profile',user_id:uid,identity_keys:['orcid:'+orcid],first_name:'Jun-an',last_name:'Lu',orcid,photo_path:uid+'/lu.jpg'});f.context.cachedAuthorPhotos=async(_db,_owner,paths)=>new Map(paths.map(path=>[path,'https://example.edu/lu.jpg']));const host=f.document.createElement('div');f.document.body.append(host);const cleanup=f.ui.mountPaperAuthors(host,f.state.papers[0]);assert.equal(host.querySelectorAll('a').length,2);assert.equal(host.querySelectorAll('.author-avatar').length,0);for(let i=0;i<5;i++)await new Promise(r=>setImmediate(r));assert.equal(host.querySelectorAll('img').length,1);assert.equal(host.querySelectorAll('.author-avatar').length,1);assert(host.querySelector('a').getAttribute('href').includes('profile%3Alu-profile'));assert.equal(host.querySelectorAll('.reader-author-name')[1].textContent,'Alice Smith');assert.match(host.textContent,/Wuhan University/);cleanup();f.ui.stop();
 });
+test('author edit displays the signed photo without exposing an empty preview control',async()=>{
+ const f=fixture(),d=f.document;
+ f.rows.push({id:'lu-profile',user_id:uid,identity_keys:['orcid:'+orcid],first_name:'Jun-an',last_name:'Lu',orcid,photo_path:uid+'/lu.jpg'});
+ f.context.cachedAuthorPhotos=async(_db,_owner,paths)=>new Map(paths.map(path=>[path,'https://example.edu/lu.jpg']));
+ await f.ui.renderDetail('orcid:'+orcid);
+ d.querySelector('#author-edit').onclick();
+ const preview=d.querySelector('#author-edit-photo-preview');
+ assert.equal(preview.hidden,false);
+ assert.equal(preview.querySelector('img').getAttribute('src'),'https://example.edu/lu.jpg');
+ preview.querySelector('img').onerror();assert.equal(preview.hidden,true);
+ const empty=fixture();await empty.ui.renderDetail('orcid:'+orcid);
+ empty.document.querySelector('#author-edit').onclick();
+ const missing=empty.document.querySelector('#author-edit-photo-preview');
+ assert.equal(missing.hidden,true);assert.equal(missing.hasAttribute('disabled'),false);assert.equal(missing.querySelector('img'),null);
+});
 test('author details link all papers, allow editable names and email, and request research keywords for the selected author',async()=>{
  const f=fixture(),key='orcid:'+orcid,snapshot=structuredClone(f.state.papers);await f.ui.renderDetail(key);const d=f.document;
  assert.equal(d.querySelectorAll('.author-paper').length,2);assert.equal(d.querySelector('.author-paper-authors').textContent,'Jun-an Lu; Alice Smith');assert.equal(d.querySelectorAll('.author-paper-authors').length,2);assert(d.querySelector('.author-detail-grid>.author-papers'));assert(d.querySelector('.author-information'));assert(!d.querySelector('#author-photo-auto'));assert(d.querySelector('#author-refresh-metrics'));d.querySelector('#author-edit').onclick();assert(d.querySelector('#author-photo-manual'));const photoMenu=d.querySelector('.author-photo-menu');assert(photoMenu);assert(!photoMenu.hasAttribute('open'));assert.equal(photoMenu.querySelector('summary').textContent,'照片设置');assert.equal(photoMenu.querySelectorAll('button').length,3);

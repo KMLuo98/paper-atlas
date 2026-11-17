@@ -1,5 +1,20 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {parseHTML} from 'linkedom';
 import {academicProfileURL,indexedScholarMetrics,parseAcademicMetrics,orcidPublicationCount,bestAcademicMetrics,academicInformationPatch,discoverAcademicProfiles,wikidataAcademicLinks} from '../supabase/functions/_shared/academic-profiles.js';
+test('Bing HTML can confirm profile links after unrelated results even when the profile blocks reading',async()=>{
+ const person={english_name:'Alice Smith',aliases:['Alice Smith'],original_names:['Alice Smith'],institution:'Example University',papers:[]};
+ const scholar='https://scholar.google.com/citations?user=Alice123';
+ const gate='https://www.researchgate.net/profile/Alice-Smith';
+ const rows=await discoverAcademicProfiles(person,parseHTML,{resolve:async()=>['8.8.8.8'],fetcher:async value=>{
+  const url=new URL(value);
+  if(url.hostname!=='www.bing.com'||url.searchParams.get('format')==='rss')return new Response('',{status:403});
+  const target=url.searchParams.get('q').includes('researchgate')?gate:scholar;
+  const redirect='https://www.bing.com/ck/a?u=a1'+Buffer.from(target).toString('base64url');
+  return new Response('<ol>'+Array.from({length:12},(_,i)=>'<li><a href="https://example.com/'+i+'">Unrelated</a></li>').join('')+
+   '<li class="b_algo"><h2><a href="'+redirect+'">Alice Smith</a></h2><p>Example University · 20 Citations</p></li></ol>');
+ }});
+ assert.equal(academicInformationPatch({},rows).scholar_url,scholar);
+ assert.equal(academicInformationPatch({},rows).researchgate_url,gate);
+});
 test('German Scholar domains and ORCID-linked Wikidata identities resolve without accepting a namesake',()=>{
  assert.equal(academicProfileURL('https://scholar.google.de/citations?user=iwzqdyQAAAAJ').url,'https://scholar.google.com/citations?user=iwzqdyQAAAAJ');
  const value=v=>[{mainsnak:{datavalue:{value:v}}}],entity={labels:{en:{value:'Jürgen Kurths'}},claims:{P496:value('0000-0002-5926-4276'),P1960:value('iwzqdyQAAAAJ')}},person={english_name:'Jürgen Kurths',orcid:'0000-0002-5926-4276'};

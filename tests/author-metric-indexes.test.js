@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {discoverAuthorMetricIndexes} from '../supabase/functions/_shared/author-metric-indexes.js';
 import {academicInformationPatch} from '../supabase/functions/_shared/academic-profiles.js';
+import {academicSearchIdentity} from '../supabase/functions/_shared/author-information.js';
 
 const orcid = '0009-0003-3727-4187';
 const identity = {name:'Kaiming Luo', aliases:[], organization:'Fudan University', orcid};
@@ -50,4 +51,22 @@ test('finds a better-supported author record by public DOI even outside the name
   const {academic_metrics:metrics} = academicInformationPatch({academic_metrics:{sources:[stale]}},rows);
   assert.equal(metrics.best.publications.value,76);
   assert.deepEqual(metrics.sources.map(source => source.url),['https://openalex.org/A2']);
+});
+
+test('romanizes a Chinese-only name and re-verifies a stronger profile against ORCID work evidence', async () => {
+  const name = academicSearchIdentity({name:'樊京芳',aliases:[],organization:'Beijing Normal University'},()=>['fan','jing','fang']);
+  assert.equal(name.name,'jingfang fan');assert(name.aliases.includes('fan jingfang'));
+  const candidate={display_name:'Jingfang Fan',affiliations:[{institution:{display_name:'Beijing Normal University'}}]};
+  const match='0000-0003-1954-4641', paper={title:'Climate Network Percolation Under Global Warming'};
+  const rows = await discoverAuthorMetricIndexes({papers:[paper]},name,async value=>{
+    const url=new URL(value);
+    if(url.hostname==='api.openalex.org')return JSON.stringify({results:[
+      {...candidate,id:'https://openalex.org/A10',works_count:1},
+      {...candidate,id:'https://openalex.org/A11',orcid:match,works_count:100,summary_stats:{h_index:26,i10_index:40}}
+    ]});
+    if(url.hostname==='pub.orcid.org')return JSON.stringify({person:{name:{'given-names':{value:'Jingfang'},'family-name':{value:'Fan'}}},'activities-summary':{works:{group:[{'work-summary':[{title:{title:{value:paper.title}}}]}]}}});
+    throw Error('429');
+  },stamp);
+  assert.equal(rows[0].academic.metrics.publications,100);
+  assert.equal(rows[0].identity_fields.orcid,match);
 });
