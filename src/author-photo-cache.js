@@ -1,5 +1,11 @@
 // Uploaded avatar paths are immutable UUIDs. Keep the same local URL across views.
 const owners=new Map(),MAX_BYTES=64*1024*1024,MAX_ITEMS=2000;
+export function cacheUploadedAuthorPhoto(owner,path,blob){
+ if(!owner||!path.startsWith(owner+'/'))return;
+ let cache=owners.get(owner);if(!cache){cache={entries:new Map(),pending:new Map(),bytes:0};owners.set(owner,cache);}
+ if(cache.entries.has(path)||cache.bytes+blob.size>MAX_BYTES||cache.entries.size>=MAX_ITEMS)return;
+ cache.entries.set(path,{url:URL.createObjectURL(blob),local:true,bytes:blob.size});cache.bytes+=blob.size;
+}
 export function clearAuthorPhotoCache(owner){const cache=owners.get(owner);if(!cache)return;owners.delete(owner);for(const row of cache.entries.values())if(row.local)URL.revokeObjectURL(row.url);}
 export async function cachedAuthorPhotos(db,owner,paths,{fetcher=fetch}={}){
  if(!db||!owner)return new Map();
