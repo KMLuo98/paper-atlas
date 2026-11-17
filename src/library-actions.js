@@ -4,7 +4,6 @@ import {extractPDF} from './pdf-text.js';
 import {escapeHTML as e} from './core.js';
 
 export function createLibraryActions({state, modal, icon, busy, toast, refresh, render, go, uiIcons}) {
-  const segmentProgress=new WeakMap();
   function progress(info) {
     let banner = document.querySelector('#batch-status');
     if (!banner) {banner = document.createElement('div'); banner.id = 'batch-status'; banner.setAttribute('role', 'status'); document.body.append(banner);}
@@ -19,26 +18,7 @@ export function createLibraryActions({state, modal, icon, busy, toast, refresh, 
         text = await extractPDF(await response.blob()); await updatePaper(p.id, {full_text: text});
       }
       p.full_text = text;
-      const request = {paper_id:p.id};
-      let result = await api('analyze',request);
-      if(result.segments){
-        let work=segmentProgress.get(p);
-        if(!work||work.text!==text){work={text,next:0,notes:[],compressed:[]};segmentProgress.set(p,work);}
-        while(work.next<result.segments){
-          const part=await api('analyze_segment',{...request,index:work.next});
-          work.notes.push(part.note);work.next++;
-        }
-        while(work.notes.length>24){
-          while(work.compressed.length*24<work.notes.length){
-            const offset=work.compressed.length*24;
-            const part=await api('analyze_reduce',{...request,notes:work.notes.slice(offset,offset+24)});
-            work.compressed.push(part.note);
-          }
-          work.notes=work.compressed;work.compressed=[];
-        }
-        result=await api('analyze',{...request,notes:work.notes});
-        segmentProgress.delete(p);
-      }
+      const result=await api('analyze',{paper_id:p.id});
       Object.assign(p, result.paper); document.dispatchEvent(new (document.defaultView?.Event||Event)('pa-authors-changed')); return p;
     } catch (error) {
       if (error.status === 429) throw error;
