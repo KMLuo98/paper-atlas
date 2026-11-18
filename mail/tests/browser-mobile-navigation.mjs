@@ -90,6 +90,24 @@ try{
   }else{
    await swipe({y:840});assert.equal(await page.locator('.reader-page').count(),1); // Desktop background touch is unchanged.
    await page.locator('[data-action=back]').click();await page.locator('.inbox-page').waitFor();
+   // Fit the actual action row, including controls revealed by selecting messages.
+   await page.locator('#select-all').check();
+   const toolbar=page.locator('.list-actions');
+   const sender=toolbar.locator('[data-inbox-filter=sender] summary');
+   await toolbar.locator('[data-action=bulk-read] .mobile-action-label').waitFor();
+   await page.setViewportSize({width:850,height:850});
+   await page.locator('.list-actions[data-compact-toolbar]').waitFor();
+   assert.equal(await toolbar.locator('.mobile-action-label:visible').count(),0);
+   assert.equal(await toolbar.locator('.inbox-filter summary>span:visible').count(),0);
+   assert.equal(await toolbar.locator('[data-action=bulk-read]').getAttribute('aria-label'),'标为已读');
+   assert.equal(await toolbar.locator('[data-action=bulk-read] svg').isVisible(),true);
+   await sender.click();
+   await toolbar.locator('.inbox-filter-search').waitFor();
+   await page.keyboard.press('Escape');
+   await noOverflow();
+   await page.setViewportSize({width:1440,height:850});
+   await toolbar.locator('[data-action=bulk-read] .mobile-action-label').waitFor();
+   assert.equal(await sender.locator('span').isVisible(),true);
   }
   assert.deepEqual(errors,[]);await noOverflow();
   await page.screenshot({path:'test-results/mail-mobile-back-'+width+'.png',fullPage:false});

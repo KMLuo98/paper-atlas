@@ -1,3 +1,4 @@
+import {scheduleToolbarFit} from './responsive-toolbars.js';
 import './appearance.css';
 import {mountMobileRail} from '../../src/mobile-rail.js';
 
@@ -83,13 +84,20 @@ const toolbarButtons = [
   '.list-actions button', '.pagination button', '.translation-controls button',
   '.email-bottom button', '.filter-controls button', '.contact-card-actions button'
 ].join(',');
+const adaptiveToolbarButtons = '.modal-footer button, .form-footer button, .account-preferences button, .compose-bottom .file-button';
 const actionIcons = {
   'bulk-read':'check', 'bulk-category':'folder', 'load-older':'arrow-down',
   'mark-unread':'mail', 'prev-page':'chevron-left', 'next-page':'chevron-right',
   'sync':'refresh-cw', 'mail-columns':'settings-2', 'translate':'languages',
   'leave-compose':'arrow-left', 'save-draft':'save', 'unread-filter':'mail',
-  'toggle-advertising':'shield-check'
+  'toggle-advertising':'shield-check',
+  'close-modal':'x', 'delete-category':'trash-2', 'reset-mail-columns':'undo-2',
+  'accept-photo':'check', 'crop-match-photo':'camera', 'expand-photo':'search',
+  'confirm-merge':'merge', 'stop-photos':'pause', 'retry-photos':'refresh-cw',
+  'confirm-disconnect':'unplug'
 };
+
+const draftExitIcons = {cancel:'pencil',discard:'trash-2',save:'save'};
 
 const mountedRails = new WeakSet();
 export function prepareMailAppearance(icon) {
@@ -113,26 +121,29 @@ export function prepareMailAppearance(icon) {
     const marker = button.querySelector('.color-dot');
     if (marker && !marker.firstChild) marker.innerHTML = icon('mail', 15);
   }
-  for (const button of document.querySelectorAll(toolbarButtons)) {
-    if (button.classList.contains('mobile-icon-action')) continue;
-    const label = button.textContent.trim();
+  for (const control of document.querySelectorAll(toolbarButtons+','+adaptiveToolbarButtons)) {
+    const actionClass = control.matches(toolbarButtons) ? 'mobile-icon-action' : 'adaptive-icon-action';
+    if (control.classList.contains(actionClass)) continue;
+    const label = control.textContent.trim();
     if (!label) continue;
-    const glyph = actionIcons[button.dataset.action];
-    const currentIcon = button.querySelector('[data-lucide],svg');
+    const glyph = actionIcons[control.dataset.action] || draftExitIcons[control.dataset.draftExit] || (control.type === 'submit' ? 'check' : '');
+    const currentIcon = control.querySelector('[data-lucide],svg');
     if (currentIcon && glyph) currentIcon.setAttribute('data-lucide', glyph);
     if (!currentIcon) {
       if (!glyph) continue;
-      button.insertAdjacentHTML('afterbegin', icon(glyph, 18));
+      control.insertAdjacentHTML('afterbegin', icon(glyph, 18));
+      if (actionClass === 'adaptive-icon-action') control.firstElementChild.classList.add('adaptive-action-glyph');
     }
     const text = document.createElement('span');
     text.className = 'mobile-action-label';
-    for (const node of [...button.childNodes]) if (node.nodeType === 3) text.append(node);
+    for (const node of [...control.childNodes]) if (node.nodeType === 3) text.append(node);
     if (!text.textContent.trim()) continue;
-    button.append(text);
-    button.classList.add('mobile-icon-action');
-    if (!button.hasAttribute('aria-label')) button.setAttribute('aria-label', label);
-    if (!button.title) button.title = label;
+    control.append(text);
+    control.classList.add(actionClass);
+    if (!control.hasAttribute('aria-label')) control.setAttribute('aria-label', label);
+    if (!control.title) control.title = label;
   }
+  scheduleToolbarFit();
 }
 
 let heldButton, pressTimer, tip, tipTimer, startX, startY, pointerId, suppressUntil = 0;

@@ -1,0 +1,22 @@
+.adaptive-action-glyph {display:none}
+
+@media (width > 700px) {
+  [data-compact-toolbar] :is(.mobile-icon-action,.adaptive-icon-action):has(.mobile-action-label),
+  [data-compact-toolbar] .inbox-filter summary {
+    display:inline-flex;
+    width:36px;
+    min-width:36px;
+    min-height:36px;
+    flex:0 0 auto;
+    align-items:center;
+    justify-content:center;
+    gap:0;
+    padding:0;
+  }
+  [data-compact-toolbar] :is(.mobile-action-label,.inbox-filter summary>span) {display:none}
+  [data-compact-toolbar] :is(.mobile-icon-action,.adaptive-icon-action) svg {width:18px;height:18px;flex:none}
+  .list-actions[data-compact-toolbar] {flex-wrap:wrap;gap:6px}
+  [data-compact-toolbar] .adaptive-action-glyph {display:block}
+  .list-actions[data-compact-toolbar]>div,
+  .list-actions[data-compact-toolbar] .filter-controls {flex-wrap:wrap;gap:6px}
+}
