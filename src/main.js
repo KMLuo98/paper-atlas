@@ -29,6 +29,7 @@ import {sortPapers} from './paper-sort.js';
 import './style.css';
 import './features.css';
 import './desktop-refinements.css';
+import {mountAdaptiveToolbars} from './adaptive-toolbar.js';
 import { createIcons, Languages, ArrowLeft, ArrowRight, ArrowUpRight, Bookmark, Braces, ChevronRight, CircleHelp, CircleUserRound, Clock3, Cloud, CloudUpload, Copy, Database, Download, ExternalLink, Files, FileText, FolderOpen, Image, Info, KeyRound, LibraryBig, Lightbulb, List, ListChecks, LogOut, MailCheck, MoveUpRight, Plus, Quote, RefreshCw, RotateCcw, Scan, Search, SearchX, Settings2, ShieldCheck, Sparkles, SquarePen, Star, Tags, Trash2, Type, UsersRound, Waypoints, X, Ellipsis, LayoutGrid } from 'lucide';
 import { db, configured, cloudConfig, api, loadPapers, updatePaper, signedPDF, ensureStorageSpace } from './cloud.js';
 import { escapeHTML as e, filename, searchPapers, exportCitations, authorNetwork, citationNetwork, safeURL, journalFull, journalShort, normalizeKeywordPairs, keywordFields } from './core.js';
@@ -243,6 +244,7 @@ installI18n();document.addEventListener('pa-language-change',()=>{
   const hadFocus=document.activeElement?.matches('[data-language-choice]');
   render().then(()=>{if(hadFocus)document.querySelector(`[data-language-choice="${getLanguage()}"]`)?.focus({preventScroll:true});}).catch(fail);
 });
+mountAdaptiveToolbars(app);
 const libraryIntro=createLibraryIntro(getLanguage());
 init().catch(err=>{renderAuth();fail(err);}).finally(libraryIntro.ready);
 
