@@ -25,5 +25,6 @@
 .author-metrics-panel #author-refresh-metrics{position:absolute;top:6px;right:0}
 .author-metrics-panel .author-academic-stats>div:nth-child(2)>span{padding-right:36px}
 .author-info-card>.row:has(#author-view-network){justify-content:space-between;flex-wrap:wrap;gap:8px}
-#author-view-network{font-size:inherit;padding:5px 8px}
+.author-info-card #author-view-network{margin-left:auto;padding:0;border:0;border-radius:0;background:none;box-shadow:none;color:var(--green);font-size:.75rem;font-weight:400;text-decoration:underline;text-underline-offset:2px}
+.author-info-card #author-view-network:hover{background:none;box-shadow:none}
 #author-refresh-metrics{flex:none}
