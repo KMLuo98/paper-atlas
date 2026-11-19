@@ -1,20 +1,20 @@
 .modal.is-mail-sending{position:relative;overflow:hidden;scrollbar-gutter:auto;height:min(460px,calc(100dvh - 48px));min-height:0;isolation:isolate}
 .modal.is-mail-sending>:not(.mail-send-stage){visibility:hidden;pointer-events:none}
-.mail-send-stage{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:#f8faf4;padding:20px;overflow:hidden;color:#315f53}
+.mail-send-stage{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:var(--motion-surface,#edf2f3);padding:20px;overflow:hidden;color:var(--motion-ink,#263e46)}
 .send-scene{position:relative;width:100%;height:280px}
-.send-envelope{position:absolute;left:50%;top:125px;width:220px;height:145px;transform:translateX(-50%);filter:drop-shadow(0 12px 14px #315f5330)}
-.send-envelope-back{position:absolute;inset:0;background:#789b87;border-radius:9px;z-index:1}
+.send-envelope{position:absolute;left:50%;top:125px;width:220px;height:145px;transform:translateX(-50%);filter:drop-shadow(0 18px 20px #233f4a24)}
+.send-envelope-back{position:absolute;inset:0;background:#738b94;border-radius:9px;z-index:1}
 .send-letter-pocket{position:absolute;inset:-150px 0 0;overflow:hidden;border-radius:0 0 8px 8px;z-index:3}
-.send-letter{position:absolute;left:15px;top:150px;width:190px;height:220px;padding:12px;background:white;box-shadow:0 2px 12px #315f5320;border-radius:3px;overflow:hidden;transform-origin:50% 0;animation:send-pack var(--send-packing-time) ease-in-out both}
-.send-letter .send-summary{font-size:8px;line-height:1.5;color:#456750}
+.send-letter{position:absolute;left:15px;top:150px;width:190px;height:220px;padding:12px;background:#fcfdfd;box-shadow:0 2px 12px #233f4a18;border-radius:3px;overflow:hidden;transform-origin:50% 0;animation:send-pack var(--send-packing-time) cubic-bezier(.4,0,.2,1) both}
+.send-letter .send-summary{font-size:8px;line-height:1.5;color:#536d78}
 .send-letter .send-summary p{font-size:8px;margin:3px 0;gap:4px}.send-letter .send-summary p>span{width:40px}.send-letter .send-preview{font-size:8px;line-height:1.6;padding:6px;margin:7px 0;max-height:130px;overflow:hidden}
-.send-envelope-front{position:absolute;inset:0;z-index:4;background:linear-gradient(145deg,#deead5,#aec8ac);clip-path:polygon(0 0,50% 48%,100% 0,100% 100%,0 100%);border-radius:8px}
-.send-envelope-flap{position:absolute;inset:0 0 auto;height:85px;background:#d6e5cc;clip-path:polygon(0 0,100% 0,50% 100%);transform-origin:50% 0;animation:send-close-flap var(--send-packing-time) linear both}
-.send-wax-seal{position:absolute;z-index:6;top:75px;left:50%;width:39px;height:39px;display:grid;place-items:center;border-radius:48% 52% 48% 53% / 49% 46% 54% 51%;background:radial-gradient(circle at 34% 25%,#a95551,#803733 64%,#632823);box-shadow:inset 0 1px 2px #ebaaa080,inset 0 -2px 3px #45191799,0 2px 4px #43302b55;color:#f1c3a6;animation:send-press-wax var(--send-packing-time) ease-out both}
-.send-wax-seal svg{width:28px;height:28px;filter:drop-shadow(0 1px 1px #57211e)}
+.send-envelope-front{position:absolute;inset:0;z-index:4;background:linear-gradient(180deg,#f5f8f8,#d2dfe3);clip-path:polygon(0 0,50% 48%,100% 0,100% 100%,0 100%);border-radius:8px}
+.send-envelope-flap{position:absolute;inset:0 0 auto;height:85px;background:#e5edef;clip-path:polygon(0 0,100% 0,50% 100%);transform-origin:50% 0;animation:send-close-flap var(--send-packing-time) linear both}
+.send-wax-seal{position:absolute;z-index:6;top:75px;left:50%;width:39px;height:39px;display:grid;place-items:center;border-radius:48% 52% 48% 53% / 49% 46% 54% 51%;background:radial-gradient(circle at 34% 25%,#c5a982,#997650 64%,#7f5f3f);box-shadow:inset 0 1px 2px #f6e4c680,inset 0 -2px 3px #64482c80,0 2px 4px #3e352b33;color:#f9ead2;animation:send-press-wax var(--send-packing-time) ease-out both}
+.send-wax-seal svg{width:28px;height:28px;filter:drop-shadow(0 1px 1px #765635)}
 .send-animation-status{font-size:14px;text-align:center;line-height:1.7;margin:16px 0 0}
 @keyframes send-pack{
- 0%{transform:translateY(-123px) scale(1);opacity:.55}
+ 0%{transform:translateY(-123px) scale(1);opacity:0}
  16%{transform:translateY(-115px) scale(.92);opacity:1}
  58%,100%{transform:translateY(15px) scale(.5);opacity:1}
 }
@@ -25,13 +25,13 @@
  80%,100%{transform:scaleY(1);z-index:5}
 }
 @keyframes send-press-wax{
- 0%,80%{transform:translate(-50%,-70%) scale(1.5);opacity:0}
- 91%{transform:translate(-50%,-50%) scale(.94);opacity:1}
+ 0%,80%{transform:translate(-50%,-62%) scale(1.16);opacity:0}
+ 93%{transform:translate(-50%,-50%) scale(.98);opacity:1}
  100%{transform:translate(-50%,-50%) scale(1);opacity:1}
 }
-.mail-send-stage.is-departing .send-envelope{animation:send-depart var(--send-flight-time) cubic-bezier(.35,0,.65,1) both}
+.mail-send-stage.is-departing .send-envelope{animation:send-depart var(--send-flight-time) cubic-bezier(.45,0,.2,1) both}
 .mail-send-stage.is-departing .send-animation-status{animation:send-status var(--send-flight-time) ease both}
-@keyframes send-depart{0%{transform:translateX(-50%) rotate(0) scale(1);opacity:1}30%{transform:translate(-35%,-20px) rotate(-10deg) scale(.95);opacity:1}100%{transform:translate(170%,-230px) rotate(-25deg) scale(.12);opacity:0}}
+@keyframes send-depart{0%{transform:translateX(-50%) rotate(0) scale(1);opacity:1}25%{transform:translate(-48%,-8px) rotate(-2deg) scale(.98);opacity:1}100%{transform:translate(140%,-200px) rotate(-12deg) scale(.18);opacity:0}}
 @keyframes send-status{0%,60%{opacity:1}100%{opacity:0}}
 @media(max-width:700px){
  .modal.is-mail-sending{height:min(400px,calc(100vh - 48px));height:min(400px,calc(100dvh - 48px))}

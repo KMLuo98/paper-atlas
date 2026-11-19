@@ -1,0 +1,47 @@
+:root {
+  --motion-surface:#edf2f3;
+  --motion-ink:#263e46;
+  --motion-muted:#697d85;
+  --motion-ease:cubic-bezier(.22,1,.36,1);
+  --motion-quick:180ms;
+  --motion-enter:280ms;
+}
+[data-appearance="glass"] {
+  --motion-surface:#edf2f3db;
+}
+.mail-launch,.mail-send-stage {
+  -webkit-backdrop-filter:blur(24px) saturate(.85);
+  backdrop-filter:blur(24px) saturate(.85);
+}
+.send-animation-status,.mail-launch-caption span {color:var(--motion-muted)}
+.send-animation-status {font-size:12px;letter-spacing:.04em}
+@media(prefers-reduced-motion:no-preference) {
+  .modal-shade {animation:motion-fade var(--motion-quick) ease-out both}
+  .modal {animation:motion-surface var(--motion-enter) var(--motion-ease) both}
+  .toast,.mail-action-tip {animation:motion-surface var(--motion-enter) var(--motion-ease) both}
+  .avatar-lightbox img {animation:motion-photo 360ms var(--motion-ease) both}
+  .mobile-rail-highlight {
+    transition:transform 220ms var(--motion-ease),width 220ms var(--motion-ease),height 220ms var(--motion-ease);
+  }
+  .mobile-back-hint {transition:opacity var(--motion-quick) ease,transform 220ms var(--motion-ease)}
+  .sidebar {transition:transform 320ms var(--motion-ease)}
+  .mail-appearance-options::before {transition:transform 320ms var(--motion-ease)}
+  .category-row {transition:background-color 220ms ease,box-shadow 220ms ease}
+  [data-appearance=glass] .mail-row::after {transition:opacity 220ms ease}
+  button:is(.primary,.secondary,.icon-btn,.filter-toggle) {
+    transition:background-color var(--motion-quick) ease,box-shadow var(--motion-quick) ease,opacity var(--motion-quick) ease;
+  }
+  .is-syncing svg {animation:mail-sync-spin 1.2s linear infinite!important}
+  button[aria-busy=true]:not(.is-syncing) svg {animation:motion-breathe 1.6s ease-in-out infinite}
+  .mail-row.unread-located {animation:motion-locate 2.6s ease-out}
+}
+@keyframes motion-fade {from{opacity:0}to{opacity:1}}
+@keyframes motion-surface {from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes motion-photo {from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+@keyframes motion-breathe {0%,100%{opacity:1}50%{opacity:.48}}
+@keyframes motion-locate {
+  0%,30% {background-color:#dce9ee;box-shadow:inset 3px 0 #759aa8}
+}
+@media(prefers-reduced-motion:reduce) {
+  .mail-row.unread-located {background-color:#dce9ee;box-shadow:inset 3px 0 #759aa8}
+}

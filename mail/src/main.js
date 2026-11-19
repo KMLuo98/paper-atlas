@@ -17,6 +17,7 @@ import {inboxFilterHTML} from './inbox-controls.js';
 import {correspondenceHTML,mountCorrespondence} from './contact-correspondence.js';
 import './mobile-refinements.css';
 import './mail-recipients.css';
+import './mail-motion.css';
 import {scheduledDraftAt} from './draft-schedule.js';
 import {installMobileBack} from './mobile-back.js';
 import {COLUMN_LIMITS,defaultMailLayout,readMailLayout,writeMailLayout,resizeMailColumn,mailLayoutStyle} from './mail-layout.js';
