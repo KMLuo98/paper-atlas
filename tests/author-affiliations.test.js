@@ -28,6 +28,19 @@ test('arXiv dates are valid dated evidence but missing dates do not establish a 
  const p={...person,papers:[paper('old','2022-01-01','Wuhan University, China'),{...paper('new',null,'Xidian University, China'),arxiv_date:'2024-07-01',journal:'arXiv'}]};
  const rows=authorAffiliations(p);assert.equal(rows[0].school,'Xidian University');assert.equal(rows[0].records[0].date_kind,'preprint');assert(rows[1].historical);
 });
+test('medical school bylines count toward Harvard University while retaining the paper evidence',()=>{
+ const institution="Department of Medicine, Brigham and Women's Hospital, Harvard Medical School, Boston, MA, USA";
+ const history=authorAffiliations({...person,papers:[
+  paper('new','2026-09-03','Central European University, Vienna, Austria; Northeastern University, Boston, MA, USA; '+institution),
+  paper('old','2018-11-28','Harvard University, USA')
+ ]});
+ const harvard=history.find(row=>row.school==='Harvard University');
+ assert.equal(history.filter(row=>row.school.startsWith('Harvard')).length,1);
+ assert.equal(harvard.last_seen,'2026-09-03');
+ assert.equal(harvard.first_seen,'2018-11-28');
+ assert.equal(harvard.records[0].raw,institution);
+ assert.equal(harvard.country,'US');
+});
 test('scholarly photo names tolerate hyphens, order, accents and initials while rejecting another person',()=>{
  for(const [a,b]of [['Jun-an Lu','Junan Lu'],['Jun-an Lu','Lu, Jun-an'],['Jun-an Lu','J.-A. Lu'],['Albert-László Barabási','Albert Laszlo Barabasi'],['Alice Smith','Dr. Alice Smith, PhD']])assert(scholarlyNameMatch(a,b),a+' / '+b);
  assert(!scholarlyNameMatch('Jun-an Lu','Jing Lu'));

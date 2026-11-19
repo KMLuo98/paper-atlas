@@ -2,17 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 import { projectConfig } from './project-config.js';
 import {databaseJSON} from '../supabase/functions/_shared/text.js';
 import {normalizePaperJournal} from './core.js';
-import {invokeWithSessionRetry,apiFailure} from './auth-request.js';
+import {createAuthSessionStorage,invokeWithSessionRetry,apiFailure} from './auth-request.js';
 import {normalizeDOI} from '../supabase/functions/_shared/publication.js';
 const saved = (()=>{try{return JSON.parse(localStorage.getItem('pa-cloud')||'{}');}catch{return {};}})();
 export const cloudConfig={url:import.meta.env.VITE_SUPABASE_URL||saved.url||projectConfig.url,key:import.meta.env.VITE_SUPABASE_ANON_KEY||saved.key||projectConfig.key};
 export const configured=Boolean(cloudConfig.url&&cloudConfig.key);
-const sessionStore={
-  getItem:key=>(localStorage.getItem('pa-remember')==='false'?sessionStorage:localStorage).getItem(key),
-  setItem:(key,value)=>{const remember=localStorage.getItem('pa-remember')!=='false';(remember?localStorage:sessionStorage).setItem(key,value);(remember?sessionStorage:localStorage).removeItem(key);},
-  removeItem:key=>{localStorage.removeItem(key);sessionStorage.removeItem(key);}
-};
-export const db=configured?createClient(cloudConfig.url,cloudConfig.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:sessionStore}}):null;
+const sessionKey=configured?'sb-'+new URL(cloudConfig.url).hostname.split('.')[0]+'-auth-token':'';
+const sessionStore=configured?createAuthSessionStorage(localStorage,sessionStorage,sessionKey):null;
+export const db=configured?createClient(cloudConfig.url,cloudConfig.key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:sessionKey,storage:sessionStore}}):null;
+export const rememberSession=value=>sessionStore?.remember(value);
 export async function api(action,payload={}) {
   if(!db)throw new Error('请先在云端设置中连接 Supabase 项目');
   const {data,error}=await invokeWithSessionRetry(db,{body:{action,...payload}});

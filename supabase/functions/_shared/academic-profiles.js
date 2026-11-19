@@ -51,8 +51,18 @@ export function parseAcademicMetrics(html,provider,parseHTML){
 export function orcidPublicationCount(data){return (data.group||[]).filter(g=>(g['work-summary']||[]).some(w=>['journal-article','conference-paper','preprint','working-paper','dissertation','review'].includes(w.type))).length;}
 export function bestAcademicMetrics(sources){const result={};for(const source of sources||[])if(['scholar','researchgate','orcid','OpenAlex','Semantic Scholar'].includes(source.provider))for(const field of ['publications','citations','h_index','i10_index']){const n=source.metrics?.[field];if(Number.isSafeInteger(n)&&n>=0&&(!result[field]||n>result[field].value))result[field]={value:n,provider:source.provider,url:source.url,checked_at:source.metric_dates?.[field]||source.checked_at,method:source.metric_methods?.[field]||'profile_page'};}return result;}
 export function academicInformationPatch(base,sources,{missingOnly=false}={}){
- const patch={},observations=sources.map(s=>s.academic).filter(Boolean),byURL=new Map((base.academic_metrics?.sources||[]).map(s=>[s.url,s]));
+ const patch={},observations=sources.map(s=>s.academic).filter(Boolean);
+ const ambiguousURLs=new Set(observations.filter(row=>row.provider==='OpenAlex'&&row.identity_status==='ambiguous').map(row=>row.url));
+ const previous=base.academic_metrics?.sources||[],old=previous.filter(row=>!ambiguousURLs.has(row.url));
+ const previousBest=base.academic_metrics?.best||bestAcademicMetrics(previous);
+ const retainedBest=Object.fromEntries(Object.entries(previousBest).filter(([,metric])=>!ambiguousURLs.has(metric?.url)));
+ const invalidated=old.length!==previous.length||Object.keys(retainedBest).length!==Object.keys(previousBest).length;
+ const filled=invalidated?{...bestAcademicMetrics(old),...retainedBest}:previousBest;
+ const byURL=new Map(old.map(row=>[row.url,row]));
+ let receivedMetrics=false;
  for(const row of observations){
+  if(ambiguousURLs.has(row.url))continue;
+  receivedMetrics||=Object.keys(row.metrics||{}).length>0;
   if(!missingOnly&&['OpenAlex','Semantic Scholar'].includes(row.provider)&&Object.keys(row.metrics||{}).length){
    for(const [url,prior] of byURL)if(url!==row.url&&prior.provider===row.provider)byURL.delete(url);
   }
@@ -69,7 +79,19 @@ export function academicInformationPatch(base,sources,{missingOnly=false}={}){
   const field=row.provider==='scholar'?'scholar_url':row.provider==='researchgate'?'researchgate_url':null;
   if(field&&!base[field]&&academicProfileURL(row.url)?.provider===row.provider)patch[field]=row.url;
  }
- if(observations.some(row=>Object.keys(row.metrics||{}).length)){let merged=[...byURL.values()];if(missingOnly){const filled=base.academic_metrics?.best||bestAcademicMetrics(base.academic_metrics?.sources||[]);merged=merged.map(row=>({...row,metrics:Object.fromEntries(Object.entries(row.metrics||{}).filter(([field])=>!Number.isSafeInteger(filled[field]?.value)))}));const old=base.academic_metrics?.sources||[];const additions=merged.filter(row=>Object.keys(row.metrics).length);merged=[...old,...additions];const best={...bestAcademicMetrics(additions),...filled};if(additions.length)patch.academic_metrics={sources:merged,best};}else patch.academic_metrics={sources:merged,best:bestAcademicMetrics(merged)};}return patch;
+ if(receivedMetrics||invalidated){
+  const merged=[...byURL.values()];
+  if(missingOnly){
+   const additions=merged.map(row=>({...row,metrics:Object.fromEntries(Object.entries(row.metrics||{}).filter(([field])=>!Number.isSafeInteger(filled[field]?.value)))})).filter(row=>Object.keys(row.metrics).length);
+   if(additions.length||invalidated)patch.academic_metrics={sources:[...old,...additions],best:{...bestAcademicMetrics(additions),...filled}};
+  }else{
+   const best=bestAcademicMetrics(merged);
+   // Older records may have a verified best value without a corresponding source row.
+   if(invalidated)for(const [field,value] of Object.entries(retainedBest))if(!best[field])best[field]=value;
+   patch.academic_metrics={sources:merged,best};
+  }
+ }
+ return patch;
 }
 export async function discoverAcademicProfiles(person,parseHTML,options={}){
  options={deadline:Date.now()+55000,...options};const identity={...(options.identity||authorPhotoIdentity(person)),orcid:person.orcid||''};identity.organization_aliases=[...new Set([...(identity.organization_aliases||[]),...authorAffiliations(person).flatMap(r=>[r.school,...(r.aliases||[])])])];const names=authorSearchNames(identity),candidates=new Map(),rows=[],stamp=new Date().toISOString();

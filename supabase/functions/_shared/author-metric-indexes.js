@@ -6,6 +6,10 @@ const titleKey = value => String(value || '').normalize('NFKC').toLowerCase().re
 const validOrcid = id => /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/.test(id);
 const hasName = (identity, ...names) => names.some(name => [identity.name, ...identity.aliases].some(alias => scholarlyNameMatch(alias, name)));
 const hasAffiliation = (identity, name, affiliations) => affiliations.some(text => photoIdentityEvidence(identity, {headings:[name], text}));
+const workAffiliations = byline => [
+  ...(byline.raw_affiliation_strings || []),
+  ...(byline.institutions || []).map(org => org.display_name)
+].filter(Boolean);
 
 function selectAuthor(rows, identity, titles, anchors = new Map()) {
   const orcid = normalizeORCID(identity.orcid);
@@ -55,11 +59,32 @@ async function verifiedRegistryOrcid(rows, identity, dois, titles, get) {
   return matches.length === 1 && checks.every(check => check.status === 'fulfilled') ? matches[0] : '';
 }
 
+function auditOpenAlexWorks(row, identity, works) {
+  if (!Array.isArray(works)) return null;
+  const verifiedOrcid = normalizeORCID(identity.orcid);
+  // An author DOI can point into an overmerged profile. Check the source bylines,
+  // since the nested author name and ORCID are reused from the profile itself.
+  const bylines = works.flatMap(work => (work.authorships || []).filter(byline => byline.author?.id === row.url));
+  const rawOrcids = new Set([...row.observedOrcids, ...bylines.map(byline => byline.raw_orcid)].map(normalizeORCID).filter(validOrcid));
+  if (rawOrcids.size > 1 || (verifiedOrcid && [...rawOrcids].some(id => id !== verifiedOrcid))) return 'ambiguous';
+  if (!bylines.length) return row.metrics.publications === 0 && validOrcid(verifiedOrcid) ? 'verified' : null;
+
+  const names = bylines.map(byline => byline.raw_author_name).filter(Boolean);
+  const conflictingNames = names.filter(name => !hasName(identity,name) && !hasName({name:row.name,aliases:[]},name));
+  if (conflictingNames.length >= 2 && conflictingNames.length * 3 >= names.length) return 'ambiguous';
+
+  const affiliations = bylines.map(workAffiliations).filter(values => values.length);
+  const supported = affiliations.filter(values => hasAffiliation(identity,identity.name,values)).length;
+  // An institution mismatch alone is inconclusive for a confirmed ORCID.
+  if (!verifiedOrcid && (identity.organization || identity.organization_aliases?.length) && affiliations.length >= 4 && supported * 2 < affiliations.length) return 'ambiguous';
+  return verifiedOrcid || supported || names.some(name => hasName(identity,name)) ? 'verified' : null;
+}
+
 async function openAlexAuthors(person, identity, titles, get) {
   const orcid = normalizeORCID(identity.orcid);
   const key = globalThis.Deno?.env.get('OPENALEX_API_KEY');
   const query = (resource, params) => get('https://api.openalex.org/' + resource + '?' + new URLSearchParams(key ? {...params,api_key:key} : params));
-  const select = 'id,orcid,display_name,display_name_alternatives,affiliations,works_count,cited_by_count,summary_stats';
+  const select = 'id,orcid,observed_orcids,display_name,display_name_alternatives,affiliations,works_count,cited_by_count,summary_stats';
   const authors = params => query('authors', {select, per_page:'20', ...params});
   const isAuthorID = id => /^https:\/\/openalex\.org\/A\d+$/.test(id);
   const dois = [...new Set((person.papers || []).map(p => normalizeDOI(p.doi)).filter(doi => /^10\.\d{4,9}\/[\w.()/;+\-]+$/i.test(doi)))].slice(0, 8);
@@ -78,13 +103,14 @@ async function openAlexAuthors(person, identity, titles, get) {
   for (const work of byDOI.value?.results || []) {
     const doi = normalizeDOI(work.doi);
     if (!dois.includes(doi)) continue;
-    const matches = (work.authorships || []).filter(({author,raw_author_name}) => isAuthorID(author?.id) && hasName(identity,author.display_name,raw_author_name));
+    const matches = (work.authorships || []).filter(({author,raw_author_name,raw_orcid}) =>
+      isAuthorID(author?.id) && hasName(identity,raw_author_name || author.display_name) &&
+      (!orcid || !validOrcid(normalizeORCID(raw_orcid)) || normalizeORCID(raw_orcid) === orcid));
     if (matches.length !== 1) continue;
-    const {author,institutions,raw_author_name,raw_affiliation_strings} = matches[0];
+    const {author,raw_author_name} = matches[0];
     const match = evidence.get(author.id) || {dois:new Set(), affiliated:false};
     match.dois.add(doi);
-    const affiliations=[...(institutions || []).map(org=>org.display_name),...(raw_affiliation_strings || [])];
-    match.affiliated ||= [author.display_name,raw_author_name].filter(Boolean).some(name=>hasAffiliation(identity,name,affiliations));
+    match.affiliated ||= hasAffiliation(identity,raw_author_name || author.display_name,workAffiliations(matches[0]));
     evidence.set(author.id,match);
   }
   const anchors = new Map([...evidence].filter(([,match]) => match.affiliated || match.dois.size >= 2).map(([id,match]) => [id,match.dois.size]));
@@ -101,12 +127,21 @@ async function openAlexAuthors(person, identity, titles, get) {
   }
   const rows = [...records.values()].map(row => ({
     url:row.id, name:row.display_name, alternatives:row.display_name_alternatives || [], orcid:row.orcid,
+    observedOrcids:row.observed_orcids || [],
     affiliations:(row.affiliations || []).map(item => item.institution?.display_name).filter(Boolean),
     metrics:{publications:row.works_count, citations:row.cited_by_count, h_index:row.summary_stats?.h_index, i10_index:row.summary_stats?.i10_index}
   }));
   const verifiedOrcid = !orcid && await verifiedRegistryOrcid(rows,identity,dois,titles,get);
-  const matched = selectAuthor(rows,verifiedOrcid ? {...identity,orcid:verifiedOrcid} : identity,new Set(),anchors);
-  return matched && {...matched,verifiedOrcid};
+  const verifiedIdentity = verifiedOrcid ? {...identity,orcid:verifiedOrcid} : identity;
+  const matched = selectAuthor(rows,verifiedIdentity,new Set(),anchors);
+  if (!matched) return null;
+  // A small sample of highly cited works checks the works that affect the published metrics most.
+  const {results} = await query('works',{
+    filter:'author.id:' + matched.url.split('/').at(-1), select:'authorships',
+    sort:'cited_by_count:desc', per_page:'16'
+  });
+  const identityStatus = auditOpenAlexWorks(matched,verifiedIdentity,results);
+  return identityStatus && {...matched,verifiedOrcid,identityStatus};
 }
 
 export async function discoverAuthorMetricIndexes(person, identity, read, stamp) {
@@ -130,8 +165,11 @@ export async function discoverAuthorMetricIndexes(person, identity, read, stamp)
   return indexes.flatMap(result => {
     if (result.status !== 'fulfilled' || !result.value.row) return [];
     const {provider, row} = result.value;
+    if (row.identityStatus === 'ambiguous') return [{
+      url:row.url, title:row.name, text:'', academic:{provider,url:row.url,identity_status:'ambiguous',metrics:{},checked_at:stamp}
+    }];
     const metrics = Object.fromEntries(Object.entries(row.metrics).filter(([,value]) => Number.isSafeInteger(value) && value >= 0));
     if (!Object.keys(metrics).length) return [];
-    return [{url:row.url, title:row.name, text:provider + ' · ' + row.name, ...(row.verifiedOrcid?{identity_fields:{orcid:row.verifiedOrcid}}:{}), academic:{provider, url:row.url, metrics, checked_at:stamp}}];
+    return [{url:row.url, title:row.name, text:provider + ' · ' + row.name, ...(row.verifiedOrcid?{identity_fields:{orcid:row.verifiedOrcid}}:{}), academic:{provider, url:row.url, metrics, checked_at:stamp,...(row.identityStatus?{identity_status:row.identityStatus}:{})}}];
   });
 }

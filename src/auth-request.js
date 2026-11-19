@@ -1,3 +1,23 @@
+export function createAuthSessionStorage(remembered, tab, sessionKey) {
+  const tabOnlyKey = sessionKey + '-tab-only';
+  // Older versions saved unchecked logins in this tab and stored the preference across tabs.
+  if (tab.getItem(sessionKey) !== null) tab.setItem(tabOnlyKey, 'true');
+  const active = () => tab.getItem(tabOnlyKey) === 'true' ? tab : remembered;
+  return {
+    getItem: key => active().getItem(key),
+    setItem: (key, value) => active().setItem(key, value),
+    removeItem: key => active().removeItem(key),
+    remember(value) {
+      if (value) {
+        tab.removeItem(sessionKey);
+        tab.removeItem(tabOnlyKey);
+      } else {
+        tab.setItem(tabOnlyKey, 'true');
+      }
+    }
+  };
+}
+
 export async function invokeWithSessionRetry(client, options) {
   let result = await client.functions.invoke('library-api', options);
   if (result.error?.context?.status !== 401) return result;

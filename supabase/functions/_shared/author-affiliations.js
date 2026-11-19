@@ -9,7 +9,7 @@ const institutions=[
  ['Nanjing University','CN','南京大学'],['Sun Yat-sen University','CN','中山大学'],['Xi’an Jiaotong University','CN','西安交通大学','Xian Jiaotong University'],
  ['University of Chinese Academy of Sciences','CN','中国科学院大学','University of the Chinese Academy of Sciences'],['Hong Kong Polytechnic University','CN','香港理工大学','The Hong Kong Polytechnic University'],
  ['Hong Kong University of Science and Technology','CN','香港科技大学'],['University of Hong Kong','CN','香港大学'],['City University of Hong Kong','CN','香港城市大学'],
- ['Harvard University','US','哈佛大学'],['Stanford University','US','斯坦福大学'],['Princeton University','US','普林斯顿大学'],
+ ['Harvard University','US','哈佛大学','Harvard Medical School','Harvard School of Medicine','哈佛医学院','哈佛大学医学院'],['Stanford University','US','斯坦福大学'],['Princeton University','US','普林斯顿大学'],
  ['United States Naval Research Laboratory','US','US Naval Research Laboratory','U.S. Naval Research Laboratory','Naval Research Laboratory','Naval Research Lab','美国海军研究实验室'],
  ['Massachusetts Institute of Technology','US','MIT','麻省理工学院'],['California Institute of Technology','US','Caltech','加州理工学院'],
  ['University of Wisconsin-Madison','US','University of Wisconsin–Madison','威斯康星大学麦迪逊分校'],['University of Colorado Boulder','US','University of Colorado, Boulder','科罗拉多大学博尔德分校'],
