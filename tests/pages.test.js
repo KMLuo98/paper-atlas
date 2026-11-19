@@ -22,6 +22,28 @@ function fixture(width=1280){const highlights=[];const {document,window}=parseHT
  context.loadNetworkPhotos=async()=>new Map();context.createReaderExchange=createReaderExchange;context.annotationStore=annotationStore;context.referencesMarkup=referencesMarkup;context.openReferencesEditor=openReferencesEditor;context.mountPaperSupplements=mountPaperSupplements;context.ensureStorageSpace=async()=>{};context.installHelpTooltips=()=>{};context.mountAdaptiveToolbars=()=>{};context.e=core.escapeHTML;context.createIcons=()=>{};context.history={state:null,pushState(state,_,hash){this.state=state;context.location.hash=hash;},replaceState(state,_,hash){this.state=state;if(hash)context.location.hash=hash;}};vm.createContext(context);vm.runInContext(strip('../src/workspace-history.js'),context);vm.runInContext(strip('../src/appearance.js'),context);vm.runInContext(strip('../src/profile.js'),context);vm.runInContext(strip('../src/literature-search.js'),context);vm.runInContext(strip('../src/network-page.js').replace("const l=(zh,en)=>getLanguage()==='en'?en:zh;",''),context);context.l=(zh,en)=>zh;
  let source=strip('../src/main.js').replace(/^const libraryIntro=createLibraryIntro.*\r?\ninit\(\).*$/m,'');vm.runInContext(source+`\nthis.qa={state,render,renderLibrary,renderNetwork,renderReader,renderLiteratureSearch};`,context);context.qa.state.user={id:'owner',email:'owner@example.com'};context.qa.state.profile={username:'Owner'};context.qa.state.papers=structuredClone(papers);return {document,window,context,qa:context.qa};
 }
+test('successful login opens the study before dismissing its loading animation', async () => {
+ const {context,document,qa}=fixture();
+ const phases=[];
+ context.location.hash='#/login';
+ qa.state.user=null;
+ context.FormData=class {
+  get(key){return {identity:'qa@example.test',password:'synthetic-password',remember:'on'}[key];}
+ };
+ context.db.auth.signInWithPassword=async()=>({data:{session:{user:{id:'owner'}}}});
+ context.db.from=()=>({select(){return this;},eq(){return this;},async single(){return {data:{username:'Owner'}};}});
+ context.loadPapers=async()=>[];
+ context.createLibraryIntro=(_,mode)=>{
+  assert.equal(mode,'login');
+  return {ready(){phases.push('ready');},destroy(){phases.push('destroy');}};
+ };
+ await qa.render();
+ const form=document.querySelector('#auth-form');
+ await form.onsubmit({preventDefault(){},currentTarget:form});
+ assert(document.querySelector('.library-section'));
+ assert.deepEqual(phases,['ready','destroy']);
+});
+
 test('home page renders six keywords, canonical multi-journal filters, citation counts and separate card dates',()=>{
  const f=fixture();f.qa.renderLibrary();const d=f.document;assert(d.querySelector('#ai-assistant'));assert(!d.querySelector('.sidebar [data-nav=api]'));assert(!d.querySelector('.sidebar [data-nav=settings]'));assert(d.querySelector('[data-nav=chat]'));assert(d.querySelector('[data-nav=literature-search]'));assert.equal(d.querySelector('tbody tr .keywords').querySelectorAll('.keyword-chip').length,10);assert.equal(d.querySelector('tbody tr .keywords').querySelectorAll(':scope > .keyword-chip').length,6);assert.match(d.querySelector('tbody tr .paper-authors').textContent,/12/);
  const checks=[...d.querySelectorAll('[data-journal]')];assert.deepEqual(checks.map(c=>c.value),['Nature Communications','Physical Review E']);checks[0].checked=true;checks[0].onchange();assert.equal(d.querySelectorAll('tbody tr').length,1);checks[1].checked=true;checks[1].onchange();assert.equal(d.querySelectorAll('tbody tr').length,3);
