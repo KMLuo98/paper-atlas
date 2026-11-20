@@ -99,6 +99,14 @@ const actionIcons = {
 
 const draftExitIcons = {cancel:'pencil',discard:'trash-2',save:'save'};
 
+const submitIcons = {
+  'personal-profile-form':'save', 'preferences-form':'save', 'compose-form':'send',
+  'account-form':'save', 'category-form':'save', 'contact-groups-form':'save',
+  'contact-form':'save', 'contact-info-form':'check', 'export-form':'download',
+  'forgot-form':'mail', 'bulk-category-form':'folder', 'password-form':'key-round',
+  'reset-password-form':'key-round'
+};
+
 const mountedRails = new WeakSet();
 export function prepareMailAppearance(icon) {
   paintAppearanceControls();
@@ -126,8 +134,9 @@ export function prepareMailAppearance(icon) {
     if (control.classList.contains(actionClass)) continue;
     const label = control.textContent.trim();
     if (!label) continue;
-    const glyph = actionIcons[control.dataset.action] || draftExitIcons[control.dataset.draftExit] || (control.type === 'submit' ? 'check' : '');
     const currentIcon = control.querySelector('[data-lucide],svg');
+    const glyph = actionIcons[control.dataset.action] || draftExitIcons[control.dataset.draftExit] ||
+      (!currentIcon && control.type === 'submit' && control.form ? submitIcons[control.form.id] || '' : '');
     if (currentIcon && glyph) currentIcon.setAttribute('data-lucide', glyph);
     if (!currentIcon) {
       if (!glyph) continue;

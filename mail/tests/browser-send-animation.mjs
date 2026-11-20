@@ -9,7 +9,11 @@ try{for(const width of [390,1440]){
  const page=await browser.newPage({viewport:{width,height:950}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.addInitScript(()=>{window.__calls=[];window.__translations={};window.__sendReady=false;window.__sendFail=false;window.__fixture={profile:{username:'QA'},accounts:[{id:'a',email:'qa@example.edu',label:'School',enabled:false}],settings:{},contacts:[],drafts:[],categories:[],counts:[],messages:[]};});
  await page.route('**/src/cloud.js',r=>r.fulfill({body:mock,contentType:'application/javascript'}));await page.goto('http://127.0.0.1:5174/');await page.locator('#mail-launch').waitFor({state:'detached'});
+ assert.equal(await page.locator('[data-action=ai-classify] svg').getAttribute('data-lucide'),'sparkles');
+ assert.equal(await page.locator('.head-actions [data-action=export] svg').getAttribute('data-lucide'),'download');
  if(width<700)await page.locator('.mobile-menu').click();await page.locator('[data-action=compose]').click();
+ assert.equal(await page.locator('#compose-form .compose-bottom>button.primary svg').getAttribute('data-lucide'),'send');
+ assert.equal(await page.locator('[data-action=save-draft] svg').getAttribute('data-lucide'),'save');
  await page.locator('[name=to]').fill('recipient@example.edu');await page.locator('[name=subject]').fill('Animation fixture');await page.locator('#compose-body').fill('A synthetic letter for animation verification.');
  await page.locator('#compose-form .compose-bottom>button.primary').click();await page.locator('[data-action=confirm-send]').click();await page.locator('.mail-send-stage').waitFor();
  const scene=page.locator('.mail-send-stage');
