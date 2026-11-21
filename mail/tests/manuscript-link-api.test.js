@@ -59,3 +59,17 @@ test('save persists auto/manual mode and APS manual links are never silently rep
  response=await f.request({...body,id:item.id,tracking_mode:'auto'});assert.equal(response.status,200);
  item=(await response.json()).manuscripts[0];assert.match(item.tracking_url,/accode=EXR1234/);assert.ok(!item.manual_fields.includes('tracking_url'));
 });
+
+test('statistics reset requires one selected journal and leaves every other adjustment intact',async()=>{
+ const f=fixture(),journal='Physical Review E',other='Physica D: Nonlinear Phenomena';
+ f.workspace.data.manuscripts=[{id:'paper',journal,status:'rejected',deleted_at:'2026-11-21'}];
+ f.workspace.data.stats_offsets={[journal]:{total:8,active:2,completed:6,accepted:4,rejected:2},[other]:{total:5,active:1,completed:4,accepted:2,rejected:2}};
+ const before=JSON.stringify(f.workspace);
+ let response=await f.request({action:'statistics',reset:true});assert.equal(response.status,400);assert.equal(JSON.stringify(f.workspace),before);
+ response=await f.request({action:'statistics',reset:true,journal});assert.equal(response.status,200);
+ const result=await response.json();
+ assert.deepEqual(result.statistics.find(row=>row.journal===journal),{journal,total:1,active:0,accepted:0,rejected:1,completed:1});
+ assert.deepEqual(result.stats_offsets[other],{total:5,active:1,completed:4,accepted:2,rejected:2});
+ response=await f.request({action:'statistics',reset:true,journal:other});assert.equal(response.status,200);
+ assert.deepEqual((await response.json()).statistics.find(row=>row.journal===other),{journal:other,total:0,active:0,completed:0,accepted:0,rejected:0});
+});

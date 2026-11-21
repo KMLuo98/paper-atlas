@@ -252,6 +252,10 @@ AI 与阅读偏好|AI & reading preferences
 外审|Peer review
 接收|Accepted
 邮件阶段记录|Email stage record
+进度更新时间|Progress updated
+累计|Total
+重置当前期刊|Reset this journal
+已重置该期刊统计|Journal statistics reset
 暂无稿件|No submissions
 点击更新状态从已同步邮件识别，或手动添加稿件|Update to discover submissions in synced mail, or add one manually.
 识别或添加稿件后显示统计|Statistics appear after discovering or adding submissions.

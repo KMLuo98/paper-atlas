@@ -133,18 +133,36 @@ test('rounds use actual revision cycles and never an R embedded in an APS access
  assert.equal(submissionRound({publisher:'Elsevier',number:'PHYSD-D-26-12345R2',events:[]}),1); // the identifier alone is insufficient
 });
 
-test('each Elsevier observation appends a snapshot even when review counts and activity have not changed',()=>{
+test('Elsevier history records real progress changes rather than repeated unchanged queries',()=>{
  const item={publisher:'Elsevier',number:'PHYSD-D-26-12345',events:[]};
  const metrics={revision:1,reviews_completed:'0',invitations_accepted:'2',invitations_sent:'2',last_review_activity:'2026-11-01'};
  recordMetrics(item,metrics,'2026-11-01','https://example.test/status',{observed_at:'2026-11-02T09:00:00Z'});
  recordMetrics(item,metrics,'2026-11-01','https://example.test/status',{observed_at:'2026-11-03T09:00:00Z'});
  recordMetrics(item,metrics,'2026-11-01','https://example.test/status',{observed_at:'2026-11-03T09:00:00Z'}); // retry of one observation
- assert.equal(item.metric_history.length,2);
+ assert.equal(item.metric_history.length,1);
  assert.equal(item.metric_history[0].metric_date,'2026-11-01');
- assert.equal(item.metric_history[1].date,'2026-11-03T09:00:00Z');
+ assert.equal(item.metric_history[0].date,'2026-11-02T09:00:00Z');
+ recordMetrics(item,{...metrics,invitations_accepted:'3'},'2026-11-01','https://example.test/status',{observed_at:'2026-11-04T09:00:00Z'});
+ recordMetrics(item,metrics,'2026-11-01','https://example.test/status',{observed_at:'2026-11-05T09:00:00Z'});
+ assert.equal(item.metric_history.length,3); // A → B → A is a real sequence, not a global duplicate
  const copy=structuredClone(item.metric_history);item.metric_history=[];
  for(const row of copy)recordMetrics(item,row.metrics,row.metric_date,row.source_url,{...row,observed_at:row.date});
- assert.equal(item.metric_history.length,2);
+ assert.equal(item.metric_history.length,3);
+});
+
+test('legacy identical snapshots collapse in the view without hiding status, round or activity changes',()=>{
+ const metrics={revision:1,reviews_completed:'0',invitations_accepted:'2',invitations_sent:'2',last_review_activity:'2026-11-19T10:16:37Z'};
+ const item={publisher:'Elsevier',events:[],metric_history:[{date:'2026-11-19T10:16:37Z',metrics},...['21:41','22:58','23:15'].map(time=>({date:'2026-11-21T'+time+':00Z',metric_date:'2026-11-19T10:16:37Z',status:'under_review',metrics:{...metrics,reviews_completed:0}}))]};
+ const before=structuredClone(item.metric_history),rows=reviewHistory(item);
+ assert.equal(rows.length,1);assert.equal(rows[0].status,'under_review');
+ assert.equal(new Date(rows[0].date).toISOString(),'2026-11-19T10:16:37.000Z');
+ assert.deepEqual(item.metric_history,before);
+ recordMetrics(item,metrics,'2026-11-19T10:16:37Z','',{observed_at:'2026-11-22T01:00:00Z',status:'reviews_completed'});
+ assert.equal(reviewHistory(item).length,2);
+ recordMetrics(item,{...metrics,revision:2},'2026-11-19T10:16:37Z','',{observed_at:'2026-11-22T02:00:00Z',status:'reviews_completed'});
+ assert.equal(reviewHistory(item).length,3);
+ recordMetrics(item,{...metrics,revision:2,last_review_activity:'2026-11-22T03:00:00Z'},'2026-11-22T03:00:00Z','',{observed_at:'2026-11-22T04:00:00Z',status:'reviews_completed'});
+ assert.equal(reviewHistory(item).length,4);
 });
 
 test('earlier-round mail evidence remains visible without inventing old reviewer counts',()=>{

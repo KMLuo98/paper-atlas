@@ -1,6 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.117.3';
 import {parseHTML} from 'npm:linkedom@0.18.13';
-import {STATUSES,text,candidateMail,ruleExtract,publisherOf,normalizeStatus,safeStatusURL,safeLink,apsURL,manuscriptKey,applyObservation,rawStatistics,statistics,publisherForJournal,reconcileManuscripts,recordMetrics,extractReviewMetrics,POST_ACCEPTED,canonicalJournal,applyPublisherMetadata,bulkManuscriptAction,automaticTrackingLink,trackingLinkFromText,canonicalNumber} from './core.js';
+import {STATUSES,text,candidateMail,ruleExtract,publisherOf,normalizeStatus,safeStatusURL,safeLink,apsURL,manuscriptKey,applyObservation,rawStatistics,statistics,publisherForJournal,reconcileManuscripts,recordMetrics,extractReviewMetrics,POST_ACCEPTED,canonicalJournal,applyPublisherMetadata,bulkManuscriptAction,automaticTrackingLink,trackingLinkFromText,canonicalNumber,resetJournalStatistics} from './core.js';
 import {fetchStatusPage} from './publishers.js';
 
 const env=(name:string)=>Deno.env.get(name)||'';
@@ -259,7 +259,7 @@ Deno.serve(async request=>{
   }
   if(action==='statistics'){
    return json(view(await mutate(user,row=>{
-    if(b.reset){row.data.stats_offsets={};return row;}
+    if(b.reset){try{resetJournalStatistics(row.data,b.journal);}catch(error){throw new RequestError(400,error.message);}return row;}
     const rows=Array.isArray(b.rows)?b.rows:[b],seen=new Set();
     const counts=rawStatistics(row.data);
     for(const entry of rows){

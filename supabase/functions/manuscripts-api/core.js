@@ -139,10 +139,10 @@ export function applyObservation(data,observation) {
   }
   item.key=manuscriptKey(item);
   if(item.publisher==='APS'&&item.lookup_author&&!temporaryAPSNumber(item.number)&&item.tracking_mode!=='manual'&&!item.manual_fields?.includes('tracking_url'))item.tracking_url=apsURL(item.number,item.lookup_author);
-  if(observation.metrics)recordMetrics(item,observation.metrics,observation.date,observation.source_url||observation.tracking_url,{source:observation.source,source_id:observation.source_id,status:observation.status});
   const duplicate=item.events.some(event=>event.source_id===observation.source_id&&event.status===observation.status&&event.date===observation.date&&event.raw_status===(observation.raw_status||STATUSES[observation.status]));
   if(!duplicate)item.events.push({id:crypto.randomUUID(),date:observation.date,status:observation.status,raw_status:observation.raw_status||STATUSES[observation.status],source:observation.source,source_id:observation.source_id,message_ref:observation.message_ref||'',source_url:observation.source_url||'',number:observedNumber||item.number});
   item.events.sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));
+  if(observation.metrics)recordMetrics(item,observation.metrics,observation.date,observation.source_url||observation.tracking_url,{source:observation.source,source_id:observation.source_id,status:observation.status});
   // Unknown observations remain visible in the history without erasing a known decision.
   const latest=[...item.events].reverse().find(event=>event.status!=='unknown');
   if(latest){item.status=latest.status;item.status_at=latest.date;}
@@ -166,6 +166,11 @@ export function statistics(data) {
   const raw=rawStatistics(data);
   for(const journal of Object.keys(data.stats_offsets||{}))raw[journal]??={total:0,active:0,accepted:0,rejected:0,completed:0};
   return Object.entries(raw).map(([journal,row])=>({journal,...Object.fromEntries(Object.entries(row).map(([key,value])=>[key,Math.max(0,value+(data.stats_offsets?.[journal]?.[key]||0))]))}));
+}
+export function resetJournalStatistics(data,value){
+  const journal=canonicalJournal(value);
+  if(!journal||(!Object.hasOwn(rawStatistics(data),journal)&&!Object.hasOwn(data.stats_offsets||{},journal)))throw Error('请选择要重置的已保存期刊');
+  data.stats_offsets={...data.stats_offsets,[journal]:{total:0,active:0,completed:0,accepted:0,rejected:0}};
 }
 
 export function publisherForJournal(journal,publisher='') {
@@ -273,7 +278,13 @@ export function recordMetrics(item,metrics,date,url='',observation={}) {
   const value={...metrics,revision:metrics.revision??null},observed=observation.observed_at||date;
   item.metric_history??=[];
   if(item.metric_history.some(row=>row.date===observed&&row.source_url===url&&JSON.stringify(row.metrics)===JSON.stringify(value)))return;
-  item.metric_history.push({date:observed,metric_date:date,metrics:value,source_url:url,source:observation.source||'website',source_id:observation.source_id||'',status:observation.status||''});
+  const candidate={date:observed,metric_date:date,metrics:value,source_url:url,source:observation.source||'website',source_id:observation.source_id||'',status:observation.status||''};
+  const previous=item.metric_history.at(-1);
+  if(previous&&reviewSnapshotRows(item,[previous,candidate]).length===1){
+    if((!previous.status||previous.status==='unknown')&&candidate.status)previous.status=candidate.status;
+    return;
+  }
+  item.metric_history.push(candidate);
   item.metric_history.sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));
 }
 
@@ -306,14 +317,29 @@ export function submissionRound(item) {
   const metrics=(item.metric_history||[]).map(row=>metricRevision(row.metrics.revision)).filter(value=>value!==null).map(value=>value+1);
   return Math.max(1,explicit,...submissionStages(item).map(event=>event.round),...metrics);
 }
-export function reviewHistory(item) {
+function reviewSnapshotRows(item,snapshots) {
   const stages=submissionStages(item);
-  const rows=(item.metric_history||[]).map(row=>{
+  const rows=[];
+  for(const row of [...snapshots].sort((a,b)=>Date.parse(a.date)-Date.parse(b.date))){
     const revision=metricRevision(row.metrics.revision);
     const at=row.metric_date||row.date;
     const inferred=[...stages].reverse().find(event=>Date.parse(event.date)<=Date.parse(at))?.round||1;
-    return {...row,kind:'metrics',round:revision===null?inferred:revision+1};
-  });
+    const round=revision===null?inferred:revision+1;
+    const normalized=normalizeStatus(row.status);
+    const status=normalized==='unknown'?'':normalized;
+    const signature=JSON.stringify([round,...['reviews_completed','invitations_accepted','invitations_sent'].map(key=>row.metrics[key]==null?'':String(row.metrics[key]).trim()),Number.isFinite(progressTime(row.metrics.last_review_activity))?new Date(progressTime(row.metrics.last_review_activity)).toISOString():String(row.metrics.last_review_activity||'').trim()]);
+    const progressDate=[row.metric_date,row.metrics.last_review_activity,...(!Object.hasOwn(row,'metric_date')?[row.date]:[])].find(value=>Number.isFinite(progressTime(value)))||'';
+    const previous=rows.at(-1);
+    if(previous&&previous.signature===signature&&(!previous.status||!status||previous.status===status)){
+      previous.status=status||previous.status;
+      if(Date.parse(progressDate)>Date.parse(previous.date)||!previous.date)previous.date=progressDate;
+    }else rows.push({...row,kind:'metrics',round,status,date:progressDate,signature});
+  }
+  return rows;
+}
+export function reviewHistory(item) {
+  const stages=submissionStages(item);
+  const rows=reviewSnapshotRows(item,item.metric_history||[]);
   const available=new Set(rows.map(row=>row.round));
   const seen=new Set();
   for(const event of stages){
@@ -321,7 +347,7 @@ export function reviewHistory(item) {
     const key=[event.source_id,event.date,event.status].join('|');if(seen.has(key))continue;seen.add(key);
     rows.push({...event,kind:'email'});
   }
-  return rows.sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
+  return rows.sort((a,b)=>(Date.parse(b.date)||0)-(Date.parse(a.date)||0));
 }
 function progressTime(value){
   if(typeof value!=='string'||!value.trim())return NaN;

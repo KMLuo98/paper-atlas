@@ -83,9 +83,10 @@ function fitStatistics(){
 }
 window.addEventListener('resize',fitStatistics,{passive:true});
 function statsHTML(){
- return '<section class="submission-statistics"><div class="block-heading"><h2>投稿统计</h2><div>'+action('stats-add','编辑统计','pencil')+action('stats-reset','重置统计','undo-2')+'</div></div><div class="submission-stats-scroll"><table><thead><tr><th>期刊</th><th>累计投稿</th><th>进行中</th><th>已完成</th><th>Accept</th><th>Reject</th><th></th></tr></thead><tbody>'+
+ const totals=['total','active','completed','accepted','rejected'].map(key=>state.statistics.reduce((sum,row)=>sum+(Number(row[key])||0),0));
+ return '<section class="submission-statistics"><div class="block-heading"><h2>投稿统计</h2><div>'+action('stats-add','编辑统计','pencil')+'</div></div><div class="submission-stats-scroll"><table><thead><tr><th>期刊</th><th>累计投稿</th><th>进行中</th><th>已完成</th><th>Accept</th><th>Reject</th><th></th></tr></thead><tbody>'+
  state.statistics.map(row=>'<tr><th class="stats-journal" title="'+esc(row.journal)+'" data-user-content><span class="journal-full">'+esc(row.journal)+'</span><span class="journal-short">'+esc(journalShort(row.journal))+'</span></th>'+['total','active','completed','accepted','rejected'].map(key=>'<td>'+row[key]+'</td>').join('')+'<td><button class="icon-btn" data-ms="stats-edit" data-journal="'+esc(row.journal)+'" aria-label="编辑 '+esc(row.journal)+' 的统计">'+icon('pencil',16)+'</button></td></tr>').join('')+
- '</tbody></table>'+(state.statistics.length?'':'<p class="muted">识别或添加稿件后显示统计</p>')+'</div></section>';
+ '</tbody><tfoot><tr><th scope="row">累计</th>'+totals.map(value=>'<td>'+value+'</td>').join('')+'<td></td></tr></tfoot></table>'+(state.statistics.length?'':'<p class="muted">识别或添加稿件后显示统计</p>')+'</div></section>';
 }
 function timelineHTML(events){
  return '<ol class="submission-timeline">'+[...events].reverse().map(event=>'<li><time>'+fmtDate(event.date,true)+'</time><div>'+status(event)+'<p data-user-content>'+esc(event.raw_status||'')+'</p>'+
@@ -99,7 +100,7 @@ function publisherHTML(item){
  if(item.lookup_notice)html+='<p class="submission-notice">'+esc(item.lookup_notice)+'</p>';
  if(item.publisher==='Elsevier'){
   const metrics=reviewHistory(item);
-  html+='<ol class="review-metric-history">'+metrics.map(row=>'<li data-review-kind="'+row.kind+'"><header><span class="submission-round" data-user-content>'+roundLabel({round:row.round})+'</span><time>'+fmtDate(row.date,true)+'</time></header>'+status(row)+(row.kind==='email'?'<p data-user-content>'+esc(row.raw_status)+'</p><button class="text-btn" data-ms="source" data-source="'+esc(row.message_ref||row.source_id)+'">'+icon('mail-open',14)+' 邮件阶段记录</button>':'<dl>'+[
+  html+='<ol class="review-metric-history">'+metrics.map(row=>'<li data-review-kind="'+row.kind+'"><header><span class="submission-round" data-user-content>'+roundLabel({round:row.round})+'</span><time title="进度更新时间">'+(row.date?fmtDate(row.date,true):'—')+'</time></header>'+status(row)+(row.kind==='email'?'<p data-user-content>'+esc(row.raw_status)+'</p><button class="text-btn" data-ms="source" data-source="'+esc(row.message_ref||row.source_id)+'">'+icon('mail-open',14)+' 邮件阶段记录</button>':'<dl>'+[
    ['Reviews completed',row.metrics.reviews_completed],['Review invitations accepted',row.metrics.invitations_accepted],['Review invitations sent',row.metrics.invitations_sent],['Last review activity',row.metrics.last_review_activity&&Number.isFinite(Date.parse(row.metrics.last_review_activity))?fmtDate(row.metrics.last_review_activity,true):row.metrics.last_review_activity]
   ].map(([label,value])=>'<dt>'+label+'</dt><dd>'+esc(value??'—')+'</dd>').join('')+'</dl>')+'</li>').join('')+'</ol>';
   if(!metrics.length)html+='<p class="muted">尚无审稿进度记录</p>';
@@ -186,7 +187,7 @@ function statsEditorRow(row={}){
 function editStats(journal=''){
  const selected=state.statistics.find(row=>row.journal===journal)||state.statistics[0];
  context.modal('编辑投稿统计','<form id="submission-stats-form"><label>选择期刊<select id="statistics-journal-choice">'+state.statistics.map((row,index)=>'<option value="'+index+'" '+(row===selected?'selected':'')+'>'+esc(row.journal)+'</option>').join('')+'<option value="new" '+(!selected?'selected':'')+'>添加期刊…</option></select></label><div id="statistics-edit-rows">'+statsEditorRow(selected)+'</div>'+
- '<p class="form-error" role="alert"></p><div class="modal-footer"><button class="primary" type="submit">'+icon('save',16)+' 保存统计</button></div></form>',true);
+ '<p class="form-error" role="alert"></p><div class="modal-footer">'+action('stats-reset','重置当前期刊','undo-2','data-stats-reset '+(!selected?'hidden':''))+'<button class="primary" type="submit">'+icon('save',16)+' 保存统计</button></div></form>',true);
 }
 async function confirmAction(label,run){
  context.modal(label,'<p>确认'+label+'？</p><div class="modal-footer"><button class="secondary" data-action="close-modal">取消</button><button class="primary" id="submission-confirm">确认</button></div>');
@@ -253,6 +254,7 @@ document.addEventListener('change',event=>{
  if(event.target.id==='statistics-journal-choice'){
   const row=event.target.value==='new'?undefined:state.statistics[Number(event.target.value)];
   document.querySelector('#statistics-edit-rows').innerHTML=statsEditorRow(row);
+  document.querySelector('[data-stats-reset]').hidden=!row;
   document.querySelector('#submission-stats-form .form-error').textContent='';
  }
  if(event.target.matches?.('[data-ms-select]')){event.target.checked?checkedManuscripts.add(event.target.dataset.msSelect):checkedManuscripts.delete(event.target.dataset.msSelect);repaint();}
@@ -302,7 +304,15 @@ document.addEventListener('click',async event=>{
   else if(op==='source')await context.openSource(button.dataset.source);
   else if(op==='stats-edit')editStats(button.dataset.journal);
   else if(op==='stats-add')editStats();
-  else if(op==='stats-reset')await confirmAction('重置统计为库内稿件计数',async()=>{await updateManuscripts();if(notice)throw Error(notice);state=await request('statistics',{reset:true});});
+  else if(op==='stats-reset'){
+   const form=button.closest('#submission-stats-form');if(!form||button.hidden)return;
+   const journal=form.querySelector('[data-stat=journal]').value,controls=[...form.elements];controls.forEach(control=>control.disabled=true);
+   try{
+    state=await request('statistics',{reset:true,journal});
+    if(form.isConnected){form.querySelector('#statistics-edit-rows').innerHTML=statsEditorRow(state.statistics.find(row=>row.journal===journal));form.querySelector('.form-error').textContent='';}
+    repaint();context.toast('已重置该期刊统计');
+   }finally{controls.forEach(control=>control.disabled=false);}
+  }
   else if(op==='purge')await confirmAction('永久删除此稿件',async()=>{state=await request('purge',{id:item.id});selected='';context.routeChange({id:''});if(item.status==='rejected')celebrate(true);else if(acceptedBefore(item))celebrate();});
   else if(['archive','trash','restore'].includes(op)){
    button.disabled=true;state=await request(op,{id:item.id});selected='';context.routeChange({id:''});

@@ -26,7 +26,7 @@ export async function api(action,b={}){
  if(action==='manuscripts_bulk_restore'){for(const item of academic.manuscripts)if(b.ids.includes(item.id)){item.archived_at=null;item.deleted_at=null;}}
  if(action==='manuscripts_purge')academic.manuscripts=academic.manuscripts.filter(item=>item.id!==b.id);
  if(action==='manuscripts_statistics'){
-  if(b.reset)academic.statistics=[{journal:'Physical Review E',total:2,active:1,completed:1,accepted:1,rejected:0}];
+  if(b.reset){const row=academic.statistics.find(row=>row.journal===b.journal);Object.assign(row,b.journal==='Physical Review E'?{total:2,active:1,completed:1,accepted:1,rejected:0}:{total:0,active:0,completed:0,accepted:0,rejected:0});}
   else for(const row of b.rows||[b]){const old=academic.statistics.findIndex(item=>item.journal===row.journal),value={...row,total:+row.total,active:+row.active,completed:+row.completed,accepted:+row.accepted,rejected:+row.rejected};if(old<0)academic.statistics.push(value);else academic.statistics[old]=value;}
  }
  if(action.startsWith('manuscripts_'))return structuredClone(academic);
@@ -140,13 +140,17 @@ try{
   await page.locator('#submission-stats-form [type=submit]').click();
   await page.locator('#submission-stats-form').waitFor({state:'detached'});
   assert.equal(await page.locator('.submission-stats-scroll tbody td').first().innerText(),'10');
+  assert.equal(await page.locator('[data-ms=stats-reset]').count(),0);
+  await page.locator('[data-ms=stats-add]').click();
   await page.locator('[data-ms=stats-reset]').click();
-  await page.locator('#submission-confirm').click();
-  await page.locator('#submission-confirm').waitFor({state:'detached'});
+  await page.waitForFunction(()=>document.querySelector('#submission-stats-form [data-stat=total]').value==='2');
+  await page.locator('#submission-stats-form [type=submit]').click();
+  await page.locator('#submission-stats-form').waitFor({state:'detached'});
   assert.equal(await page.locator('.submission-stats-scroll tbody td').first().innerText(),'2');
   await page.locator('[data-ms=stats-add]').click();
   assert.equal(await page.locator('.stats-editor-row').count(),1);
   await page.locator('#statistics-journal-choice').selectOption('new');
+  assert.equal(await page.locator('[data-ms=stats-reset]').isVisible(),false);
   const added=page.locator('.stats-editor-row').last();
   await added.locator('[data-stat=journal]').fill('Chaos');
   await added.locator('[data-stat=total]').fill('1');
@@ -164,10 +168,20 @@ try{
   await page.locator('#submission-stats-form [type=submit]').click();
   await page.locator('#submission-stats-form').waitFor({state:'detached'});
   assert.equal(await page.locator('.submission-stats-scroll tbody tr').count(),2);
+  assert.equal(await page.locator('.submission-stats-scroll tfoot td').first().innerText(),'4');
+  assert.ok(+(await page.locator('.submission-stats-scroll tfoot th').evaluate(node=>getComputedStyle(node).fontWeight))>=600);
+  await page.locator('[data-ms=stats-add]').click();
+  await page.locator('#statistics-journal-choice').selectOption('0');
+  await page.locator('[data-ms=stats-reset]').click();
+  await page.waitForFunction(()=>!document.querySelector('[data-ms=stats-reset]').disabled);
+  await page.locator('#submission-stats-form [type=submit]').click();
+  await page.locator('#submission-stats-form').waitFor({state:'detached'});
+  assert.equal(await page.locator('.submission-stats-scroll tbody tr').count(),2);
+  assert.equal(await page.locator('.stats-journal[title=Chaos]').locator('..').locator('td').first().innerText(),'2');
   await nav('contacts');await nav('manuscripts');
-  assert.equal(await page.evaluate(()=>window.__refreshes),3); // daily check + restored tracker + reset scan
+  assert.equal(await page.evaluate(()=>window.__refreshes),2); // daily check + restored tracker; statistics resets do not query publishers
   await page.locator('[data-ms=refresh]').click();
-  await page.waitForFunction(()=>window.__refreshes===4);
+  await page.waitForFunction(()=>window.__refreshes===3);
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   await page.locator('[data-language-choice=en]').click();
   await page.getByRole('heading',{name:'Submissions',exact:true}).waitFor();
