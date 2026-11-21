@@ -78,3 +78,87 @@
 @media(prefers-reduced-motion:reduce) {.firework-burst i,.celebration-message {animation:none}}
 
 .submission-publisher img[hidden] {display:none}
+.submission-card {grid-template-rows:minmax(0,1fr) auto;align-content:stretch;position:relative}
+.submission-idline {display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:8px;min-width:0}
+.submission-round {font-size:12px;white-space:nowrap;color:var(--mail-label,#52685f)}
+.submission-state {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:9px;align-self:end}
+.submission-state>.submission-status {grid-column:1;grid-row:2;justify-self:start}
+.submission-state>a {grid-column:2;grid-row:2;justify-self:end;white-space:nowrap}
+.submission-last-update {grid-row:1;grid-column:1/-1;font-size:11px;color:var(--mail-label,#52685f);line-height:1.6}
+.submission-list .submission-state {display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.submission-list .submission-state>.submission-status,.submission-list .submission-state>a {align-self:flex-start}
+.submission-vault {position:static;justify-content:flex-end;margin-top:24px;padding:0;background:none;border:0;border-radius:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+.submission-dashboard {display:grid;grid-template-columns:minmax(0,1fr);gap:28px;align-items:start}
+.submission-dashboard .submission-statistics {margin-top:0;min-width:0}
+.submission-results {min-width:0}
+.submission-stats-scroll table {min-width:0;font-size:12px}
+.submission-stats-scroll :is(th,td) {padding:12px 5px}
+.submission-stats-scroll thead th {white-space:normal;font-size:11px}
+.stats-journal {white-space:nowrap}
+.journal-short {display:none}
+.submission-stats-scroll[data-abbreviated] .journal-full {display:none}
+.submission-stats-scroll[data-abbreviated] .journal-short {display:inline}
+.submission-history-columns {display:grid;grid-template-columns:minmax(0,1fr);gap:28px;margin-top:26px}
+.submission-history-columns>section {min-width:0}
+.submission-history-columns h2 {font-size:19px;font-weight:500;margin:0 0 20px}
+.submission-history-columns .submission-timeline li {grid-template-columns:minmax(0,1fr);gap:8px;padding-left:20px}
+.publisher-table-scroll {overflow-x:auto}
+.publisher-history-table {width:100%;border-collapse:collapse;font-size:13px;line-height:1.7}
+.publisher-history-table th,.publisher-history-table td {padding:11px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+.publisher-history-table th {font-weight:500;color:var(--mail-label,#52685f)}
+.publisher-history-table td {overflow-wrap:anywhere}
+.review-metric-history {list-style:none;margin:0;padding:0;display:grid;gap:18px}
+.review-metric-history li {border:1px solid var(--border);border-radius:12px;padding:16px}
+.review-metric-history time {font-size:12px;color:var(--mail-label,#52685f)}
+.review-metric-history dl {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;font-size:13px;margin:16px 0}
+.review-metric-history dd {margin:0;text-align:right;overflow-wrap:anywhere;max-width:150px}
+.submission-old-numbers {font-size:11px;margin-top:8px}
+.submission-select {position:absolute;left:8px;top:8px;width:16px;height:16px;z-index:1}
+.submission-card.is-selected {box-shadow:inset 0 0 0 2px #638b82}
+.submission-bulk-bar {display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px}
+.submission-bulk-bar>span {font-size:13px}
+.stats-editor-row {border:1px solid var(--border);border-radius:12px;padding:18px;margin:0 0 18px;min-width:0}
+.stats-editor-row .form-grid {grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.stats-editor-row input {width:100%;min-width:0}
+@media(min-width:1380px) {
+ .submission-dashboard {grid-template-columns:minmax(0,1fr) minmax(380px,.7fr);gap:24px}
+ .submission-history-columns {grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:30px}
+}
+@media(max-width:700px) {
+ .submission-state {gap:8px}
+ .submission-list .submission-state {flex-direction:column;align-items:flex-start}
+ .submission-detail .submission-idline {flex-wrap:wrap}
+ .submission-bulk-bar button {width:40px;min-width:40px;padding:0}
+ .stats-editor-row .form-grid {grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+.is-comfort {align-content:center;gap:30px}
+.reassurance-scene {position:relative;width:230px;height:155px;margin:auto}
+.comfort-person {position:absolute;bottom:0;width:76px;height:130px}
+.comfort-recipient {left:35px;animation:comfort-lean 4.2s var(--motion-ease) both}
+.comfort-friend {right:25px;animation:comfort-approach 4.2s var(--motion-ease) both}
+.comfort-head {position:absolute;top:3px;left:20px;width:40px;height:40px;border-radius:50%;background:#c5ac88;box-shadow:inset 0 1px #fff6}
+.comfort-body {position:absolute;bottom:0;left:5px;width:68px;height:78px;border-radius:32px 32px 16px 16px;background:#79969d}
+.comfort-friend .comfort-head {background:#d7c7ac}
+.comfort-friend .comfort-body {background:#395f6a}
+.comfort-arm {position:absolute;top:48px;left:12px;width:73px;height:15px;border-radius:20px;background:#395f6a;transform-origin:8px center;animation:comfort-pat 4.2s ease-in-out both;z-index:2}
+.comfort-arm::after {content:"";position:absolute;right:-4px;top:-3px;width:22px;height:19px;border-radius:12px;background:#d7c7ac}
+.comfort-hug {position:absolute;top:63px;left:-34px;width:80px;height:40px;border:15px solid #395f6a;border-right:0;border-top:0;border-radius:0 0 0 25px;opacity:0;animation:comfort-embrace 4.2s ease both;z-index:3}
+.comfort-message {padding:0 20px 20px;animation:none}
+.comfort-message h2 {font-size:28px;margin:0 0 22px}
+@keyframes comfort-pat {
+ 0%{transform:rotate(-140deg);opacity:0}
+ 15%{transform:rotate(-148deg);opacity:1}
+ 25%,45%{transform:rotate(-165deg)}
+ 35%,55%{transform:rotate(-150deg)}
+ 68%,100%{transform:rotate(-190deg);opacity:0}
+}
+@keyframes comfort-approach {0%,55%{transform:translateX(0)}80%,100%{transform:translateX(-22px)}}
+@keyframes comfort-lean {0%,55%{transform:rotate(0)}80%,100%{transform:translateX(8px) rotate(7deg)}}
+@keyframes comfort-embrace {0%,62%{opacity:0;transform:scaleX(.8)}82%,100%{opacity:1;transform:scaleX(1)}}
+@media(prefers-reduced-motion:reduce) {
+ .reassurance-scene * {animation:none}
+ .comfort-arm {display:none}
+ .comfort-friend {transform:translateX(-22px)}
+ .comfort-recipient {transform:translateX(8px) rotate(7deg)}
+ .comfort-hug {opacity:1}
+}

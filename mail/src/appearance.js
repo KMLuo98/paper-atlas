@@ -84,6 +84,7 @@ const toolbarButtons = [
   '.list-actions button', '.pagination button', '.translation-controls button',
   '.email-bottom button', '.filter-controls button', '.contact-card-actions button'
 ].join(',');
+const allMobileButtons='.workspace button,.modal button,.mail-admin button,.auth-form button,.submission-celebration button';
 const adaptiveToolbarButtons = '.modal-footer button, .form-footer button, .account-preferences button, .compose-bottom .file-button';
 const actionIcons = {
   'bulk-read':'check', 'bulk-category':'folder', 'load-older':'arrow-down',
@@ -94,7 +95,12 @@ const actionIcons = {
   'close-modal':'x', 'delete-category':'trash-2', 'reset-mail-columns':'undo-2',
   'accept-photo':'check', 'crop-match-photo':'camera', 'expand-photo':'search',
   'confirm-merge':'merge', 'stop-photos':'pause', 'retry-photos':'refresh-cw',
-  'confirm-disconnect':'unplug'
+  'confirm-disconnect':'unplug',
+  'auth-login':'mail','auth-register':'user-plus','forgot':'key-round',
+  'match-contact-info':'sparkles','delete-contact':'trash-2','contact-trash-more':'arrow-down',
+  'choose-self-photo':'image-off','remove-self-photo':'trash-2',
+  'choose-contact-photo':'image-off','remove-contact-photo':'trash-2',
+  'add-contact-email':'plus','confirm-send':'send','back':'arrow-left'
 };
 
 const draftExitIcons = {cancel:'pencil',discard:'trash-2',save:'save'};
@@ -104,7 +110,8 @@ const submitIcons = {
   'account-form':'save', 'category-form':'save', 'contact-groups-form':'save',
   'contact-form':'save', 'contact-info-form':'check', 'export-form':'download',
   'forgot-form':'mail', 'bulk-category-form':'folder', 'password-form':'key-round',
-  'reset-password-form':'key-round'
+  'reset-password-form':'key-round',
+  'submission-form':'save','submission-stats-form':'save'
 };
 
 const mountedRails = new WeakSet();
@@ -129,23 +136,26 @@ export function prepareMailAppearance(icon) {
     const marker = button.querySelector('.color-dot');
     if (marker && !marker.firstChild) marker.innerHTML = icon('mail', 15);
   }
-  for (const control of document.querySelectorAll(toolbarButtons+','+adaptiveToolbarButtons)) {
-    const actionClass = control.matches(toolbarButtons) ? 'mobile-icon-action' : 'adaptive-icon-action';
+  for (const control of document.querySelectorAll(toolbarButtons+','+adaptiveToolbarButtons+','+allMobileButtons)) {
+    if(control.closest('[data-language-control],.format-toolbar,.inbox-filter-options,.recipient-options')||control.querySelector('img')||control.matches('[data-option]'))continue;
+    const actionClass = control.matches(allMobileButtons)||control.matches(toolbarButtons) ? 'mobile-icon-action' : 'adaptive-icon-action';
     if (control.classList.contains(actionClass)) continue;
-    const label = control.textContent.trim();
+    const label = (control.getAttribute('aria-label')||control.textContent).trim();
     if (!label) continue;
     const currentIcon = control.querySelector('[data-lucide],svg');
     const glyph = actionIcons[control.dataset.action] || draftExitIcons[control.dataset.draftExit] ||
-      (!currentIcon && control.type === 'submit' && control.form ? submitIcons[control.form.id] || '' : '');
+      (!currentIcon && control.type === 'submit' && control.form ? submitIcons[control.form.id] || '' : '') ||
+      (!currentIcon ? ({'关闭':'x','取消':'x','确认':'check','保存':'save','加载更多':'arrow-down'})[label] || 'menu' : '');
     if (currentIcon && glyph) currentIcon.setAttribute('data-lucide', glyph);
     if (!currentIcon) {
       if (!glyph) continue;
       control.insertAdjacentHTML('afterbegin', icon(glyph, 18));
       if (actionClass === 'adaptive-icon-action') control.firstElementChild.classList.add('adaptive-action-glyph');
     }
+    if(control.classList.contains('icon-btn')&&!control.querySelector('svg,[data-lucide]'))continue;
     const text = document.createElement('span');
     text.className = 'mobile-action-label';
-    for (const node of [...control.childNodes]) if (node.nodeType === 3) text.append(node);
+    for (const node of [...control.childNodes]) if (node.nodeType === 3||node.nodeType===1&&node.matches('.ms-button-label')) text.append(node);
     if (!text.textContent.trim()) continue;
     control.append(text);
     control.classList.add(actionClass);
