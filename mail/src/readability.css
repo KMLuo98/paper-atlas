@@ -50,3 +50,6 @@ html[data-appearance="glass"] {
   .modal>.send-summary>p {gap:8px}
   .modal>.send-summary>p>span {width:4.4em}
 }
+
+.mail-check-preferences>label>span {line-height:22px}
+.mail-check-preferences :is(input,select) {height:46px}
