@@ -208,6 +208,9 @@ AI 与阅读偏好|AI & reading preferences
 稿件号|Manuscript number
 稿件状态|Status
 状态链接|Status link
+状态链接方式|Status link mode
+自动匹配链接|Automatic matching
+手动输入|Manual entry
 状态历史|Status history
 出版社信息|Publisher records
 邮件信息|Email records

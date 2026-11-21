@@ -10,7 +10,9 @@
   color:var(--motion-ink,#263e46);
 }
 .mail-launch-content {display:flex;align-items:center;flex-direction:column;width:100%;padding:24px}
-.mail-launch-stage {width:min(420px,94vw);height:min(340px,62dvh);position:relative}
+.mail-launch-stage {width:min(440px,94vw);height:min(370px,62dvh);position:relative}
+.intro-atlas-orbit {position:absolute;left:50%;top:50%;width:min(350px,90vw);height:auto;color:#b09a72;transform:translate(-50%,-50%);animation:intro-atlas-orbit 24s linear infinite}
+@keyframes intro-atlas-orbit {from{transform:translate(-50%,-50%) rotate(0)}to{transform:translate(-50%,-50%) rotate(360deg)}}
 .intro-envelope {
   position:absolute;
   left:50%;
@@ -18,7 +20,7 @@
   width:220px;
   height:148px;
   transform:translateX(-50%) scale(var(--intro-scale,1));
-  filter:drop-shadow(0 18px 20px #233f4a24);
+  filter:drop-shadow(0 22px 25px #24493820);
 }
 .intro-envelope-back,.intro-envelope-front {position:absolute;inset:0;width:220px;height:148px}
 .intro-envelope-back {z-index:1}
@@ -56,14 +58,17 @@
   height:65px;
   display:grid;
   place-items:center;
-  border-radius:18px;
-  background:#ffffffed;
-  border:1px solid #fff;
-  box-shadow:0 6px 18px #18394418,inset 0 -1px 1px #3156630d;
+  border-radius:16px;
+  background:#f9faf4e8;
+  border:1px solid #c9d0bca6;
+  box-shadow:0 9px 22px #24493810,inset 0 1px #fff9;
   opacity:0;
   animation:intro-gather 6s cubic-bezier(.4,0,.2,1) var(--delay) infinite both;
 }
-.intro-provider svg {width:49px;height:49px}
+.intro-provider svg {width:49px;height:49px;filter:saturate(.85)}
+.intro-envelope-seal {position:absolute;left:84px;top:69px;width:52px;height:52px;z-index:7;opacity:0;transform:scale(.72)}
+.mail-launch.is-leaving .intro-envelope-seal {animation:intro-seal .4s ease-out both}
+@keyframes intro-seal {from{opacity:0;transform:scale(.72)}to{opacity:1;transform:scale(1)}}
 .mail-launch.is-finishing .intro-provider {animation:none;opacity:0}
 @keyframes intro-gather {
   0% {opacity:0;transform:translate(var(--from-x),var(--from-y)) rotate(var(--tilt)) scale(.86)}
@@ -74,9 +79,10 @@
 .intro-envelope-glow {position:absolute;inset:-80px;border-radius:50%;background:radial-gradient(ellipse,#fffdf4a6,transparent 68%);opacity:0;z-index:0;pointer-events:none}
 .intro-envelope-shine {position:absolute;inset:0;border-radius:12px;background:linear-gradient(110deg,transparent 30%,#ffffffb3 48%,transparent 66%);opacity:0;z-index:8;pointer-events:none}
 .intro-star {display:none}
-.mail-launch-caption {display:flex;align-items:center;flex-direction:column;gap:12px;margin-top:26px;text-align:center;line-height:1.6}
-.mail-launch-caption strong {font-size:24px;letter-spacing:.1em;font-weight:500}
-.mail-launch-caption span {font-size:12px;color:var(--motion-muted,#697d85);letter-spacing:.06em}
+.mail-launch-caption {display:flex;align-items:center;flex-direction:column;gap:14px;margin-top:25px;text-align:center;line-height:1.6}
+.mail-launch-caption strong {font-family:Georgia,'Noto Serif SC','Songti SC',serif;font-size:32px;letter-spacing:.08em;font-weight:400;color:#36584e}
+.mail-launch-caption span {font-size:11px;color:var(--motion-muted,#697d85);letter-spacing:.08em}
+.mail-launch-caption .intro-caption-rule {display:block;width:30px;height:1px;background:#ad956859;margin-bottom:2px}
 .mail-launch.is-leaving .intro-envelope-glow {animation:intro-glow .8s ease-out both}
 .mail-launch.is-leaving .intro-envelope-shine {animation:intro-shine .6s ease-in-out both}
 .mail-launch.is-leaving .mail-launch-stage {animation:intro-open-workspace .95s cubic-bezier(.32,0,.18,1) both}
@@ -99,11 +105,16 @@
 }
 @keyframes intro-curtain {0%,25%{opacity:1}100%{opacity:0}}
 @media(max-width:480px) {
-  .intro-envelope {--intro-scale:.82}
+  .intro-envelope {--intro-scale:.88}
   .mail-launch-caption {margin-top:12px}
-  .mail-launch-caption strong {font-size:22px}
+  .mail-launch-caption strong {font-size:29px}
 }
 @media(prefers-reduced-motion:reduce) {
   .mail-launch.is-leaving {animation:intro-soft-exit .36s ease-out both!important}
+  .intro-atlas-orbit {animation:none}
+  .intro-provider {animation:none;opacity:0}
+  .intro-envelope-flap {animation:none!important;transform:scaleY(-1);z-index:2}
+  .mail-launch.is-finishing .intro-envelope-flap {transform:scaleY(1);z-index:6}
+  .mail-launch.is-leaving .mail-launch-stage,.mail-launch.is-leaving .intro-envelope-glow,.mail-launch.is-leaving .intro-envelope-shine {animation:none}
 }
 @keyframes intro-soft-exit {from{opacity:1}to{opacity:0}}

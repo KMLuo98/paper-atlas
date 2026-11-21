@@ -9,6 +9,7 @@ export async function api(action,b={}){
  const d=window.__fixture,academic=window.__academic;
  if(action==='bootstrap')return structuredClone(d);
  if(action==='list')return {messages:[],total:0};
+ if(action==='manuscripts_resolve_link')return {tracking_url:''};
  if(action==='manuscripts_toggle')academic.enabled=b.enabled;
  if(action==='manuscripts_refresh'){window.__refreshes++;academic.last_updated_at='2026-11-21T09:00:00Z';}
  if(action==='manuscripts_save'){
@@ -105,6 +106,20 @@ try{
   await page.locator('[data-ms=restore]').click();
   await page.locator('[data-ms=scope-active]').click();
   await page.locator('[data-ms=add]').click();
+  assert.equal(await page.locator('#submission-form [name=tracking_mode]').inputValue(),'auto');
+  assert.equal(await page.locator('#submission-tracking-url').evaluate(input=>input.readOnly),true);
+  await page.locator('#submission-form [name=publisher]').fill('APS');
+  await page.locator('#submission-form [name=journal]').fill('Physical Review E');
+  await page.locator('#submission-form [name=number]').fill('EXR5678');
+  await page.locator('#submission-form [name=lookup_author]').fill('Author');
+  assert.match(await page.locator('#submission-tracking-url').inputValue(),/accode=EXR5678&author=Author/);
+  await page.locator('#submission-form [name=tracking_mode]').selectOption('manual');
+  await page.locator('#submission-tracking-url').fill('https://example.test/my-status');
+  await page.locator('#submission-form [name=tracking_mode]').selectOption('auto');
+  assert.match(await page.locator('#submission-tracking-url').inputValue(),/accode=EXR5678/);
+  await page.locator('#submission-form [name=tracking_mode]').selectOption('manual');
+  assert.equal(await page.locator('#submission-tracking-url').inputValue(),'https://example.test/my-status');
+  await page.locator('#submission-form [name=tracking_mode]').selectOption('auto');
   await page.locator('#submission-form [name=publisher]').fill('A custom academic publisher');
   await page.locator('#submission-form [name=journal]').fill('Physica A');
   await page.locator('#submission-form [name=title]').fill('Manually tracked');

@@ -79,6 +79,24 @@ export function safeStatusURL(value) {
     return u.href;
   }catch{return '';}
 }
+export function automaticTrackingLink(value,records=[]){
+  const publisher=publisherForJournal(value.journal,publisherOf(value.publisher)||value.publisher);
+  const key=manuscriptKey({...value,publisher});
+  const matching=records.filter(item=>manuscriptKey(item)===key||(item.number_history||[]).some(number=>manuscriptKey({...item,number})===key));
+  if(publisher==='APS'){
+    const generated=apsURL(value.number,value.lookup_author||matching.find(item=>item.lookup_author)?.lookup_author);
+    if(generated)return generated;
+  }
+  return matching.filter(item=>item.tracking_mode!=='manual'&&(item.tracking_mode==='auto'||!item.manual_fields?.includes('tracking_url')))
+    .map(item=>safeLink(item.tracking_url)).find(Boolean)||'';
+}
+export function trackingLinkFromText(body){
+  const s=String(body||'');
+  const links=[...s.matchAll(/https:\/\/[^\s<>"']+/g)].map(m=>safeLink(m[0].replace(/[).,]+$/,''))).filter(Boolean);
+  const score=url=>/track\.authorhub\.elsevier\.com/i.test(url)?100:/authors\.aps\.org\/Submissions\/status/i.test(url)?90:/(peerx-press\.org|ejpress\.com)/i.test(url)?80:/editorialmanager\.com/i.test(url)?60:/track|\/status|submission|manuscript/i.test(url)&&!/(support|service)\./i.test(url)?30:0;
+  const explicit=s.match(/Check Manuscript Status[\s\S]{0,180}?(https:\/\/[^\s<>"']+)/i)?.[1];
+  return (explicit&&safeLink(explicit.replace(/[).,]+$/,'')))||links.filter(url=>score(url)>0).sort((a,b)=>score(b)-score(a))[0]||'';
+}
 export function candidateMail(mail) {
   const value=[mail.from_email,mail.from_name,mail.subject,mail.text_body?.slice(0,2500)].join(' ');
   return /manuscript|稿件|投稿|submission|physical review|decision on|editorial decision|decision letter|revised article|editorialmanager/i.test(value) &&
@@ -97,10 +115,7 @@ export function ruleExtract(mail,body) {
   const authors=s.match(/^(?:(?:co[- ]?|all\s+)?authors?|author\s+list|作者)\s*[:：]\s*(.+)$/im)?.[1]||'';
   const statusLine=s.match(/^(?:(?:current|manuscript)\s+)?status\s*[:：]\s*(.+)$/im)?.[1];
   const status=normalizeStatus(statusLine||mail.subject);
-  const links=[...s.matchAll(/https:\/\/[^\s<>"']+/g)].map(m=>safeLink(m[0].replace(/[).,]+$/,''))).filter(Boolean);
-  const score=url=>/track\.authorhub\.elsevier\.com/i.test(url)?100:/authors\.aps\.org\/Submissions\/status/i.test(url)?90:/(peerx-press\.org|ejpress\.com)/i.test(url)?80:/editorialmanager\.com/i.test(url)?60:/track|\/status|submission|manuscript/i.test(url)&&!/(support|service)\./i.test(url)?30:0;
-  const explicit=s.match(/Check Manuscript Status[\s\S]{0,180}?(https:\/\/[^\s<>"']+)/i)?.[1];
-  const tracking_url=(explicit&&safeLink(explicit))||links.filter(url=>score(url)>0).sort((a,b)=>score(b)-score(a))[0]||'';
+  const tracking_url=trackingLinkFromText(s);
   return {publisher,journal,title,authors,number,status,raw_status:statusLine||text(mail.subject,300),tracking_url};
 }
 export function applyObservation(data,observation) {
@@ -120,10 +135,10 @@ export function applyObservation(data,observation) {
   if(item.publisher==='APS'&&!temporaryAPSNumber(item.number)&&temporaryAPSNumber(observation.number))observation={...observation,number:item.number,tracking_url:item.tracking_url};
   if(revisionNumber(item.number)>revisionNumber(observation.number)&&canonicalNumber(item.number,item.publisher)===canonicalNumber(observation.number,item.publisher))observation={...observation,number:item.number};
   for(const field of ['publisher','journal','title','authors','number','tracking_url','lookup_author']) {
-    if(observation[field]&&!(item.manual_fields||[]).includes(field)&&(!item[field]||(field==='authors'&&item.authors_partial)||Date.parse(observation.date)>=Date.parse(item.status_at||0))){item[field]=observation[field];if(field==='authors'){item.authors_partial=false;item.authors_source=observation.source;}}
+    if(observation[field]&&!(item.manual_fields||[]).includes(field)&&!(field==='tracking_url'&&item.tracking_mode==='manual')&&(!item[field]||(field==='authors'&&item.authors_partial)||Date.parse(observation.date)>=Date.parse(item.status_at||0))){item[field]=observation[field];if(field==='authors'){item.authors_partial=false;item.authors_source=observation.source;}}
   }
   item.key=manuscriptKey(item);
-  if(item.publisher==='APS'&&item.lookup_author&&!temporaryAPSNumber(item.number))item.tracking_url=apsURL(item.number,item.lookup_author);
+  if(item.publisher==='APS'&&item.lookup_author&&!temporaryAPSNumber(item.number)&&item.tracking_mode!=='manual'&&!item.manual_fields?.includes('tracking_url'))item.tracking_url=apsURL(item.number,item.lookup_author);
   if(observation.metrics)recordMetrics(item,observation.metrics,observation.date,observation.source_url||observation.tracking_url,{source:observation.source,source_id:observation.source_id,status:observation.status});
   const duplicate=item.events.some(event=>event.source_id===observation.source_id&&event.status===observation.status&&event.date===observation.date&&event.raw_status===(observation.raw_status||STATUSES[observation.status]));
   if(!duplicate)item.events.push({id:crypto.randomUUID(),date:observation.date,status:observation.status,raw_status:observation.raw_status||STATUSES[observation.status],source:observation.source,source_id:observation.source_id,message_ref:observation.message_ref||'',source_url:observation.source_url||'',number:observedNumber||item.number});
@@ -189,7 +204,7 @@ export function reconcileManuscripts(data) {
     for(const field of ['title','authors','lookup_author','tracking_url']){
       const manual=[...entries].filter(item=>item[field]&&item.manual_fields?.includes(field)).sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at))[0];
       const source=manual||sorted.find(item=>item[field]&&(field!=='authors'||!item.authors_partial))||sorted.find(item=>item[field]);
-      if(source){target[field]=source[field];if(field==='authors'){target.authors_partial=Boolean(source.authors_partial);target.authors_source=source.authors_source;}}
+      if(source){target[field]=source[field];if(field==='authors'){target.authors_partial=Boolean(source.authors_partial);target.authors_source=source.authors_source;}if(field==='tracking_url'&&(source.tracking_mode==='manual'||source.manual_fields?.includes(field)))target.tracking_mode='manual';}
     }
     target.manual_fields=[...new Set(entries.flatMap(item=>item.manual_fields||[]))];
     target.number_history=[...new Set(entries.flatMap(item=>[item.number,...(item.number_history||[])]).filter(Boolean))];
@@ -224,7 +239,7 @@ export function reconcileManuscripts(data) {
     target.created_at=new Date(Math.min(Date.parse(target.created_at),Date.parse(old.created_at))).toISOString();
     target.archived_at=target.archived_at||old.archived_at;target.deleted_at=target.deleted_at||old.deleted_at;
     for(const field of ['title','authors','lookup_author'])if(!target[field])target[field]=old[field]||'';
-    if(target.lookup_author)target.tracking_url=apsURL(target.number,target.lookup_author);
+    if(target.lookup_author&&target.tracking_mode!=='manual'&&!target.manual_fields?.includes('tracking_url'))target.tracking_url=apsURL(target.number,target.lookup_author);
     data.manuscripts=data.manuscripts.filter(item=>item.id!==old.id);
   }
   return data;

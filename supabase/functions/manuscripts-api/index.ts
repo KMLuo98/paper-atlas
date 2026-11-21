@@ -1,6 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.117.3';
 import {parseHTML} from 'npm:linkedom@0.18.13';
-import {STATUSES,text,candidateMail,ruleExtract,publisherOf,normalizeStatus,safeStatusURL,safeLink,apsURL,manuscriptKey,applyObservation,rawStatistics,statistics,publisherForJournal,reconcileManuscripts,recordMetrics,extractReviewMetrics,POST_ACCEPTED,canonicalJournal,applyPublisherMetadata,bulkManuscriptAction} from './core.js';
+import {STATUSES,text,candidateMail,ruleExtract,publisherOf,normalizeStatus,safeStatusURL,safeLink,apsURL,manuscriptKey,applyObservation,rawStatistics,statistics,publisherForJournal,reconcileManuscripts,recordMetrics,extractReviewMetrics,POST_ACCEPTED,canonicalJournal,applyPublisherMetadata,bulkManuscriptAction,automaticTrackingLink,trackingLinkFromText,canonicalNumber} from './core.js';
 import {fetchStatusPage} from './publishers.js';
 
 const env=(name:string)=>Deno.env.get(name)||'';
@@ -43,6 +43,30 @@ function bodyText(message:any){
  if(message.text_body)return message.text_body+'\n'+links;
  for(const element of document.querySelectorAll('br,p,div,tr'))element.appendChild(document.createTextNode('\n'));
  return (document.body?.textContent||document.documentElement.textContent||'')+'\n'+links;
+}
+async function resolveTracking(value:any,user:string,data:any){
+ const known=automaticTrackingLink(value,data.manuscripts);if(known)return known;
+ if(!value.number||!value.journal)return '';
+ const publisher=publisherForJournal(value.journal,publisherOf(value.publisher)||value.publisher);
+ const number=canonicalNumber(value.number,publisher);
+ if(number.length<4||number.length>120)return '';
+ const pattern='%'+number.replace(/[\\%_]/g,'\\$&')+'%';
+ const batches=await Promise.all(['subject','text_body','html_body'].map(field=>checked(service.from('mail_messages')
+  .select('id,subject,from_email,from_name,received_at').eq('user_id',user).eq('direction','received').ilike(field,pattern).order('received_at',{ascending:false}).limit(30))));
+ const priority=(mail:any)=>/track.{0,30}status|status.{0,30}submission|稿件.{0,10}状态|稿件进度/i.test(mail.subject)?1:0;
+ const candidates:any[]=[...new Map(batches.flat().map((mail:any)=>[mail.id,mail])).values()].sort((a:any,b:any)=>priority(b)-priority(a)||Date.parse(b.received_at)-Date.parse(a.received_at)).slice(0,8);
+ const exact=new RegExp('(?:^|[^A-Z0-9])'+number.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?:R\\d*)?(?=$|[^A-Z0-9])','i');
+ for(const message of candidates){
+  if(/invit(?:e|ation).{0,30}(?:review|referee)|review invitation/i.test(message.subject))continue;
+  const raw=await checked(service.from('mail_messages').select('text_body,html_body').eq('user_id',user).eq('id',message.id).single());
+  const body=bodyText({text_body:raw.text_body?.slice(0,150000),html_body:raw.html_body?.slice(0,150000)});
+  if(!exact.test(message.subject+'\n'+body))continue;
+  const rule=ruleExtract(message,body);
+  if(rule?.number&&canonicalNumber(rule.number,publisher)!==number)continue;
+  if(rule?.journal&&canonicalJournal(rule.journal)!==canonicalJournal(value.journal))continue;
+  const url=rule?.tracking_url||trackingLinkFromText(body);if(url)return url;
+ }
+ return '';
 }
 
 async function modelJSON(system:string,input:string,maxTokens=1000){
@@ -182,6 +206,10 @@ Deno.serve(async request=>{
   if(action==='get')return json(view(await upgradeWorkspace(user)));
   if(action==='toggle')return json(view(await mutate(user,row=>({...row,enabled:b.enabled===true}))));
   const current=await workspace(user);if(!current.enabled)throw new RequestError(400,'请先开启学术版');
+  if(action==='resolve_link'){
+   const value=Object.fromEntries(['publisher','journal','number','lookup_author'].map(field=>[field,text(b[field],200)]));
+   return json({tracking_url:await resolveTracking(value,user,current.data)});
+  }
   if(action==='refresh')return json(await refresh(user,b.start===true,b.daily===true));
   if(action==='save'){
    const id=b.id||crypto.randomUUID(),fields=['publisher','journal','title','authors','number','status','tracking_url','lookup_author'];
@@ -190,8 +218,10 @@ Deno.serve(async request=>{
    value.publisher=publisherForJournal(value.journal,publisherOf(value.publisher)||value.publisher);
    value.journal=canonicalJournal(value.journal);
    value.status=Object.hasOwn(STATUSES,value.status)?value.status:'unknown';
-   if(value.tracking_url&&!safeLink(value.tracking_url))throw new RequestError(400,'请填写有效的 HTTPS 状态链接');
-   if(value.publisher==='APS')value.tracking_url=apsURL(value.number,value.lookup_author)||value.tracking_url||'https://authors.aps.org/Submissions/status';
+   if(b.tracking_mode&&!['auto','manual'].includes(b.tracking_mode))throw new RequestError(400,'请选择自动匹配或手动输入');
+   const trackingMode=b.tracking_mode|| (value.tracking_url?'manual':'auto');
+   if(trackingMode==='auto')value.tracking_url=await resolveTracking(value,user,current.data);
+   else if(value.tracking_url&&!safeLink(value.tracking_url))throw new RequestError(400,'请填写有效的 HTTPS 状态链接');
    return json(view(await mutate(user,row=>{
     let item=row.data.manuscripts.find((m:any)=>m.id===id);
     if(b.id&&!item)throw new RequestError(404,'稿件已不存在');
@@ -201,7 +231,7 @@ Deno.serve(async request=>{
     if(!item){item={id,events:[],created_at:new Date().toISOString()};row.data.manuscripts.push(item);}
     if(item.key&&item.key!==key)row.data.tombstones.push(item.key);
     const changed=item.status!==value.status;
-    Object.assign(item,value,{key,manual_fields:fields.filter(field=>field!=='status'&&field!=='number'&&value[field]),updated_at:new Date().toISOString()});
+    Object.assign(item,value,{key,tracking_mode:trackingMode,manual_fields:fields.filter(field=>field==='tracking_url'?trackingMode==='manual':field!=='status'&&field!=='number'&&value[field]),updated_at:new Date().toISOString()});
     if(changed){item.status_at=new Date().toISOString();item.events.push({id:crypto.randomUUID(),date:item.status_at,status:value.status,raw_status:STATUSES[value.status],source:'manual',source_id:id});}
     return row;
    })));

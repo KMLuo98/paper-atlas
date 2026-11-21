@@ -2,7 +2,7 @@ import {publisherLogos} from './publisher-logos.js';
 import {esc,fmtDate,fuzzy} from './core.js';
 import {getMailLanguage} from './mail-language.js';
 import {feedbackHTML} from './submission-feedback.js';
-import {STATUSES,submissionRound,acceptedBefore,reviewHistory,progressUpdatedAt,SUBMISSION_PHASES,submissionPhase} from '../../supabase/functions/manuscripts-api/core.js';
+import {STATUSES,submissionRound,acceptedBefore,reviewHistory,progressUpdatedAt,SUBMISSION_PHASES,submissionPhase,automaticTrackingLink} from '../../supabase/functions/manuscripts-api/core.js';
 import './manuscripts.css';
 
 let context,owner='',loaded=false,loading,selectionMode='';
@@ -142,14 +142,41 @@ function repaint(){
 function input(name,label,value='',required=false){
  return '<label>'+label+'<input name="'+name+'" value="'+esc(value)+'" '+(required?'required':'')+'></label>';
 }
+let trackingTimer,trackingRequest=0;
+const linkText=(zh,en)=>getMailLanguage()==='en'?en:zh;
+function trackingFields(form){return Object.fromEntries(['publisher','journal','number','lookup_author'].map(name=>[name,form.elements[name].value]));}
+function previewTracking(form){
+ clearTimeout(trackingTimer);const ticket=++trackingRequest;
+ if(form.elements.tracking_mode.value!=='auto')return;
+ const field=form.elements.tracking_url,values=trackingFields(form);
+ field.readOnly=true;field.value=automaticTrackingLink(values,state.manuscripts);
+ field.placeholder=linkText('填写期刊和稿件号后自动匹配','Matched after you enter the journal and manuscript number');
+ if(!values.journal.trim()||!values.number.trim())return;
+ if(field.value)return;
+ field.placeholder=linkText('正在匹配状态链接…','Matching status link…');
+ trackingTimer=setTimeout(async()=>{
+  if(ticket!==trackingRequest||!form.isConnected)return;
+  try{
+   const result=await request('resolve_link',values);
+   if(ticket!==trackingRequest||!form.isConnected||form.elements.tracking_mode.value!=='auto')return;
+   field.value=result.tracking_url||'';
+   field.placeholder=linkText('尚未匹配，可选择手动输入','No match found. You can choose manual entry.');
+  }catch{
+   if(ticket===trackingRequest&&form.isConnected)field.placeholder=linkText('暂时无法匹配，可选择手动输入','Matching is unavailable. You can choose manual entry.');
+  }
+ },500);
+}
 function edit(item={}){
+ const manual=item.tracking_mode==='manual'||(!item.tracking_mode&&item.manual_fields?.includes('tracking_url')&&item.tracking_url);
  context.modal(item.id?'编辑稿件':'添加稿件','<form id="submission-form" data-id="'+(item.id||'')+'"><div class="form-grid">'+
  '<label>出版社<input name="publisher" list="submission-publishers" value="'+esc(item.publisher||'')+'" autocomplete="off"><datalist id="submission-publishers">'+['Elsevier','APS','AIP Publishing','Springer Nature','Wiley','Taylor & Francis','Sage'].map(name=>'<option value="'+name+'">').join('')+'</datalist></label>'+
  input('journal','投稿期刊',item.journal,true)+input('number','稿件号',item.number,true)+
  '<label>稿件状态<select name="status">'+Object.entries(STATUSES).map(([value,label])=>'<option value="'+value+'" '+(value===(item.status||'submitted')?'selected':'')+'>'+label+'</option>').join('')+'</select></label></div>'+
  input('title','标题',item.title,true)+input('authors','作者',item.authors)+input('lookup_author','APS 查询作者姓氏（前三位之一）',item.lookup_author)+
- input('tracking_url','状态链接',item.tracking_url)+
+ '<div class="submission-link-editor"><label for="submission-tracking-url">状态链接</label><div class="submission-link-controls"><select name="tracking_mode" aria-label="状态链接方式"><option value="auto" '+(!manual?'selected':'')+'>自动匹配链接</option><option value="manual" '+(manual?'selected':'')+'>手动输入</option></select><input id="submission-tracking-url" name="tracking_url" type="url" aria-label="状态链接" value="'+esc(item.tracking_url||'')+'" '+(!manual?'readonly':'')+'></div></div>'+
  '<p class="form-error" role="alert"></p><div class="modal-footer"><button type="submit" class="primary">'+icon('save',16)+' 保存稿件</button></div></form>',true);
+ const form=document.querySelector('#submission-form');form.dataset.manualLink=manual?item.tracking_url||'':'';
+ if(!manual)previewTracking(form);
 }
 
 function statsEditorRow(row={}){
@@ -211,6 +238,12 @@ document.addEventListener('click',event=>{if(event.target.matches?.('[data-ms-se
 document.addEventListener('toggle',event=>{if(event.target.matches?.('.submission-filter')&&event.target.open)for(const filter of document.querySelectorAll('.submission-filter[open]'))if(filter!==event.target)filter.open=false;},true);
 document.addEventListener('click',event=>{if(!event.target.closest?.('.submission-filters'))for(const filter of document.querySelectorAll('.submission-filter[open]'))filter.open=false;});
 document.addEventListener('change',event=>{
+ if(event.target.matches?.('#submission-form [name=tracking_mode]')){
+  const form=event.target.form,field=form.elements.tracking_url;
+  clearTimeout(trackingTimer);++trackingRequest;
+  if(event.target.value==='manual'){field.readOnly=false;field.value=form.dataset.manualLink||field.value;field.placeholder='https://';field.focus();}
+  else{form.dataset.manualLink=field.value;previewTracking(form);}
+ }
  if(event.target.matches?.('[data-ms-filter]')){
   const opened=[...document.querySelectorAll('.submission-filter[open]')].map(node=>node.dataset.submissionFilter);
   const filter=event.target.dataset.msFilter==='status'?statusFilters:journalFilters;
@@ -235,6 +268,11 @@ document.addEventListener('change',async event=>{
  }catch(error){event.target.checked=!enabled;context.toast(error.message,true);event.target.disabled=false;}
 });
 document.addEventListener('input',event=>{
+ if(event.target.matches?.('#submission-form input')){
+  const form=event.target.form;
+  if(event.target.name==='tracking_url'&&form.elements.tracking_mode.value==='manual')form.dataset.manualLink=event.target.value;
+  else if(['publisher','journal','number','lookup_author'].includes(event.target.name))previewTracking(form);
+ }
  if(event.target.id!=='submission-search')return;
  query=event.target.value;
  const pos=event.target.selectionStart;repaint();

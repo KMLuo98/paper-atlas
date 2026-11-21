@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parseHTML} from 'linkedom';
-import {applyObservation,reconcileManuscripts,publisherForJournal,submissionRound,acceptedBefore,recordMetrics,ruleExtract,rawStatistics,statistics,manuscriptKey,canonicalNumber,applyPublisherMetadata,bulkManuscriptAction,reviewHistory,progressUpdatedAt,submissionPhase,SUBMISSION_PHASES,STATUSES} from '../../supabase/functions/manuscripts-api/core.js';
+import {applyObservation,reconcileManuscripts,publisherForJournal,submissionRound,acceptedBefore,recordMetrics,ruleExtract,rawStatistics,statistics,manuscriptKey,canonicalNumber,applyPublisherMetadata,bulkManuscriptAction,reviewHistory,progressUpdatedAt,submissionPhase,SUBMISSION_PHASES,STATUSES,automaticTrackingLink,trackingLinkFromText} from '../../supabase/functions/manuscripts-api/core.js';
 import {parsePublisherHistory,fetchElsevierStatus} from '../../supabase/functions/manuscripts-api/publishers.js';
 
 test('APS promotes a temporary code to its formal code without adding a submission',()=>{
@@ -187,4 +187,31 @@ test('missing publisher activity cannot create a fake progress event at the quer
   const item={events:[]};recordMetrics(item,result.metrics,result.metric_date,result.url,{observed_at:result.fetched_at});
   assert.equal(item.metric_history.length,1);assert.equal(progressUpdatedAt(item),'');
  }finally{globalThis.fetch=original;}
+});
+
+test('automatic status links use exact manuscript identity and never invent a private tracker token',()=>{
+ const aps={publisher:'APS',journal:'Physical Review E',number:'EXR1134',lookup_author:'Author'};
+ assert.match(automaticTrackingLink(aps),/accode=EXR1134&author=Author/);
+ assert.equal(automaticTrackingLink({...aps,lookup_author:''}),'');
+ const value={publisher:'Elsevier',journal:'Physica D',number:'PHYSD-D-26-01234R1'};
+ const url='https://track.authorhub.elsevier.com/?uuid=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+ const record={...value,journal:'Physica D: Nonlinear Phenomena',number:'PHYSD-D-26-01234',tracking_url:url,tracking_mode:'auto'};
+ assert.equal(automaticTrackingLink(value,[record]),url);
+ assert.equal(automaticTrackingLink({...value,number:'PHYSD-D-26-54321'},[record]),'');
+ assert.equal(automaticTrackingLink(value,[{...record,tracking_mode:'manual'}]),'');
+ assert.equal(automaticTrackingLink(value,[{...record,tracking_mode:undefined,manual_fields:['tracking_url']}]),'');
+ assert.equal(automaticTrackingLink(value,[{...record,tracking_url:'javascript:alert(1)'}]),'');
+ assert.equal(trackingLinkFromText('Check Manuscript Status https://example.test/approve?id=1'),'');
+});
+
+test('manual APS status links survive mail updates while automatic links continue to follow the formal code',()=>{
+ const data={manuscripts:[],tombstones:[],stats_offsets:{}};
+ const observation={publisher:'APS',journal:'Physical Review E',number:'EXR1134',title:'Memory dynamics in a network',lookup_author:'Author',status:'submitted',date:'2026-11-01',source:'email',source_id:'first'};
+ const item=applyObservation(data,observation);
+ item.tracking_mode='manual';item.tracking_url='https://example.test/my-status';
+ applyObservation(data,{...observation,date:'2026-11-02',source_id:'new',tracking_url:'https://authors.aps.org/Submissions/status'});
+ assert.equal(item.tracking_url,'https://example.test/my-status');
+ item.tracking_mode='auto';
+ applyObservation(data,{...observation,date:'2026-11-03',source_id:'third'});
+ assert.match(item.tracking_url,/accode=EXR1134/);
 });
