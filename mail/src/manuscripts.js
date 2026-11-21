@@ -113,10 +113,10 @@ export function manuscriptsHTML(){
  return '<section class="page manuscripts-page">'+(item?'<div class="reader-toolbar">'+action('back','返回稿件','arrow-left')+'</div>':'')+
  '<header class="page-head"><div><h1>'+labels[scope]+'</h1>'+(state.last_updated_at?'<p>上次更新 '+fmtDate(state.last_updated_at,true)+'</p>':'')+'</div><div class="head-actions">'+
  action('refresh',updating?'更新中':'更新状态','refresh-cw',updating?'disabled aria-busy="true"':'')+
- (!item&&scope==='active'?action('select-archive','归档','archive')+action('select-trash','删除','trash-2'):'')+
+ (!item?(scope==='active'?action('select-archive','归档','archive')+action('select-trash','删除','trash-2'):action('select-restore','批量恢复','undo-2')):'')+
  action('add','手动添加','plus')+'</div></header>'+(updating?'<p role="status" class="submission-notice">正在检索邮件和查询稿件状态…</p>':'')+(notice?'<p role="status" class="submission-notice">'+esc(notice)+'</p>':'')+
  (item?detailHTML(item):'<div class="submission-dashboard"><section class="submission-results"><div class="submission-toolbar"><input type="search" id="submission-search" placeholder="搜索期刊、标题、作者或稿件号" aria-label="搜索稿件" value="'+esc(query)+'"><div class="contact-layout-switch" role="group" aria-label="稿件视图"><button data-ms="layout" data-layout="list" aria-label="列表视图" title="列表视图" aria-pressed="'+(layout==='list')+'">'+icon('list',16)+'</button><button data-ms="layout" data-layout="grid" aria-label="卡片视图" title="卡片视图" aria-pressed="'+(layout==='grid')+'">'+icon('layout-grid',16)+'</button></div></div>'+
- (selectionMode?'<div class="submission-bulk-bar"><label class="check"><input type="checkbox" data-ms-select-all '+(items.length&&items.every(item=>checkedManuscripts.has(item.id))?'checked':'')+'> 全选</label><span>已选 '+checkedManuscripts.size+' 篇</span>'+action('bulk-apply',selectionMode==='archive'?'归档所选':'删除所选',selectionMode==='archive'?'archive':'trash-2',checkedManuscripts.size?'':'disabled')+action('selection-cancel','取消选择','x')+'</div>':'')+
+ (selectionMode?'<div class="submission-bulk-bar"><label class="check"><input type="checkbox" data-ms-select-all '+(items.length&&items.every(item=>checkedManuscripts.has(item.id))?'checked':'')+'> 全选</label><span>已选 '+checkedManuscripts.size+' 篇</span>'+action('bulk-apply',selectionMode==='restore'?'恢复所选':selectionMode==='archive'?'归档所选':'删除所选',selectionMode==='restore'?'undo-2':selectionMode==='archive'?'archive':'trash-2',checkedManuscripts.size?'':'disabled')+action('selection-cancel','取消选择','x')+'</div>':'')+
  '<div class="submission-items '+(layout==='list'?'submission-list':'')+'">'+(items.map(listItem).join('')||'<div class="empty-state"><h2>暂无稿件</h2><p>点击更新状态从已同步邮件识别，或手动添加稿件</p></div>')+'</div></section>'+statsHTML()+'</div>')+
  '<div class="submission-vault">'+action('scope-archived','已归档','archive')+action('scope-trash','垃圾箱','trash-2')+(scope!=='active'?action('scope-active','返回进行中','arrow-left'):'')+'</div></section>';
 }
@@ -142,9 +142,9 @@ function statsEditorRow(row={}){
  [['total','累计投稿'],['active','进行中'],['completed','已完成'],['accepted','Accept'],['rejected','Reject']].map(([name,label])=>'<label>'+label+'<input data-stat="'+name+'" type="number" min="0" max="1000000" value="'+(row[name]||0)+'" required></label>').join('')+'</div></fieldset>';
 }
 function editStats(journal=''){
- const rows=journal?state.statistics.filter(row=>row.journal===journal):state.statistics;
- context.modal('编辑投稿统计','<form id="submission-stats-form"><div id="statistics-edit-rows">'+(rows.length?rows.map(statsEditorRow).join(''):statsEditorRow())+'</div>'+
- action('stats-row-add','添加期刊','plus')+'<p class="form-error" role="alert"></p><div class="modal-footer"><button class="primary" type="submit">'+icon('save',16)+' 保存统计</button></div></form>',true);
+ const selected=state.statistics.find(row=>row.journal===journal)||state.statistics[0];
+ context.modal('编辑投稿统计','<form id="submission-stats-form"><label>选择期刊<select id="statistics-journal-choice">'+state.statistics.map((row,index)=>'<option value="'+index+'" '+(row===selected?'selected':'')+'>'+esc(row.journal)+'</option>').join('')+'<option value="new" '+(!selected?'selected':'')+'>添加期刊…</option></select></label><div id="statistics-edit-rows">'+statsEditorRow(selected)+'</div>'+
+ '<p class="form-error" role="alert"></p><div class="modal-footer"><button class="primary" type="submit">'+icon('save',16)+' 保存统计</button></div></form>',true);
 }
 async function confirmAction(label,run){
  context.modal(label,'<p>确认'+label+'？</p><div class="modal-footer"><button class="secondary" data-action="close-modal">取消</button><button class="primary" id="submission-confirm">确认</button></div>');
@@ -194,6 +194,11 @@ export function checkAcademicDaily(user){
 }
 document.addEventListener('click',event=>{if(event.target.matches?.('[data-ms-select]'))event.stopPropagation();},true);
 document.addEventListener('change',event=>{
+ if(event.target.id==='statistics-journal-choice'){
+  const row=event.target.value==='new'?undefined:state.statistics[Number(event.target.value)];
+  document.querySelector('#statistics-edit-rows').innerHTML=statsEditorRow(row);
+  document.querySelector('#submission-stats-form .form-error').textContent='';
+ }
  if(event.target.matches?.('[data-ms-select]')){event.target.checked?checkedManuscripts.add(event.target.dataset.msSelect):checkedManuscripts.delete(event.target.dataset.msSelect);repaint();}
  if(event.target.matches?.('[data-ms-select-all]')){for(const item of document.querySelectorAll('[data-ms-select]')){event.target.checked?checkedManuscripts.add(item.dataset.msSelect):checkedManuscripts.delete(item.dataset.msSelect);}repaint();}
 });
@@ -222,12 +227,11 @@ document.addEventListener('click',async event=>{
   if(op==='detail'){if(selectionMode){checkedManuscripts.has(item.id)?checkedManuscripts.delete(item.id):checkedManuscripts.add(item.id);}else context.routeChange({id:item.id});repaint();}
   else if(op==='back'){context.back();}
   else if(op==='add')edit();
-  else if(op==='stats-row-add'){document.querySelector('#statistics-edit-rows').insertAdjacentHTML('beforeend',statsEditorRow());context.icons();document.querySelector('#statistics-edit-rows .stats-editor-row:last-child input').focus();}
   else if(op.startsWith('select-')){selectionMode=op.slice(7);checkedManuscripts.clear();repaint();}
   else if(op==='selection-cancel'){selectionMode='';checkedManuscripts.clear();repaint();}
   else if(op==='bulk-apply'){
    button.disabled=true;const selectedIds=[...checkedManuscripts];
-   state=await request('bulk_'+selectionMode,{ids:selectedIds});selectionMode='';checkedManuscripts.clear();repaint();
+   state=await request('bulk_'+selectionMode,{ids:selectedIds,scope});const restored=selectionMode==='restore';selectionMode='';checkedManuscripts.clear();repaint();if(restored)updateManuscripts();
   }
   else if(op==='edit')edit(item);
   else if(op==='layout'){layout=button.dataset.layout;localStorage.setItem('mail-manuscript-layout',layout);repaint();}

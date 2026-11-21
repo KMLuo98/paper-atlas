@@ -49,12 +49,13 @@ export function normalizeStatus(value) {
 }
 export function canonicalNumber(number,publisher) {
   let result=text(number,120).toUpperCase().replace(/\s/g,'');
-  if(publisher==='Elsevier') result=result.replace(/(?:[.\-_]?R\d*)$/i,'');
+  if(publisher==='Elsevier'||publisher==='AIP Publishing') result=result.replace(/(?:[.\-_]?R\d*)$/i,'');
   else if(publisher!=='APS')result=result.replace(/(?:[.\-_]?R\d+)$/i,'');
   return result;
 }
 export function manuscriptKey(item) {
-  return [text(item.publisher).toLowerCase(),text(item.journal).toLowerCase().replace(/[^\p{L}\p{N}]/gu,''),canonicalNumber(item.number,item.publisher)].join('|');
+  const journal=canonicalJournal(item.journal),publisher=publisherForJournal(journal,item.publisher);
+  return [text(publisher).toLowerCase(),journal.toLowerCase().replace(/[^\p{L}\p{N}]/gu,''),canonicalNumber(item.number,publisher)].join('|');
 }
 export function apsURL(number,author) {
   if(!/^[A-Z]{1,4}\d{3,8}$/i.test(number||'')||!text(author))return '';
@@ -93,7 +94,7 @@ export function ruleExtract(mail,body) {
   const journal=(s.match(/^(?:journal|journal name|期刊)\s*[:：]\s*(.+)$/im)?.[1]||
     [mail.subject,s.slice(0,5000)].join('\n').match(/\b(Physical Review (?:Letters|Research|[ABCDEFX])|Nature(?: Communications| Physics| Materials| Astronomy| Chemistry| Methods| Nanotechnology| Photonics| Energy| Medicine)?|Scientific Reports|Chaos, Solitons (?:&|and) Fractals|Physics Letters [AB]|Physica [ABCDE])\b/i)?.[1]||'');
   const title=s.match(/^(?:manuscript\s+title|article\s+title|title|标题)\s*[:：]\s*["“]?(.+?)["”]?\s*$/im)?.[1]||'';
-  const authors=s.match(/^(?:authors?|作者)\s*[:：]\s*(.+)$/im)?.[1]||'';
+  const authors=s.match(/^(?:(?:co[- ]?|all\s+)?authors?|author\s+list|作者)\s*[:：]\s*(.+)$/im)?.[1]||'';
   const statusLine=s.match(/^(?:(?:current|manuscript)\s+)?status\s*[:：]\s*(.+)$/im)?.[1];
   const status=normalizeStatus(statusLine||mail.subject);
   const links=[...s.matchAll(/https:\/\/[^\s<>"']+/g)].map(m=>safeLink(m[0].replace(/[).,]+$/,''))).filter(Boolean);
@@ -104,10 +105,10 @@ export function ruleExtract(mail,body) {
 }
 export function applyObservation(data,observation) {
   const observedNumber=observation.number;
-  observation={...observation,publisher:publisherForJournal(observation.journal,observation.publisher)};
+  observation={...observation,journal:canonicalJournal(observation.journal),publisher:publisherForJournal(observation.journal,observation.publisher)};
   const key=manuscriptKey(observation);
   if((data.tombstones||[]).includes(key))return;
-  let item=data.manuscripts.find(item=>item.key===key||((item.number_history||[]).some(number=>manuscriptKey({...item,number})===key)));
+  let item=data.manuscripts.find(item=>manuscriptKey(item)===key||((item.number_history||[]).some(number=>manuscriptKey({...item,number})===key)));
   if(!item&&observation.publisher==='APS')item=data.manuscripts.find(item=>sameAPSSubmission(item,observation));
   if(item&&(item.archived_at||item.deleted_at))return;
   if(!item) {
@@ -117,8 +118,9 @@ export function applyObservation(data,observation) {
   item.number_history=[...new Set([...(item.number_history||[]),item.number,observation.number].filter(Boolean))];
   if(item.publisher==='APS'&&temporaryAPSNumber(item.number)&&!temporaryAPSNumber(observation.number))item.number=observation.number;
   if(item.publisher==='APS'&&!temporaryAPSNumber(item.number)&&temporaryAPSNumber(observation.number))observation={...observation,number:item.number,tracking_url:item.tracking_url};
+  if(revisionNumber(item.number)>revisionNumber(observation.number)&&canonicalNumber(item.number,item.publisher)===canonicalNumber(observation.number,item.publisher))observation={...observation,number:item.number};
   for(const field of ['publisher','journal','title','authors','number','tracking_url','lookup_author']) {
-    if(observation[field]&&!(item.manual_fields||[]).includes(field)&&(!item[field]||Date.parse(observation.date)>=Date.parse(item.status_at||0)))item[field]=observation[field];
+    if(observation[field]&&!(item.manual_fields||[]).includes(field)&&(!item[field]||(field==='authors'&&item.authors_partial)||Date.parse(observation.date)>=Date.parse(item.status_at||0))){item[field]=observation[field];if(field==='authors'){item.authors_partial=false;item.authors_source=observation.source;}}
   }
   item.key=manuscriptKey(item);
   if(item.publisher==='APS'&&item.lookup_author&&!temporaryAPSNumber(item.number))item.tracking_url=apsURL(item.number,item.lookup_author);
@@ -136,7 +138,7 @@ export function rawStatistics(data) {
   const stats=Object.create(null);
   for(const item of data.manuscripts){
     if(item.deleted_at)continue;
-    const journal=item.journal||'未注明期刊';
+    const journal=canonicalJournal(item.journal)||'未注明期刊';
     const row=stats[journal]??={total:0,active:0,accepted:0,rejected:0,completed:0};
     row.total++;
     if(POST_ACCEPTED.has(item.status))row.accepted++;
@@ -156,6 +158,14 @@ export function publisherForJournal(journal,publisher='') {
   if(/^chaos(?::|$)/i.test(text(journal))&&!/solitons/i.test(journal))return 'AIP Publishing';
   return publisherOf(publisher)||publisher;
 }
+export function canonicalJournal(value) {
+  const name=text(value,200),key=name.toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
+  if(['chaos','chaosaninterdisciplinaryjournalofnonlinearscience'].includes(key))return 'Chaos: An Interdisciplinary Journal of Nonlinear Science';
+  if(/^chaossolitons(?:and)?fractals/.test(key))return 'Chaos, Solitons & Fractals';
+  if(['physicad','physicadnonlinearphenomena'].includes(key))return 'Physica D: Nonlinear Phenomena';
+  return name;
+}
+const revisionNumber=number=>Number(String(number||'').match(/\d[.\-_]?R(\d*)$/i)?.[1]||(/\d[.\-_]?R$/i.test(number||'')?1:0));
 export const temporaryAPSNumber=number=>/^es\d{4}[a-z]{3}\d{1,2}_\d+$/i.test(text(number));
 const fingerprint=value=>text(value,2000).normalize('NFKD').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
 export function sameAPSSubmission(a,b) {
@@ -164,7 +174,45 @@ export function sameAPSSubmission(a,b) {
     fingerprint(a.journal)===fingerprint(b.journal)&&fingerprint(a.title).length>=16&&fingerprint(a.title)===fingerprint(b.title);
 }
 export function reconcileManuscripts(data) {
-  for(const item of data.manuscripts){item.publisher=publisherForJournal(item.journal,item.publisher);item.key=manuscriptKey(item);}
+  data.stats_offsets=Object.entries(data.stats_offsets||{}).reduce((all,[journal,offsets])=>{
+    const key=canonicalJournal(journal),previous=all[key]||{};
+    all[key]=Object.fromEntries(['total','active','completed','accepted','rejected'].map(field=>[field,(previous[field]||0)+(offsets[field]||0)]));return all;
+  },Object.create(null));
+  data.tombstones=[...new Set((data.tombstones||[]).flatMap(key=>{const [publisher,journal,number]=key.split('|');return [key,manuscriptKey({publisher,journal,number})];}))];
+  for(const item of data.manuscripts){item.journal=canonicalJournal(item.journal);item.publisher=publisherForJournal(item.journal,item.publisher);item.key=manuscriptKey(item);}
+  const groups=new Map();
+  for(const item of data.manuscripts){const entries=groups.get(item.key)||[];entries.push(item);groups.set(item.key,entries);}
+  data.manuscripts=[...groups.values()].map(entries=>{
+    if(entries.length===1)return entries[0];
+    const sorted=[...entries].sort((a,b)=>Date.parse(b.status_at||b.updated_at||b.created_at)-Date.parse(a.status_at||a.updated_at||a.created_at));
+    const target=[...entries].sort((a,b)=>(b.manual_fields?.length||0)-(a.manual_fields?.length||0)||sorted.indexOf(a)-sorted.indexOf(b))[0];
+    target.merged_ids=[...new Set(entries.flatMap(item=>[item.id,...(item.merged_ids||[])]))].filter(id=>id!==target.id);
+    for(const field of ['title','authors','lookup_author','tracking_url']){
+      const manual=[...entries].filter(item=>item[field]&&item.manual_fields?.includes(field)).sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at))[0];
+      const source=manual||sorted.find(item=>item[field]&&(field!=='authors'||!item.authors_partial))||sorted.find(item=>item[field]);
+      if(source){target[field]=source[field];if(field==='authors'){target.authors_partial=Boolean(source.authors_partial);target.authors_source=source.authors_source;}}
+    }
+    target.manual_fields=[...new Set(entries.flatMap(item=>item.manual_fields||[]))];
+    target.number_history=[...new Set(entries.flatMap(item=>[item.number,...(item.number_history||[])]).filter(Boolean))];
+    target.number=[...target.number_history].sort((a,b)=>revisionNumber(b)-revisionNumber(a))[0];
+    const events=new Map();
+    for(const event of entries.flatMap(item=>item.events||[])){
+      const key=[event.source,event.source_id,event.date,event.status].join('|'),old=events.get(key);
+      if(!old||String(event.raw_status||'').length>String(old.raw_status||'').length)events.set(key,event);
+    }
+    target.events=[...events.values()].sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));
+    const latest=[...target.events].reverse().find(event=>event.status!=='unknown');
+    if(latest){target.status=latest.status;target.status_at=latest.date;}
+    target.created_at=entries.map(item=>item.created_at).filter(Boolean).sort((a,b)=>Date.parse(a)-Date.parse(b))[0];
+    target.updated_at=entries.map(item=>item.updated_at||item.created_at).filter(Boolean).sort((a,b)=>Date.parse(b)-Date.parse(a))[0];
+    target.archived_at=entries.find(item=>item.archived_at)?.archived_at||null;
+    target.deleted_at=entries.find(item=>item.deleted_at)?.deleted_at||null;
+    target.publisher_history=sorted.find(item=>item.publisher_history)?.publisher_history;
+    const metrics=entries.flatMap(item=>item.metric_history||[]);target.metric_history=[];
+    for(const row of metrics)recordMetrics(target,row.metrics,row.date,row.source_url);
+    target.key=manuscriptKey(target);
+    return target;
+  });
   const temporary=data.manuscripts.filter(item=>item.publisher==='APS'&&temporaryAPSNumber(item.number));
   for(const old of temporary){
     const target=data.manuscripts.find(item=>item.id!==old.id&&sameAPSSubmission(item,old));
@@ -181,6 +229,23 @@ export function reconcileManuscripts(data) {
     data.manuscripts=data.manuscripts.filter(item=>item.id!==old.id);
   }
   return data;
+}
+export function applyPublisherMetadata(item,result) {
+  if(result.number&&canonicalNumber(result.number,item.publisher)!==canonicalNumber(item.number,item.publisher))return;
+  if(result.authors&&!(item.manual_fields||[]).includes('authors')&&(!item.authors||item.authors_partial)){
+    item.authors=result.authors;item.authors_partial=Boolean(result.authors_partial);item.authors_source='publisher';
+  }
+}
+export function bulkManuscriptAction(data,action,ids,scope='') {
+  const selected=[...new Set(Array.isArray(ids)?ids:[])].map(id=>data.manuscripts.find(item=>item.id===id));
+  if(!selected.length)throw Error('请先选择稿件');
+  if(!['archive','trash','restore'].includes(action))throw Error('未知操作');
+  if(selected.some(item=>!item||(action==='restore'?(!item.archived_at&&!item.deleted_at)||(scope==='archived'&&Boolean(item.deleted_at))||(scope==='trash'&&!item.deleted_at):item.archived_at||item.deleted_at)))throw Error('所选稿件状态已变化，请刷新后重试');
+  for(const item of selected){
+    if(action==='restore'){item.archived_at=null;item.deleted_at=null;item.last_checked_day='';}
+    else item[action==='archive'?'archived_at':'deleted_at']=new Date().toISOString();
+  }
+  if(action==='restore'){data.cursor=null;data.last_day='';}
 }
 export function extractReviewMetrics(body) {
   const metrics={};

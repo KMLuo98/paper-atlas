@@ -234,6 +234,10 @@ AI 与阅读偏好|AI & reading preferences
 稿件垃圾箱|Submission Trash
 返回进行中|Back to active
 恢复追踪|Resume tracking
+批量恢复|Restore multiple
+恢复所选|Restore selected
+选择期刊|Select journal
+添加期刊…|Add journal…
 归档所选|Archive selected
 删除所选|Delete selected
 取消选择|Cancel selection

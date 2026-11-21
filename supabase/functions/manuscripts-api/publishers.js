@@ -34,7 +34,7 @@ export async function fetchElsevierStatus(url){
  return {
   events:status==='unknown'?[]:[{date,status,raw_status:status==='under_review'?'Under Review':'Required Reviews Complete'}],
   metrics,metric_date:date,status_text:status==='under_review'?'Under Review':status==='reviews_completed'?'Required Reviews Complete':'',
-  number:text(data.PubdNumber,120),url,notice:'',fetched_at:new Date().toISOString()
+  number:text(data.PubdNumber,120),authors:[...new Set([data.FirstAuthor,data.CorrespondingAuthor].filter(value=>typeof value==='string'&&value.trim()).map(value=>text(value,300)))].join(', '),authors_partial:true,url,notice:'',fetched_at:new Date().toISOString()
  };
 }
 export function parsePublisherHistory(html,parseHTML){

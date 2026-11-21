@@ -93,7 +93,7 @@
 .submission-results {min-width:0}
 .submission-stats-scroll table {min-width:0;font-size:12px}
 .submission-stats-scroll :is(th,td) {padding:12px 5px}
-.submission-stats-scroll thead th {white-space:normal;font-size:11px}
+.submission-stats-scroll thead th {white-space:nowrap;font-size:11px}
 .stats-journal {white-space:nowrap}
 .journal-short {display:none}
 .submission-stats-scroll[data-abbreviated] .journal-full {display:none}
@@ -121,7 +121,6 @@
 .stats-editor-row .form-grid {grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .stats-editor-row input {width:100%;min-width:0}
 @media(min-width:1380px) {
- .submission-dashboard {grid-template-columns:minmax(0,1fr) minmax(380px,.7fr);gap:24px}
  .submission-history-columns {grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:30px}
 }
 @media(max-width:700px) {

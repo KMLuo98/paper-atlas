@@ -22,10 +22,11 @@ export async function api(action,b={}){
   if(action==='manuscripts_restore'){item.archived_at=null;item.deleted_at=null;}
  }
  if(action==='manuscripts_bulk_archive'||action==='manuscripts_bulk_trash'){for(const item of academic.manuscripts)if(b.ids.includes(item.id))item[action.endsWith('archive')?'archived_at':'deleted_at']='2026-11-21';}
+ if(action==='manuscripts_bulk_restore'){for(const item of academic.manuscripts)if(b.ids.includes(item.id)){item.archived_at=null;item.deleted_at=null;}}
  if(action==='manuscripts_purge')academic.manuscripts=academic.manuscripts.filter(item=>item.id!==b.id);
  if(action==='manuscripts_statistics'){
   if(b.reset)academic.statistics=[{journal:'Physical Review E',total:2,active:1,completed:1,accepted:1,rejected:0}];
-  else academic.statistics=(b.rows||[b]).map(row=>({...row,total:+row.total,active:+row.active,completed:+row.completed,accepted:+row.accepted,rejected:+row.rejected}));
+  else for(const row of b.rows||[b]){const old=academic.statistics.findIndex(item=>item.journal===row.journal),value={...row,total:+row.total,active:+row.active,completed:+row.completed,accepted:+row.accepted,rejected:+row.rejected};if(old<0)academic.statistics.push(value);else academic.statistics[old]=value;}
  }
  if(action.startsWith('manuscripts_'))return structuredClone(academic);
  return {ok:true};
@@ -55,7 +56,7 @@ try{
   await page.locator('.submission-card').first().waitFor();
   assert.equal(await page.locator('.submission-card').count(),2);
   const results=await page.locator('.submission-results').boundingBox(),stats=await page.locator('.submission-statistics').boundingBox();
-  if(width>=1380)assert.ok(stats.x>results.x+results.width);else assert.ok(stats.y>results.y);
+  assert.ok(stats.y>=results.y+results.height,'Statistics stay below manuscripts at every width');
   assert.equal(await page.locator('.submission-vault').evaluate(node=>getComputedStyle(node).position),'static');
   assert.match(await page.locator('.submission-last-update').first().innerText(),/2026/);
   await page.locator('[data-ms=layout][data-layout=list]').click();
@@ -104,7 +105,8 @@ try{
   await page.locator('#submission-confirm').waitFor({state:'detached'});
   assert.equal(await page.locator('.submission-stats-scroll tbody td').first().innerText(),'2');
   await page.locator('[data-ms=stats-add]').click();
-  await page.locator('[data-ms=stats-row-add]').click();
+  assert.equal(await page.locator('.stats-editor-row').count(),1);
+  await page.locator('#statistics-journal-choice').selectOption('new');
   const added=page.locator('.stats-editor-row').last();
   await added.locator('[data-stat=journal]').fill('Chaos');
   await added.locator('[data-stat=total]').fill('1');
@@ -112,6 +114,16 @@ try{
   await page.locator('#submission-stats-form [type=submit]').click();
   await page.locator('#submission-stats-form').waitFor({state:'detached'});
   assert.equal(await page.locator('.stats-journal[title=Chaos]').count(),1);
+  assert.equal(await page.locator('.stats-journal[title="Physical Review E"]').count(),1);
+  await page.locator('[data-ms=stats-add]').click();
+  await page.locator('#statistics-journal-choice').selectOption('1');
+  assert.equal(await page.locator('.stats-editor-row').count(),1);
+  assert.equal(await page.locator('.stats-editor-row [data-stat=journal]').inputValue(),'Chaos');
+  await page.locator('.stats-editor-row [data-stat=total]').fill('2');
+  await page.locator('.stats-editor-row [data-stat=active]').fill('2');
+  await page.locator('#submission-stats-form [type=submit]').click();
+  await page.locator('#submission-stats-form').waitFor({state:'detached'});
+  assert.equal(await page.locator('.submission-stats-scroll tbody tr').count(),2);
   await nav('contacts');await nav('manuscripts');
   assert.equal(await page.evaluate(()=>window.__refreshes),3); // daily check + restored tracker + reset scan
   await page.locator('[data-ms=refresh]').click();
@@ -142,6 +154,18 @@ try{
   await page.locator('[data-ms=select-archive]').click();
   await page.locator('[data-ms-select-all]').check();
   await page.locator('[data-ms=bulk-apply]').click();
+  await page.locator('[data-ms=scope-archived]').click();
+  await page.locator('[data-ms=select-restore]').click();
+  await page.locator('[data-ms-select-all]').check();
+  await page.locator('[data-ms=bulk-apply]').click();
+  assert.equal(await page.locator('.submission-card').count(),0);
+  await page.locator('[data-ms=scope-trash]').click();
+  await page.locator('[data-ms=select-restore]').click();
+  await page.locator('[data-ms-select-all]').check();
+  await page.locator('[data-ms=bulk-apply]').click();
+  assert.equal(await page.locator('.submission-card').count(),0);
+  await page.locator('[data-ms=scope-active]').click();
+  assert.equal(await page.locator('.submission-card').count(),2);
   assert.equal(await page.locator('.submission-celebration').count(),0);
   await page.screenshot({path:'test-results/manuscripts-'+engine+'-'+width+'.png'});
   assert.deepEqual(errors,[]);
