@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parseHTML} from 'linkedom';
-import {canonicalNumber,manuscriptKey,applyObservation,statistics,rawStatistics,normalizeStatus,apsURL,safeStatusURL,ruleExtract} from '../../supabase/functions/manuscripts-api/core.js';
+import {canonicalNumber,manuscriptKey,applyObservation,statistics,rawStatistics,normalizeStatus,apsURL,safeStatusURL,ruleExtract,bulkManuscriptAction} from '../../supabase/functions/manuscripts-api/core.js';
 import {fetchStatusPage} from '../../supabase/functions/manuscripts-api/publishers.js';
 
 const empty=()=>({manuscripts:[],tombstones:[],stats_offsets:{}});
@@ -42,6 +42,30 @@ test('manual count adjustments survive new submissions and status updates',()=>{
  assert.deepEqual(statistics(data)[0],{journal:'Physica A',total:11,active:5,accepted:3,rejected:1,completed:6});
  data.stats_offsets={};
  assert.deepEqual(statistics(data)[0],{journal:'Physica A',...rawStatistics(data)['Physica A']});
+});
+
+test('archive, trash and restore cannot change journal counts or saved adjustments',()=>{
+ const data=empty(),journal='Chaos, Solitons & Fractals';
+ for(const [index,status] of ['published','rejected','under_review'].entries())applyObservation(data,observation({journal,number:'CHAOS-D-26-0012'+index,status,source_id:'mail-'+index}));
+ data.stats_offsets[journal]={total:7,active:2,completed:5,accepted:3,rejected:2};
+ const expected=[{journal,total:10,active:3,completed:7,accepted:4,rejected:3}];
+ assert.deepEqual(statistics(data),expected);
+ const ids=data.manuscripts.map(item=>item.id);
+ for(const action of ['archive','trash']){
+  bulkManuscriptAction(data,action,ids);
+  assert.deepEqual(statistics(data),expected);
+  bulkManuscriptAction(data,'restore',ids,action==='archive'?'archived':'trash');
+  assert.deepEqual(statistics(data),expected);
+ }
+ data.stats_offsets={};
+ assert.deepEqual(statistics(data),[{journal,total:3,active:1,completed:2,accepted:1,rejected:1}]);
+});
+
+test('a journal remains in statistics when its only manuscript is in Trash',()=>{
+ const data=empty(),journal='Chaos, Solitons & Fractals';
+ const item=applyObservation(data,observation({journal,status:'rejected'}));
+ bulkManuscriptAction(data,'trash',[item.id]);
+ assert.deepEqual(statistics(data),[{journal,total:1,active:0,accepted:0,rejected:1,completed:1}]);
 });
 test('referee invitations do not become acceptance decisions or author submissions',()=>{
  assert.equal(normalizeStatus('Reviewer accepted invitation'),'unknown');

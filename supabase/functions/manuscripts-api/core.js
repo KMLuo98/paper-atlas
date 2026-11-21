@@ -137,14 +137,13 @@ export function applyObservation(data,observation) {
 export function rawStatistics(data) {
   const stats=Object.create(null);
   for(const item of data.manuscripts){
-    if(item.deleted_at)continue;
     const journal=canonicalJournal(item.journal)||'未注明期刊';
     const row=stats[journal]??={total:0,active:0,accepted:0,rejected:0,completed:0};
     row.total++;
     if(POST_ACCEPTED.has(item.status))row.accepted++;
     if(item.status==='rejected')row.rejected++;
     if(FINAL.has(item.status))row.completed++;
-    else if(!item.archived_at)row.active++;
+    else row.active++;
   }
   return stats;
 }
