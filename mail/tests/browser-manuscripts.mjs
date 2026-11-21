@@ -37,10 +37,10 @@ try{
   await context.addInitScript(()=>{
    localStorage.setItem('pa-language','zh');window.__refreshes=0;
    window.__fixture={profile:{username:'qa'},accounts:[],contacts:[],drafts:[],categories:[],settings:{},counts:[]};
-   const base={publisher:'APS',journal:'Physical Review E',authors:'A. Author, B. Author',number:'LA12345',title:'Network manuscript',status:'accepted',status_at:'2026-11-20',publisher_history:{tables:[{headers:['Open','Closed','Description'],rows:[['20Nov2026','','Accepted for publication']]}]},created_at:'2026-11-01',updated_at:'2026-11-21',tracking_url:'https://authors.aps.org/Submissions/status?accode=LA12345&author=Author'};
+   const base={publisher:'APS',journal:'Physical Review E',authors:'A. Author, B. Author',number:'EXR1134',title:'Network manuscript',status:'accepted',status_at:'2026-11-20',publisher_history:{tables:[{headers:['Open','Closed','Description'],rows:[['20Nov2026','','Accepted for publication']]}]},created_at:'2026-11-01',updated_at:'2026-11-21',tracking_url:'https://authors.aps.org/Submissions/status?accode=EXR1134&author=Author'};
    window.__academic={enabled:false,manuscripts:[
     {...base,id:'accepted',events:[{date:'2026-11-01',status:'submitted',raw_status:'Manuscript received',source:'email',source_id:'email-one',message_ref:'mail-id'},{date:'2026-11-20',status:'accepted',raw_status:'Accepted for publication',source:'website',source_url:base.tracking_url}]},
-    {...base,id:'review',number:'LA54321',title:'Reviewing dynamics',status:'under_review',events:[]}
+    {...base,id:'review',journal:'Physica D',number:'LA54321',title:'Reviewing dynamics',status:'under_review',events:[]}
    ],statistics:[{journal:'Physical Review E',total:2,active:1,completed:1,accepted:1,rejected:0}]};
   });
   const page=await context.newPage(),errors=[];
@@ -59,6 +59,28 @@ try{
   assert.ok(stats.y>=results.y+results.height,'Statistics stay below manuscripts at every width');
   assert.equal(await page.locator('.submission-vault').evaluate(node=>getComputedStyle(node).position),'static');
   assert.match(await page.locator('.submission-last-update').first().innerText(),/2026/);
+  assert.match(await page.locator('[data-id=accepted] .submission-state-pair').innerText(),/第 1 轮/);
+  assert.equal(await page.locator('[data-id=accepted] .submission-idline [data-round-label]').count(),0);
+  assert.doesNotMatch(await page.locator('.submission-last-update time').first().innerText(),/\d:\d/);
+  await page.locator('[data-submission-filter=status] summary').click();
+  await page.locator('[data-ms-filter=status][value=accepted]').check();
+  assert.equal(await page.locator('.submission-card').count(),1);
+  await page.locator('[data-ms-filter=status][value=under_review]').check();
+  assert.equal(await page.locator('.submission-card').count(),2);
+  await page.locator('[data-submission-filter=journal] summary').click();
+  await page.locator('[data-ms-filter=journal][value="Physical Review E"]').check();
+  assert.equal(await page.locator('.submission-card').count(),1);
+  await page.locator('[data-ms-filter=journal][value="Physica D"]').check();
+  assert.equal(await page.locator('.submission-card').count(),2);
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  await page.locator('[data-submission-filter=status] summary').click();
+  await page.locator('[data-ms-filter=status][value=accepted]').uncheck();
+  assert.equal(await page.locator('.submission-card').count(),1);
+  await page.locator('#submission-search').fill('network');
+  assert.equal(await page.locator('.submission-card').count(),0);
+  await page.locator('#submission-search').fill('');
+  await page.locator('[data-ms=filters-clear]').click();
+  assert.equal(await page.locator('.submission-card').count(),2);
   await page.locator('[data-ms=layout][data-layout=list]').click();
   await page.locator('.submission-list').waitFor();
   await page.locator('#submission-search').fill('network');

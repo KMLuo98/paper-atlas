@@ -124,7 +124,7 @@ export function applyObservation(data,observation) {
   }
   item.key=manuscriptKey(item);
   if(item.publisher==='APS'&&item.lookup_author&&!temporaryAPSNumber(item.number))item.tracking_url=apsURL(item.number,item.lookup_author);
-  if(observation.metrics)recordMetrics(item,observation.metrics,observation.date,observation.source_url||observation.tracking_url);
+  if(observation.metrics)recordMetrics(item,observation.metrics,observation.date,observation.source_url||observation.tracking_url,{source:observation.source,source_id:observation.source_id,status:observation.status});
   const duplicate=item.events.some(event=>event.source_id===observation.source_id&&event.status===observation.status&&event.date===observation.date&&event.raw_status===(observation.raw_status||STATUSES[observation.status]));
   if(!duplicate)item.events.push({id:crypto.randomUUID(),date:observation.date,status:observation.status,raw_status:observation.raw_status||STATUSES[observation.status],source:observation.source,source_id:observation.source_id,message_ref:observation.message_ref||'',source_url:observation.source_url||'',number:observedNumber||item.number});
   item.events.sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));
@@ -209,7 +209,7 @@ export function reconcileManuscripts(data) {
     target.deleted_at=entries.find(item=>item.deleted_at)?.deleted_at||null;
     target.publisher_history=sorted.find(item=>item.publisher_history)?.publisher_history;
     const metrics=entries.flatMap(item=>item.metric_history||[]);target.metric_history=[];
-    for(const row of metrics)recordMetrics(target,row.metrics,row.date,row.source_url);
+    for(const row of metrics)recordMetrics(target,row.metrics,row.metric_date||row.date,row.source_url,{...row,observed_at:row.date});
     target.key=manuscriptKey(target);
     return target;
   });
@@ -255,18 +255,57 @@ export function extractReviewMetrics(body) {
   }
   return Object.keys(metrics).length?metrics:null;
 }
-export function recordMetrics(item,metrics,date,url='') {
-  const value={...metrics,revision:metrics.revision??item.number};
+export function recordMetrics(item,metrics,date,url='',observation={}) {
+  const value={...metrics,revision:metrics.revision??null},observed=observation.observed_at||date;
   item.metric_history??=[];
-  if(item.metric_history.some(row=>JSON.stringify(row.metrics)===JSON.stringify(value)))return;
-  item.metric_history.push({date,metrics:value,source_url:url});
+  if(item.metric_history.some(row=>row.date===observed&&row.source_url===url&&JSON.stringify(row.metrics)===JSON.stringify(value)))return;
+  item.metric_history.push({date:observed,metric_date:date,metrics:value,source_url:url,source:observation.source||'website',source_id:observation.source_id||'',status:observation.status||''});
   item.metric_history.sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));
 }
 
+function eventRevision(number,publisher) {
+  const value=String(number||'');
+  if(publisher==='APS')return null;
+  // R inside an accession code (EXR1134) has no revision meaning.
+  const suffix=value.match(/^(?:[A-Z]+-D-\d{2}-\d+|CHA\d{2}-(?:AR|ER)-\d+)[._-]?R(\d*)$/i);
+  return suffix?Number(suffix[1]||1):null;
+}
+function metricRevision(value) {
+  return value!==null&&value!==undefined&&value!==''&&Number.isInteger(Number(value))&&Number(value)>=0?Number(value):null;
+}
+export function submissionStages(item) {
+  let round=1,pending=false,revised=false;
+  return [...(item.events||[])].sort((a,b)=>Date.parse(a.date)-Date.parse(b.date)).map(event=>{
+    const revision=eventRevision(event.number,item.publisher);
+    if(revision!==null&&event.status!=='unknown')round=Math.max(round,revision+1);
+    if(['minor_revision','major_revision','revision_requested'].includes(event.status))pending=true;
+    if(event.status==='revised_submitted'){
+      if(revision!==null&&revision>0)round=Math.max(round,revision+1);
+      else if(pending||!revised)round++;
+      pending=false;revised=true;
+    }
+    return {...event,round};
+  });
+}
 export function submissionRound(item) {
-  const revision=String(item.number||'').match(/R(\d*)$/i);
-  const explicit=Number(item.round)||1;
-  const metrics=(item.metric_history||[]).map(row=>Number(row.metrics.revision)+1).filter(Number.isFinite);
-  const resubmitted=new Set((item.events||[]).filter(event=>event.status==='revised_submitted').map(event=>event.date.slice(0,10))).size;
-  return Math.max(1,explicit,revision?(Number(revision[1]||1)+1):1,resubmitted+1,...metrics);
+  const explicit=Number.isInteger(Number(item.round))&&Number(item.round)>0?Number(item.round):1;
+  const metrics=(item.metric_history||[]).map(row=>metricRevision(row.metrics.revision)).filter(value=>value!==null).map(value=>value+1);
+  return Math.max(1,explicit,...submissionStages(item).map(event=>event.round),...metrics);
+}
+export function reviewHistory(item) {
+  const stages=submissionStages(item);
+  const rows=(item.metric_history||[]).map(row=>{
+    const revision=metricRevision(row.metrics.revision);
+    const at=row.metric_date||row.date;
+    const inferred=[...stages].reverse().find(event=>Date.parse(event.date)<=Date.parse(at))?.round||1;
+    return {...row,kind:'metrics',round:revision===null?inferred:revision+1};
+  });
+  const available=new Set(rows.map(row=>row.round));
+  const seen=new Set();
+  for(const event of stages){
+    if(event.source!=='email'||event.status==='unknown'||available.has(event.round))continue;
+    const key=[event.source_id,event.date,event.status].join('|');if(seen.has(key))continue;seen.add(key);
+    rows.push({...event,kind:'email'});
+  }
+  return rows.sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
 }

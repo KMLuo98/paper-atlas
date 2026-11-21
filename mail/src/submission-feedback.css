@@ -1,0 +1,42 @@
+.submission-celebration {position:fixed;inset:0;z-index:12000;display:grid;place-items:center;padding:24px;align-content:center;gap:0;background:#183b3540;-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);animation:feedback-veil .55s ease both}
+.feedback-panel {position:relative;width:min(100%,460px);padding:20px 28px 52px;border:1px solid #fff9;border-radius:32px;background:#f1f4f0e8;box-shadow:0 32px 100px #102a292e,inset 0 1px #fff9;color:#ae9063;animation:feedback-arrive .9s cubic-bezier(.19,1,.22,1) both;overflow:hidden;-webkit-backdrop-filter:blur(36px);backdrop-filter:blur(36px)}
+[data-appearance=glass] .feedback-panel {background:var(--glass-surface);border-color:var(--glass-edge)}
+.feedback-panel .celebration-message {position:static;padding:0;animation:none;text-align:center}
+.feedback-panel .celebration-message h2 {font-family:Georgia,'Noto Serif SC','Songti SC',serif;font-size:34px;font-weight:400;line-height:1.5;letter-spacing:.08em;margin:19px 0 0;color:#28463e;animation:feedback-words 1.2s .35s both}
+.feedback-panel .feedback-rule {display:block;width:28px;height:1px;border:0;border-radius:0;background:#ae906366;margin:0 auto;animation:feedback-words 1s .25s both}
+.feedback-close {position:absolute;right:16px;top:16px;width:36px;height:36px;padding:0;display:grid;place-items:center;border:1px solid #64877922;border-radius:50%;background:#ffffff54;color:#557067;transition:background .2s,transform .2s}
+.feedback-close:hover {background:#fff9;transform:rotate(90deg)}
+.acceptance-scene,.feedback-panel .reassurance-scene {position:relative;width:100%;height:auto;aspect-ratio:320/230;margin:0 auto}
+.acceptance-scene>svg,.feedback-panel .reassurance-scene>svg {width:100%;height:100%;display:block;overflow:visible}
+.acceptance-halo {transform-origin:160px 107px;animation:feedback-halo 2.4s ease-out both}
+.acceptance-medallion {transform-origin:160px 108px;animation:feedback-medallion 1.5s cubic-bezier(.19,1,.22,1) both}
+.acceptance-laurel {stroke-dasharray:340;stroke-dashoffset:340;animation:feedback-draw 2.4s .2s cubic-bezier(.25,.5,.35,1) forwards}
+.acceptance-check {stroke-dasharray:48;stroke-dashoffset:48;animation:feedback-draw 1s .9s ease forwards}
+.acceptance-stars {transform-origin:160px 108px;animation:feedback-stars 3s .5s both}
+.feedback-panel .submission-fireworks {position:absolute;inset:0;overflow:visible;pointer-events:none}
+.feedback-panel .firework-burst {position:absolute;left:calc(15% + var(--burst)*35%);top:calc(20% + var(--burst)*9%)}
+.feedback-panel .firework-burst i {position:absolute;border-radius:3px;opacity:0;height:5px;width:1px;background:#ae9063;animation:feedback-sparks 2.7s cubic-bezier(.15,.65,.3,1) calc(.3s + var(--burst)*.4s) 1 both}
+.feedback-panel.is-comfort,.is-comfort .feedback-panel {color:#7b9a8f}
+.feedback-panel .comfort-recipient {transform-origin:120px 191px;animation:feedback-recipient 5.5s ease-in-out both}
+.feedback-panel .comfort-friend {transform-origin:208px 191px;animation:feedback-friend 5.5s ease-in-out both}
+.comfort-pat-hand {transform-origin:191px 138px;animation:feedback-pat 5.5s ease-in-out both}
+.feedback-panel .comfort-embrace {transform-origin:160px 150px;animation:feedback-embrace 5.5s ease-in-out both}
+.comfort-recipient-head {transform-origin:120px 108px;animation:feedback-head 5.5s ease-in-out both}
+.comfort-heart {transform-origin:160px 32px;animation:feedback-heart 5.5s ease-in-out both}
+.comfort-aura {transform-origin:160px 111px;animation:feedback-halo 2.4s ease-out both}
+@keyframes feedback-veil {from{opacity:0}to{opacity:1}}
+@keyframes feedback-arrive {from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes feedback-words {from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes feedback-halo {from{opacity:0;transform:scale(.75)}to{opacity:1;transform:scale(1)}}
+@keyframes feedback-medallion {from{opacity:0;transform:scale(.86)}to{opacity:1;transform:scale(1)}}
+@keyframes feedback-draw {to{stroke-dashoffset:0}}
+@keyframes feedback-stars {0%{opacity:0;transform:scale(.86)}45%{opacity:.9}100%{opacity:.6;transform:scale(1)}}
+@keyframes feedback-sparks {0%{opacity:0;transform:rotate(var(--angle)) translateY(0)}16%{opacity:.6}100%{opacity:0;transform:rotate(var(--angle)) translateY(-34px) scaleY(.1)}}
+@keyframes feedback-pat {0%{opacity:0;transform:rotate(18deg) translateY(9px)}16%{opacity:1;transform:rotate(0)}26%,46%{transform:rotate(-3deg)}36%,56%{transform:rotate(1deg)}68%,100%{opacity:0;transform:rotate(5deg)}}
+@keyframes feedback-friend {0%,52%{transform:translateX(0)}80%,100%{transform:translateX(-22px) rotate(-3deg)}}
+@keyframes feedback-recipient {0%,52%{transform:translateX(0)}80%,100%{transform:translateX(10px) rotate(4deg)}}
+@keyframes feedback-head {0%,15%{transform:rotate(8deg)}40%,100%{transform:rotate(0)}}
+@keyframes feedback-embrace {0%,59%{opacity:0;transform:translateX(10px) scale(.92)}80%,100%{opacity:1;transform:translateX(0) scale(1)}}
+@keyframes feedback-heart {0%,60%{opacity:0;transform:translateY(10px) scale(.6)}85%,100%{opacity:.65;transform:translateY(0) scale(1)}}
+@media(max-width:700px) {.submission-celebration{padding:22px}.feedback-panel{padding:24px 20px 42px;border-radius:28px}.feedback-panel .celebration-message h2{font-size:28px;letter-spacing:.04em}}
+@media(prefers-reduced-motion:reduce) {.submission-celebration,.feedback-panel,.feedback-panel *{animation:none!important}.acceptance-laurel,.acceptance-check{stroke-dashoffset:0}.comfort-pat-hand{display:none}.comfort-embrace{opacity:1}.feedback-panel .comfort-friend{transform:translateX(-22px)}.feedback-panel .comfort-recipient{transform:translateX(10px)}}

@@ -243,6 +243,8 @@ AI 与阅读偏好|AI & reading preferences
 取消选择|Cancel selection
 搜索期刊、标题、作者或稿件号|Search journal, title, authors or manuscript number
 搜索稿件|Search submissions
+清除筛选|Clear filters
+邮件阶段记录|Email stage record
 暂无稿件|No submissions
 点击更新状态从已同步邮件识别，或手动添加稿件|Update to discover submissions in synced mail, or add one manually.
 识别或添加稿件后显示统计|Statistics appear after discovering or adding submissions.

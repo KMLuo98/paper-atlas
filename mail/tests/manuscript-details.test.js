@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parseHTML} from 'linkedom';
-import {applyObservation,reconcileManuscripts,publisherForJournal,submissionRound,acceptedBefore,recordMetrics,ruleExtract,rawStatistics,statistics,manuscriptKey,canonicalNumber,applyPublisherMetadata,bulkManuscriptAction} from '../../supabase/functions/manuscripts-api/core.js';
+import {applyObservation,reconcileManuscripts,publisherForJournal,submissionRound,acceptedBefore,recordMetrics,ruleExtract,rawStatistics,statistics,manuscriptKey,canonicalNumber,applyPublisherMetadata,bulkManuscriptAction,reviewHistory} from '../../supabase/functions/manuscripts-api/core.js';
 import {parsePublisherHistory,fetchElsevierStatus} from '../../supabase/functions/manuscripts-api/publishers.js';
 
 test('APS promotes a temporary code to its formal code without adding a submission',()=>{
@@ -119,5 +119,41 @@ test('post-acceptance production counts as accepted and retains archive congratu
  const item={journal:'Physical Review E',status:'copyediting',events:[{status:'accepted'}],number:'LA12345'};
  assert.equal(acceptedBefore(item),true);
  assert.equal(rawStatistics({manuscripts:[item]})['Physical Review E'].accepted,1);
- assert.equal(submissionRound({number:'PHYSA-D-26-12345R2',events:[]}),3);
+ assert.equal(submissionRound({publisher:'Elsevier',number:'PHYSA-D-26-12345R2',events:[{number:'PHYSA-D-26-12345R2',date:'2026-11-01',status:'revised_submitted'}]}),3);
+});
+
+test('rounds use actual revision cycles and never an R embedded in an APS accession code',()=>{
+ const item={publisher:'APS',number:'EXR1134',events:[{date:'2026-10-01',status:'submitted',number:'EXR1134'}]};
+ assert.equal(submissionRound(item),1);
+ item.events.push({date:'2026-10-10',status:'major_revision'},{date:'2026-10-12',status:'revised_submitted'},{date:'2026-10-13',status:'revised_submitted'});
+ assert.equal(submissionRound(item),2); // repeated confirmations are the same revision
+ item.events.push({date:'2026-10-20',status:'minor_revision'},{date:'2026-10-21',status:'revised_submitted'});
+ assert.equal(submissionRound(item),3);
+ assert.equal(submissionRound({publisher:'APS',number:'EXR1134',metric_history:[{metrics:{revision:'EXR1134'}}]}),1);
+ assert.equal(submissionRound({publisher:'Elsevier',number:'PHYSD-D-26-12345R2',events:[]}),1); // the identifier alone is insufficient
+});
+
+test('each Elsevier observation appends a snapshot even when review counts and activity have not changed',()=>{
+ const item={publisher:'Elsevier',number:'PHYSD-D-26-12345',events:[]};
+ const metrics={revision:1,reviews_completed:'0',invitations_accepted:'2',invitations_sent:'2',last_review_activity:'2026-11-01'};
+ recordMetrics(item,metrics,'2026-11-01','https://example.test/status',{observed_at:'2026-11-02T09:00:00Z'});
+ recordMetrics(item,metrics,'2026-11-01','https://example.test/status',{observed_at:'2026-11-03T09:00:00Z'});
+ recordMetrics(item,metrics,'2026-11-01','https://example.test/status',{observed_at:'2026-11-03T09:00:00Z'}); // retry of one observation
+ assert.equal(item.metric_history.length,2);
+ assert.equal(item.metric_history[0].metric_date,'2026-11-01');
+ assert.equal(item.metric_history[1].date,'2026-11-03T09:00:00Z');
+ const copy=structuredClone(item.metric_history);item.metric_history=[];
+ for(const row of copy)recordMetrics(item,row.metrics,row.metric_date,row.source_url,{...row,observed_at:row.date});
+ assert.equal(item.metric_history.length,2);
+});
+
+test('earlier-round mail evidence remains visible without inventing old reviewer counts',()=>{
+ const item={publisher:'Elsevier',events:[{date:'2026-10-01',status:'submitted',source:'email',source_id:'first'},{date:'2026-10-20',status:'major_revision',source:'email',source_id:'decision'},{date:'2026-10-22',status:'revised_submitted',source:'email',source_id:'second',number:'PHYSD-D-26-12345R1'}],metric_history:[{date:'2026-10-23',metrics:{revision:1,reviews_completed:0},source:'website'}]};
+ const rows=reviewHistory(item);
+ assert.equal(rows.filter(row=>row.kind==='email'&&row.round===1).length,2);
+ assert.equal(rows.find(row=>row.kind==='metrics').round,2);
+ assert.ok(rows.filter(row=>row.round===1).every(row=>!row.metrics));
+ item.metric_history.push({date:'2026-10-05',metrics:{revision:0,reviews_completed:1},source:'website'});
+ assert.equal(reviewHistory(item).filter(row=>row.kind==='metrics').length,2);
+ assert.equal(reviewHistory(item).filter(row=>row.kind==='email').length,0);
 });

@@ -201,7 +201,7 @@ function cancelPress() {
 document.addEventListener('pointerdown', event => {
   cancelPress();
   if (!mobileButtons.matches || event.pointerType === 'mouse' || !event.isPrimary) return;
-  const button = event.target.closest?.('button');
+  const button = event.target.closest?.('button,.submission-filter summary');
   if (!button || button.disabled || button.closest('[draggable="true"],.sidebar')) return;
   const label = (button.getAttribute('aria-label') || button.title || button.textContent).trim();
   if (!label) return;
