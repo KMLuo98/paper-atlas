@@ -36,7 +36,7 @@ export async function loadAcademic(user){
  return task;
 }
 export function academicSettingsHTML(){
- return '<section class="settings-block"><div class="block-heading"><h2>学术版</h2></div><label class="switch-row"><span><strong>开启投稿追踪</strong></span><input type="checkbox" id="academic-enabled" '+(state.enabled?'checked':'')+'></label></section>';
+ return '<section class="settings-block"><div class="block-heading"><h2>学术版</h2></div><label class="switch-row"><span><strong>开启投稿追踪</strong></span><input type="checkbox" id="academic-enabled" '+(state.enabled?'checked':'')+(loading?' disabled aria-busy="true"':'')+'></label></section>';
 }
 function badge(item){
  const provider=providerLogos[item.publisher];
