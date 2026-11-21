@@ -7,3 +7,6 @@ verify_jwt = false
 [functions.mail-api]
 # Every user action verifies Auth server-side; OAuth callbacks and scheduled sync use separate one-time/service-only credentials.
 verify_jwt = false
+[functions.manuscripts-api]
+# Each action verifies the authenticated user in the handler.
+verify_jwt = false
