@@ -2,7 +2,7 @@ import {publisherLogos} from './publisher-logos.js';
 import {esc,fmtDate,fuzzy} from './core.js';
 import {getMailLanguage} from './mail-language.js';
 import {feedbackHTML} from './submission-feedback.js';
-import {STATUSES,submissionRound,acceptedBefore,reviewHistory} from '../../supabase/functions/manuscripts-api/core.js';
+import {STATUSES,submissionRound,acceptedBefore,reviewHistory,progressUpdatedAt,SUBMISSION_PHASES,submissionPhase} from '../../supabase/functions/manuscripts-api/core.js';
 import './manuscripts.css';
 
 let context,owner='',loaded=false,loading,selectionMode='';
@@ -53,15 +53,16 @@ function dateOnly(value){
  return getMailLanguage()==='en'?parts.year+'-'+parts.month+'-'+parts.day:parts.year+'年'+parts.month+'月'+parts.day+'日';
 }
 function listItem(item){
+ const updatedAt=progressUpdatedAt(item);
  return '<article class="submission-card '+(checkedManuscripts.has(item.id)?'is-selected':'')+'" data-ms="detail" data-id="'+item.id+'" role="button" tabindex="0">'+
  (selectionMode?'<input class="submission-select" type="checkbox" data-ms-select="'+item.id+'" '+(checkedManuscripts.has(item.id)?'checked':'')+' aria-label="选择 '+esc(item.title)+'">':'')+badge(item)+
  '<div class="submission-identity" data-user-content><span class="submission-journal">'+esc(item.journal||'未注明期刊')+'</span><h2>'+esc(item.title||'标题待补充')+'</h2><p>'+esc(item.authors||'作者待补充')+'</p><div class="submission-idline"><code>'+esc(item.number)+'</code></div></div>'+
- '<div class="submission-state">'+statusRound(item)+(item.tracking_url?'<a href="'+esc(item.tracking_url)+'" target="_blank" rel="noopener noreferrer" class="text-btn">状态链接 '+icon('arrow-up-right',14)+'</a>':'')+'<small class="submission-last-update"><span>状态更新</span><time data-user-content datetime="'+esc(item.status_at||'')+'">'+dateOnly(item.status_at)+'</time></small></div></article>';
+ '<div class="submission-state">'+statusRound(item)+(item.tracking_url?'<a href="'+esc(item.tracking_url)+'" target="_blank" rel="noopener noreferrer" class="text-btn">状态链接 '+icon('arrow-up-right',14)+'</a>':'')+'<small class="submission-last-update"><span>状态更新</span><time data-user-content datetime="'+esc(updatedAt)+'">'+dateOnly(updatedAt)+'</time></small></div></article>';
 }
 function filtersHTML(){
  const journals=[...new Set(state.manuscripts.map(item=>item.journal||'未注明期刊'))].sort((a,b)=>a.localeCompare(b));
  const filter=(name,label,glyph,values,selected)=>'<details class="submission-filter" data-submission-filter="'+name+'"><summary aria-label="'+label+'" title="'+label+'">'+icon(glyph,17)+'<span>'+label+'</span>'+(selected.size?'<b>'+selected.size+'</b>':'')+'</summary><div class="submission-filter-options">'+values.map(([value,title])=>'<label><input type="checkbox" data-ms-filter="'+name+'" value="'+esc(value)+'" '+(selected.has(value)?'checked':'')+'><span '+(name==='journal'?'data-user-content':'')+'>'+esc(title)+'</span></label>').join('')+'</div></details>';
- return '<div class="submission-filters">'+filter('status','稿件状态','list-filter',Object.entries(STATUSES),statusFilters)+filter('journal','期刊','book-open',journals.map(name=>[name,name]),journalFilters)+((statusFilters.size||journalFilters.size)?action('filters-clear','清除筛选','x'):'')+'</div>';
+ return '<div class="submission-filters">'+filter('status','稿件状态','list-filter',Object.entries(SUBMISSION_PHASES),statusFilters)+filter('journal','期刊','book-open',journals.map(name=>[name,name]),journalFilters)+((statusFilters.size||journalFilters.size)?action('filters-clear','清除筛选','x'):'')+'</div>';
 }
 const journalTerms={'Physical':'Phys.','Review':'Rev.','Letters':'Lett.','Research':'Res.','Journal':'J.','International':'Int.','Education':'Educ.','Science':'Sci.','Physics':'Phys.','Communications':'Commun.','Chinese':'Chin.','Nonlinear':'Nonlinear'};
 export function journalShort(name){
@@ -121,9 +122,9 @@ export function manuscriptsHTML(){
  fitStatistics();
  const item=state.manuscripts.find(item=>item.id===selected);
  const items=state.manuscripts.filter(item=>scope==='trash'?item.deleted_at:scope==='archived'?item.archived_at&&!item.deleted_at:!item.archived_at&&!item.deleted_at)
-  .filter(item=>(!statusFilters.size||statusFilters.has(item.status))&&(!journalFilters.size||journalFilters.has(item.journal||'未注明期刊')))
+  .filter(item=>(!statusFilters.size||statusFilters.has(submissionPhase(item.status)))&&(!journalFilters.size||journalFilters.has(item.journal||'未注明期刊')))
   .filter(item=>!query||fuzzy([item.publisher,item.journal,item.title,item.authors,item.number,STATUSES[item.status]].join(' '),query))
-  .sort((a,b)=>Date.parse(b.updated_at||b.created_at)-Date.parse(a.updated_at||a.created_at));
+  .sort((a,b)=>(Date.parse(progressUpdatedAt(b))||0)-(Date.parse(progressUpdatedAt(a))||0)||(Date.parse(b.created_at)||0)-(Date.parse(a.created_at)||0));
  return '<section class="page manuscripts-page">'+(item?'<div class="reader-toolbar">'+action('back','返回稿件','arrow-left')+'</div>':'')+
  '<header class="page-head"><div><h1>'+labels[scope]+'</h1>'+(state.last_updated_at?'<p>上次更新 '+fmtDate(state.last_updated_at,true)+'</p>':'')+'</div><div class="head-actions">'+
  action('refresh',updating?'更新中':'更新状态','refresh-cw',updating?'disabled aria-busy="true"':'')+

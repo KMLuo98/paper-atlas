@@ -148,7 +148,7 @@ async function refresh(user:string,start:boolean,daily:boolean){
    if(item&&!item.archived_at&&!item.deleted_at){item.last_checked_at=new Date().toISOString();item.last_checked_day=today;item.lookup_notice=check.result.notice;
     applyPublisherMetadata(item,check.result);
     if(check.result.tables?.length)item.publisher_history={tables:check.result.tables,status_text:check.result.status_text||'',fetched_at:check.result.fetched_at,source_url:check.result.url};
-    if(check.result.metrics)recordMetrics(item,check.result.metrics,check.result.metric_date||new Date().toISOString(),check.result.url,{observed_at:check.result.fetched_at||new Date().toISOString(),source:'website',status:check.result.current_status||''});
+    if(check.result.metrics)recordMetrics(item,check.result.metrics,check.result.metric_date||'',check.result.url,{observed_at:check.result.fetched_at||new Date().toISOString(),source:'website',status:check.result.current_status||''});
     const currentStatus=check.result.current_status;
     if(currentStatus&&currentStatus!=='unknown'&&!(POST_ACCEPTED.has(item.status)&&!POST_ACCEPTED.has(currentStatus)))item.status=currentStatus;
     if(check.result.url&&!item.tracking_url)item.tracking_url=check.result.url;}

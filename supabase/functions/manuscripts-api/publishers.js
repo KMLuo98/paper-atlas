@@ -21,7 +21,7 @@ export async function fetchElsevierStatus(url){
  if(!response.ok){await response.body?.cancel();return {events:[],notice:'Elsevier 暂未返回追踪数据，请稍后更新'};}
  const data=JSON.parse(await readBody(response));
  const activity=Number(data.LastUpdated);
- const date=Number.isFinite(activity)&&activity>0?new Date(activity*1000).toISOString():new Date().toISOString();
+ const date=Number.isFinite(activity)&&activity>0?new Date(activity*1000).toISOString():'';
  const summary=data.ReviewSummary||{};
  const metrics={
   reviews_completed:summary.ReviewsCompleted??null,
@@ -32,7 +32,7 @@ export async function fetchElsevierStatus(url){
  };
  const status=data.Status===3||data.Status===23?'under_review':data.Status===4?'reviews_completed':typeof data.Status==='string'?normalizeStatus(data.Status):'unknown';
  return {
-  events:status==='unknown'?[]:[{date,status,raw_status:status==='under_review'?'Under Review':'Required Reviews Complete'}],
+  events:status==='unknown'||!date?[]:[{date,status,raw_status:status==='under_review'?'Under Review':'Required Reviews Complete'}],
   metrics,metric_date:date,status_text:status==='under_review'?'Under Review':status==='reviews_completed'?'Required Reviews Complete':'',
   number:text(data.PubdNumber,120),authors:[...new Set([data.FirstAuthor,data.CorrespondingAuthor].filter(value=>typeof value==='string'&&value.trim()).map(value=>text(value,300)))].join(', '),authors_partial:true,url,notice:'',fetched_at:new Date().toISOString()
  };

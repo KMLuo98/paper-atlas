@@ -309,3 +309,31 @@ export function reviewHistory(item) {
   }
   return rows.sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
 }
+function progressTime(value){
+  if(typeof value!=='string'||!value.trim())return NaN;
+  const formatted=value.replace(/(\d{1,2})(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(\d{4})/i,'$1 $2 $3');
+  if(/^(?:\d{1,2} [A-Za-z]{3,9} \d{4}|[A-Za-z]{3,9} \d{1,2},? \d{4})$/.test(formatted))return Date.parse(formatted+' 00:00:00 UTC');
+  return /\d{4}/.test(formatted)?Date.parse(formatted):NaN;
+}
+export function progressUpdatedAt(item){
+  const dates=(item.events||[]).filter(event=>event.source==='email'||event.source==='website').map(event=>event.date);
+  dates.push(item.publisher_history?.status_updated_at);
+  for(const row of item.metric_history||[]){
+    const activity=row.metrics?.last_review_activity;
+    if(Number.isFinite(progressTime(activity)))dates.push(activity);
+    else if(row.source==='email')dates.push(row.metric_date||row.date);
+  }
+  for(const table of item.publisher_history?.tables||[]){
+    const columns=(table.headers||[]).map((header,index)=>/\b(open|closed|date|updated|activity)\b|日期|时间/i.test(header)?index:-1).filter(index=>index>=0);
+    for(const row of table.rows||[])for(const index of columns)dates.push(row[index]);
+  }
+  const latest=Math.max(...dates.map(progressTime).filter(Number.isFinite));
+  return Number.isFinite(latest)?new Date(latest).toISOString():'';
+}
+export const SUBMISSION_PHASES={submitted:'提交',editorial:'编辑处理',review:'外审',accepted:'接收'};
+export function submissionPhase(status){
+  if(POST_ACCEPTED.has(status))return 'accepted';
+  if(['under_review','reviews_completed'].includes(status))return 'review';
+  if(['submitted','revised_submitted','unknown'].includes(status)||!status)return 'submitted';
+  return 'editorial';
+}

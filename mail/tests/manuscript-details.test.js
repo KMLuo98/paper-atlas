@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parseHTML} from 'linkedom';
-import {applyObservation,reconcileManuscripts,publisherForJournal,submissionRound,acceptedBefore,recordMetrics,ruleExtract,rawStatistics,statistics,manuscriptKey,canonicalNumber,applyPublisherMetadata,bulkManuscriptAction,reviewHistory} from '../../supabase/functions/manuscripts-api/core.js';
+import {applyObservation,reconcileManuscripts,publisherForJournal,submissionRound,acceptedBefore,recordMetrics,ruleExtract,rawStatistics,statistics,manuscriptKey,canonicalNumber,applyPublisherMetadata,bulkManuscriptAction,reviewHistory,progressUpdatedAt,submissionPhase,SUBMISSION_PHASES,STATUSES} from '../../supabase/functions/manuscripts-api/core.js';
 import {parsePublisherHistory,fetchElsevierStatus} from '../../supabase/functions/manuscripts-api/publishers.js';
 
 test('APS promotes a temporary code to its formal code without adding a submission',()=>{
@@ -156,4 +156,35 @@ test('earlier-round mail evidence remains visible without inventing old reviewer
  item.metric_history.push({date:'2026-10-05',metrics:{revision:0,reviews_completed:1},source:'website'});
  assert.equal(reviewHistory(item).filter(row=>row.kind==='metrics').length,2);
  assert.equal(reviewHistory(item).filter(row=>row.kind==='email').length,0);
+});
+
+test('progress date chooses the later mail or publisher activity, excluding query and manual edit dates',()=>{
+ const item={status_at:'2030-01-01',updated_at:'2030-01-02',last_checked_at:'2030-01-03',events:[{source:'email',date:'2026-11-18T10:00:00Z',status:'under_review'},{source:'manual',date:'2030-01-01',status:'accepted'}],metric_history:[{date:'2030-01-03',metric_date:'2026-11-19T08:00:00Z',metrics:{last_review_activity:'2026-11-19T08:00:00Z'}}]};
+ assert.equal(progressUpdatedAt(item),'2026-11-19T08:00:00.000Z');
+ item.events.push({source:'email',date:'2026-11-20T09:00:00Z',status:'under_review'});
+ assert.equal(progressUpdatedAt(item),'2026-11-20T09:00:00.000Z');
+ item.publisher_history={fetched_at:'2030-01-03',tables:[{headers:['Open','Closed','Description'],rows:[['10Nov2026','21Nov2026','Sent to referee']]}]};
+ assert.equal(progressUpdatedAt(item),'2026-11-21T00:00:00.000Z');
+ assert.equal(progressUpdatedAt({status_at:'2030-01-01',events:[{source:'manual',date:'2030-01-01'}],metric_history:[{date:'2030-01-03',source:'website',metrics:{last_review_activity:null}}]}),'');
+});
+
+test('four status filters cover every detailed stage including editorial decisions and publication',()=>{
+ assert.deepEqual(Object.keys(SUBMISSION_PHASES),['submitted','editorial','review','accepted']);
+ for(const status of Object.keys(STATUSES))assert.ok(Object.hasOwn(SUBMISSION_PHASES,submissionPhase(status)));
+ assert.equal(submissionPhase('revised_submitted'),'submitted');
+ assert.equal(submissionPhase('major_revision'),'editorial');
+ assert.equal(submissionPhase('rejected'),'editorial');
+ assert.equal(submissionPhase('reviews_completed'),'review');
+ assert.equal(submissionPhase('copyediting'),'accepted');
+});
+
+test('missing publisher activity cannot create a fake progress event at the query time',async()=>{
+ const original=globalThis.fetch;
+ globalThis.fetch=async()=>Response.json({Status:3,LatestRevisionNumber:0,ReviewSummary:{ReviewsCompleted:'0'}});
+ try{
+  const result=await fetchElsevierStatus('https://track.authorhub.elsevier.com/?uuid=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
+  assert.equal(result.events.length,0);assert.equal(result.metric_date,'');
+  const item={events:[]};recordMetrics(item,result.metrics,result.metric_date,result.url,{observed_at:result.fetched_at});
+  assert.equal(item.metric_history.length,1);assert.equal(progressUpdatedAt(item),'');
+ }finally{globalThis.fetch=original;}
 });
