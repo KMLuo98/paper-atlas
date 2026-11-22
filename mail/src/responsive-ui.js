@@ -5,6 +5,17 @@ const mobile=matchMedia('(max-width:700px)');
 const reduced=matchMedia('(prefers-reduced-motion:reduce)');
 const root=document.documentElement;
 let pendingSwitch;
+const measuredSidebars=new WeakSet();
+function preserveSidebarRows(){
+ const sidebar=document.querySelector('.sidebar');
+ if(!sidebar||mobile.matches||measuredSidebars.has(sidebar))return;
+ measuredSidebars.add(sidebar);
+ const mode=root.dataset.mailSidebar;
+ root.classList.add('sidebar-measuring');root.dataset.mailSidebar='expanded';
+ const rows=[...sidebar.querySelectorAll('.brand,.compose-btn,.nav-item,.inbox-nav-link,.section-label,.mailbox-link,.profile-chip')].map(node=>[node,node.getBoundingClientRect().height]);
+ for(const [node,height] of rows)if(height)node.style.height=height+'px';
+ root.dataset.mailSidebar=mode||'expanded';root.classList.remove('sidebar-measuring');
+}
 try {root.dataset.mailSidebar=localStorage.getItem('mail-sidebar')==='collapsed'?'collapsed':'expanded';}catch{}
 
 export function paintMobileNavigation(open) {
@@ -38,6 +49,7 @@ function switchKey(group) {
 }
 
 export function prepareResponsiveUI() {
+  preserveSidebarRows();
   const collapse=document.querySelector('[data-action="toggle-sidebar"]');
   if(collapse){
     const expanded=root.dataset.mailSidebar!=='collapsed';
