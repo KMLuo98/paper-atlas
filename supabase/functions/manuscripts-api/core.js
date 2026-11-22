@@ -253,6 +253,7 @@ export function reconcileManuscripts(data) {
 export function applyPublisherMetadata(item,result) {
   if(item.publisher==='Elsevier'&&!result.number)return;
   if(result.number&&canonicalNumber(result.number,item.publisher)!==canonicalNumber(item.number,item.publisher))return;
+  if(result.submitted_at&&Number.isFinite(Date.parse(result.submitted_at))&&(!item.submitted_at||Date.parse(result.submitted_at)<Date.parse(item.submitted_at))){item.submitted_at=result.submitted_at;}
   if(result.authors&&!(item.manual_fields||[]).includes('authors')&&(!item.authors||item.authors_partial||item.authors_source==='website')){
     item.authors=result.authors;item.authors_partial=Boolean(result.authors_partial);item.authors_source='publisher';
   }
