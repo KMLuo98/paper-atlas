@@ -45,11 +45,11 @@ function bodyText(message:any){
  return (document.body?.textContent||document.documentElement.textContent||'')+'\n'+links;
 }
 async function resolveTracking(value:any,user:string,data:any){
- const known=automaticTrackingLink(value,data.manuscripts);if(known)return known;
- if(!value.number||!value.journal)return '';
  const publisher=publisherForJournal(value.journal,publisherOf(value.publisher)||value.publisher);
+ const known=automaticTrackingLink(value,data.manuscripts);if(known&&(publisher!=='Elsevier'||publicElsevierTracker(known)))return known;
+ if(!value.number||!value.journal)return known;
  const number=canonicalNumber(value.number,publisher);
- if(number.length<4||number.length>120)return '';
+ if(number.length<4||number.length>120)return known;
  const pattern='%'+number.replace(/[\\%_]/g,'\\$&')+'%';
  const batches=await Promise.all(['subject','text_body','html_body'].map(field=>checked(service.from('mail_messages')
   .select('id,subject,from_email,from_name,received_at').eq('user_id',user).eq('direction','received').ilike(field,pattern).order('received_at',{ascending:false}).limit(30))));
@@ -66,8 +66,9 @@ async function resolveTracking(value:any,user:string,data:any){
   if(rule?.journal&&canonicalJournal(rule.journal)!==canonicalJournal(value.journal))continue;
   const url=rule?.tracking_url||trackingLinkFromText(body);if(url)return url;
  }
- return '';
+ return known;
 }
+function publicElsevierTracker(value:string){try{return new URL(safeStatusURL(value)).hostname==='track.authorhub.elsevier.com';}catch{return false;}}
 
 async function modelJSON(system:string,input:string,maxTokens=1000){
  const key=env('LLM_API_KEY')||env('DEEPSEEK_API_KEY');
@@ -154,7 +155,10 @@ async function refresh(user:string,start:boolean,daily:boolean){
    const current=await workspace(user),active=current.data.manuscripts.filter((item:any)=>!item.archived_at&&!item.deleted_at&&item.last_checked_day!==today);
    for(const item of active.slice(0,3)){
     try{
-     const result:any=await fetchStatusPage(item,parseHTML);
+     const target={...item};
+     if(item.publisher==='Elsevier'&&!item.authors&&!publicElsevierTracker(item.tracking_url)&&item.tracking_mode!=='manual'&&!item.manual_fields?.includes('tracking_url'))target.tracking_url=await resolveTracking(item,user,current.data);
+     const result:any=await fetchStatusPage(target,parseHTML);
+     if(target.tracking_url!==item.tracking_url)result.resolved_url=target.tracking_url;
      result.current_status=await judgePublisherStatus(item,result).catch(()=>normalizeStatus(result.status_text||''));
      checkedWeb.push({id:item.id,result});
      for(const event of result.events)observations.push({...item,...event,source:'website',source_id:result.url,source_url:result.url});
@@ -171,6 +175,7 @@ async function refresh(user:string,start:boolean,daily:boolean){
    const item=row.data.manuscripts.find((m:any)=>m.id===check.id);
    if(item&&!item.archived_at&&!item.deleted_at){item.last_checked_at=new Date().toISOString();item.last_checked_day=today;item.lookup_notice=check.result.notice;
     applyPublisherMetadata(item,check.result);
+    if(check.result.resolved_url&&item.tracking_mode!=='manual'&&!item.manual_fields?.includes('tracking_url'))item.tracking_url=check.result.resolved_url;
     if(check.result.tables?.length)item.publisher_history={tables:check.result.tables,status_text:check.result.status_text||'',fetched_at:check.result.fetched_at,source_url:check.result.url};
     if(check.result.metrics)recordMetrics(item,check.result.metrics,check.result.metric_date||'',check.result.url,{observed_at:check.result.fetched_at||new Date().toISOString(),source:'website',status:check.result.current_status||''});
     const currentStatus=check.result.current_status;
@@ -222,6 +227,7 @@ Deno.serve(async request=>{
    const trackingMode=b.tracking_mode|| (value.tracking_url?'manual':'auto');
    if(trackingMode==='auto')value.tracking_url=await resolveTracking(value,user,current.data);
    else if(value.tracking_url&&!safeLink(value.tracking_url))throw new RequestError(400,'请填写有效的 HTTPS 状态链接');
+   const authorMetadata=!value.authors&&value.publisher==='Elsevier'&&publicElsevierTracker(value.tracking_url)?await fetchStatusPage(value,parseHTML).catch(()=>null):null;
    return json(view(await mutate(user,row=>{
     let item=row.data.manuscripts.find((m:any)=>m.id===id);
     if(b.id&&!item)throw new RequestError(404,'稿件已不存在');
@@ -231,7 +237,10 @@ Deno.serve(async request=>{
     if(!item){item={id,events:[],created_at:new Date().toISOString()};row.data.manuscripts.push(item);}
     if(item.key&&item.key!==key)row.data.tombstones.push(item.key);
     const changed=item.status!==value.status;
-    Object.assign(item,value,{key,tracking_mode:trackingMode,manual_fields:fields.filter(field=>field==='tracking_url'?trackingMode==='manual':field!=='status'&&field!=='number'&&value[field]),updated_at:new Date().toISOString()});
+    const authorsChanged=value.authors!==(item.authors||''),previousManualAuthors=item.manual_fields?.includes('authors');
+    Object.assign(item,value,{key,tracking_mode:trackingMode,manual_fields:fields.filter(field=>field==='tracking_url'?trackingMode==='manual':field==='authors'?Boolean(value.authors)&&(authorsChanged||previousManualAuthors):field!=='status'&&field!=='number'&&value[field]),updated_at:new Date().toISOString()});
+    if(authorsChanged&&value.authors){item.authors_source='manual';item.authors_partial=false;}
+    if(authorMetadata)applyPublisherMetadata(item,authorMetadata);
     if(changed){item.status_at=new Date().toISOString();item.events.push({id:crypto.randomUUID(),date:item.status_at,status:value.status,raw_status:STATUSES[value.status],source:'manual',source_id:id});}
     return row;
    })));

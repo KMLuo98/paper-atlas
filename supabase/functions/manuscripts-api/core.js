@@ -135,6 +135,7 @@ export function applyObservation(data,observation) {
   if(item.publisher==='APS'&&!temporaryAPSNumber(item.number)&&temporaryAPSNumber(observation.number))observation={...observation,number:item.number,tracking_url:item.tracking_url};
   if(revisionNumber(item.number)>revisionNumber(observation.number)&&canonicalNumber(item.number,item.publisher)===canonicalNumber(observation.number,item.publisher))observation={...observation,number:item.number};
   for(const field of ['publisher','journal','title','authors','number','tracking_url','lookup_author']) {
+    if(field==='authors'&&observation.source==='website')continue;
     if(observation[field]&&!(item.manual_fields||[]).includes(field)&&!(field==='tracking_url'&&item.tracking_mode==='manual')&&(!item[field]||(field==='authors'&&item.authors_partial)||Date.parse(observation.date)>=Date.parse(item.status_at||0))){item[field]=observation[field];if(field==='authors'){item.authors_partial=false;item.authors_source=observation.source;}}
   }
   item.key=manuscriptKey(item);
@@ -250,8 +251,9 @@ export function reconcileManuscripts(data) {
   return data;
 }
 export function applyPublisherMetadata(item,result) {
+  if(item.publisher==='Elsevier'&&!result.number)return;
   if(result.number&&canonicalNumber(result.number,item.publisher)!==canonicalNumber(item.number,item.publisher))return;
-  if(result.authors&&!(item.manual_fields||[]).includes('authors')&&(!item.authors||item.authors_partial)){
+  if(result.authors&&!(item.manual_fields||[]).includes('authors')&&(!item.authors||item.authors_partial||item.authors_source==='website')){
     item.authors=result.authors;item.authors_partial=Boolean(result.authors_partial);item.authors_source='publisher';
   }
 }

@@ -5,7 +5,7 @@ import {feedbackHTML} from './submission-feedback.js';
 import {STATUSES,submissionRound,acceptedBefore,reviewHistory,progressUpdatedAt,SUBMISSION_PHASES,submissionPhase,automaticTrackingLink} from '../../supabase/functions/manuscripts-api/core.js';
 import './manuscripts.css';
 
-let context,owner='',loaded=false,loading,selectionMode='';
+let context,owner='',loaded=false,loading,selectionMode='',selectionBusy=false;
 const checkedManuscripts=new Set();
 const statusFilters=new Set(),journalFilters=new Set();
 let state={enabled:false,manuscripts:[],statistics:[]},scope='active',selected='',query='',layout='grid',updating=false,notice='';
@@ -27,7 +27,7 @@ export function configureManuscripts(options){context=options;}
 export function academicEnabled(){return state.enabled;}
 document.addEventListener('pa-language-change',()=>{if(context?.active())repaint();});
 export async function loadAcademic(user){
- if(owner!==user){owner=user;loaded=false;loading=null;updating=false;notice='';dailyOwner='';statusFilters.clear();journalFilters.clear();state={enabled:false,manuscripts:[],statistics:[]};}
+ if(owner!==user){owner=user;loaded=false;loading=null;updating=false;selectionMode='';selectionBusy=false;checkedManuscripts.clear();notice='';dailyOwner='';statusFilters.clear();journalFilters.clear();state={enabled:false,manuscripts:[],statistics:[]};}
  if(loaded)return;
  if(loading)return loading;
  const expectedOwner=user;
@@ -44,6 +44,7 @@ function badge(item){
 }
 const status=item=>!item.status||item.status==='unknown'?'':'<span class="submission-status" data-status="'+esc(item.status)+'">'+esc(STATUSES[item.status]||STATUSES.unknown)+'</span>';
 const action=(name,label,glyph,extra='')=>'<button type="button" class="secondary" data-ms="'+name+'" aria-label="'+label+'" title="'+label+'" '+extra+'>'+icon(glyph)+'<span class="ms-button-label">'+label+'</span></button>';
+const selectionAction=(mode,label,glyph)=>action('select-'+mode,label,glyph,'aria-pressed="'+(selectionMode===mode)+'" '+(selectionBusy||updating||(selectionMode&&selectionMode!==mode)?'disabled':''));
 
 const roundLabel=item=>getMailLanguage()==='en'?'Round '+submissionRound(item):'第 '+submissionRound(item)+' 轮';
 const statusRound=item=>'<span class="submission-state-pair">'+status(item)+'<span class="submission-round" data-user-content data-round-label>'+roundLabel(item)+'</span></span>';
@@ -54,8 +55,8 @@ function dateOnly(value){
 }
 function listItem(item){
  const updatedAt=progressUpdatedAt(item);
- return '<article class="submission-card '+(checkedManuscripts.has(item.id)?'is-selected':'')+'" data-ms="detail" data-id="'+item.id+'" role="button" tabindex="0">'+
- (selectionMode?'<input class="submission-select" type="checkbox" data-ms-select="'+item.id+'" '+(checkedManuscripts.has(item.id)?'checked':'')+' aria-label="选择 '+esc(item.title)+'">':'')+badge(item)+
+ return '<article class="submission-card '+(checkedManuscripts.has(item.id)?'is-selected':'')+'" data-ms="detail" data-id="'+item.id+'" role="button" tabindex="0" '+(selectionMode?'aria-pressed="'+checkedManuscripts.has(item.id)+'" aria-disabled="'+selectionBusy+'"':'')+'>'+
+ (selectionMode?'<input class="submission-select" type="checkbox" data-ms-select="'+item.id+'" '+(checkedManuscripts.has(item.id)?'checked':'')+' '+(selectionBusy?'disabled':'')+' aria-label="选择 '+esc(item.title)+'">':'')+badge(item)+
  '<div class="submission-identity" data-user-content><span class="submission-journal">'+esc(item.journal||'未注明期刊')+'</span><h2>'+esc(item.title||'标题待补充')+'</h2><p>'+esc(item.authors||'作者待补充')+'</p><div class="submission-idline"><code>'+esc(item.number)+'</code></div></div>'+
  '<div class="submission-state">'+statusRound(item)+(item.tracking_url?'<a href="'+esc(item.tracking_url)+'" target="_blank" rel="noopener noreferrer" class="text-btn">状态链接 '+icon('arrow-up-right',14)+'</a>':'')+'<small class="submission-last-update"><span>状态更新</span><time data-user-content datetime="'+esc(updatedAt)+'">'+dateOnly(updatedAt)+'</time></small></div></article>';
 }
@@ -128,11 +129,11 @@ export function manuscriptsHTML(){
   .sort((a,b)=>(Date.parse(progressUpdatedAt(b))||0)-(Date.parse(progressUpdatedAt(a))||0)||(Date.parse(b.created_at)||0)-(Date.parse(a.created_at)||0));
  return '<section class="page manuscripts-page">'+(item?'<div class="reader-toolbar">'+action('back','返回稿件','arrow-left')+'</div>':'')+
  '<header class="page-head"><div><h1>'+labels[scope]+'</h1>'+(state.last_updated_at?'<p>上次更新 '+fmtDate(state.last_updated_at,true)+'</p>':'')+'</div><div class="head-actions">'+
- action('refresh',updating?'更新中':'更新状态','refresh-cw',updating?'disabled aria-busy="true"':'')+
- (!item?(scope==='active'?action('select-archive','归档','archive')+action('select-trash','删除','trash-2'):action('select-restore','批量恢复','undo-2')):'')+
- action('add','手动添加','plus')+'</div></header>'+(updating?'<p role="status" class="submission-notice">正在检索邮件和查询稿件状态…</p>':'')+(notice?'<p role="status" class="submission-notice">'+esc(notice)+'</p>':'')+
+ action('refresh',updating?'更新中':'更新状态','refresh-cw',(updating||selectionMode?'disabled ':'')+(updating?'aria-busy="true"':''))+
+ (!item?(scope==='active'?selectionAction('archive','归档','archive')+selectionAction('trash','删除','trash-2'):selectionAction('restore','批量恢复','undo-2')):'')+
+ action('add','手动添加','plus',selectionMode?'disabled':'')+'</div></header>'+(updating?'<p role="status" class="submission-notice">正在检索邮件和查询稿件状态…</p>':'')+(notice?'<p role="status" class="submission-notice">'+esc(notice)+'</p>':'')+
  (item?detailHTML(item):'<div class="submission-dashboard"><section class="submission-results"><div class="submission-toolbar"><input type="search" id="submission-search" placeholder="搜索期刊、标题、作者或稿件号" aria-label="搜索稿件" value="'+esc(query)+'">'+filtersHTML()+'<div class="contact-layout-switch" role="group" aria-label="稿件视图"><button data-ms="layout" data-layout="list" aria-label="列表视图" title="列表视图" aria-pressed="'+(layout==='list')+'">'+icon('list',16)+'</button><button data-ms="layout" data-layout="grid" aria-label="卡片视图" title="卡片视图" aria-pressed="'+(layout==='grid')+'">'+icon('layout-grid',16)+'</button></div></div>'+
- (selectionMode?'<div class="submission-bulk-bar"><label class="check"><input type="checkbox" data-ms-select-all '+(items.length&&items.every(item=>checkedManuscripts.has(item.id))?'checked':'')+'> 全选</label><span>已选 '+checkedManuscripts.size+' 篇</span>'+action('bulk-apply',selectionMode==='restore'?'恢复所选':selectionMode==='archive'?'归档所选':'删除所选',selectionMode==='restore'?'undo-2':selectionMode==='archive'?'archive':'trash-2',checkedManuscripts.size?'':'disabled')+action('selection-cancel','取消选择','x')+'</div>':'')+
+ (selectionMode?'<div class="submission-bulk-bar"><label class="check"><input type="checkbox" data-ms-select-all '+(items.length&&items.every(item=>checkedManuscripts.has(item.id))?'checked':'')+' '+(selectionBusy?'disabled':'')+'> 全选</label><span>已选 '+checkedManuscripts.size+' 篇</span>'+action('bulk-apply',selectionMode==='restore'?'恢复所选':selectionMode==='archive'?'归档所选':'删除所选',selectionMode==='restore'?'undo-2':selectionMode==='archive'?'archive':'trash-2',checkedManuscripts.size&&!selectionBusy?'':'disabled')+action('selection-cancel','取消选择','x',selectionBusy?'disabled':'')+'</div>':'')+
  '<div class="submission-items '+(layout==='list'?'submission-list':'')+'">'+(items.map(listItem).join('')||'<div class="empty-state"><h2>暂无稿件</h2><p>点击更新状态从已同步邮件识别，或手动添加稿件</p></div>')+'</div></section>'+statsHTML()+'</div>')+
  '<div class="submission-vault">'+action('scope-archived','已归档','archive')+action('scope-trash','垃圾箱','trash-2')+(scope!=='active'?action('scope-active','返回进行中','arrow-left'):'')+'</div></section>';
 }
@@ -212,7 +213,7 @@ function celebrate(rejected=false){
 document.addEventListener('error',event=>{if(event.target.matches?.('.submission-publisher img'))event.target.hidden=true;},true);
 
 export async function updateManuscripts(daily=false){
- if(updating||!state.enabled)return;
+ if(updating||selectionMode||!state.enabled)return;
  const runOwner=owner;
  updating=true;notice='';repaint();
  try{
@@ -231,7 +232,7 @@ let dailyOwner='';
 export function checkAcademicDaily(user){
  const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  const key=user+':'+date;
- if(!state.enabled||dailyOwner===key)return;
+ if(!state.enabled||selectionMode||dailyOwner===key)return;
  dailyOwner=key;
  updateManuscripts(true);
 }
@@ -239,6 +240,7 @@ document.addEventListener('click',event=>{if(event.target.matches?.('[data-ms-se
 document.addEventListener('toggle',event=>{if(event.target.matches?.('.submission-filter')&&event.target.open)for(const filter of document.querySelectorAll('.submission-filter[open]'))if(filter!==event.target)filter.open=false;},true);
 document.addEventListener('click',event=>{if(!event.target.closest?.('.submission-filters'))for(const filter of document.querySelectorAll('.submission-filter[open]'))filter.open=false;});
 document.addEventListener('change',event=>{
+ if(selectionBusy&&event.target.matches?.('[data-ms-select],[data-ms-select-all]'))return;
  if(event.target.matches?.('#submission-form [name=tracking_mode]')){
   const form=event.target.form,field=form.elements.tracking_url;
   clearTimeout(trackingTimer);++trackingRequest;
@@ -286,16 +288,18 @@ document.addEventListener('keydown',event=>{
 document.addEventListener('click',async event=>{
  const button=event.target.closest?.('[data-ms]');if(!button||event.target.closest('a')||button.disabled)return;
  const op=button.dataset.ms,item=state.manuscripts.find(item=>item.id===button.dataset.id);
+ if(selectionBusy&&['detail','selection-cancel'].includes(op))return;
  try{
   if(op==='detail'){if(selectionMode){checkedManuscripts.has(item.id)?checkedManuscripts.delete(item.id):checkedManuscripts.add(item.id);}else context.routeChange({id:item.id});repaint();}
   else if(op==='back'){context.back();}
   else if(op==='add')edit();
   else if(op==='filters-clear'){statusFilters.clear();journalFilters.clear();repaint();}
-  else if(op.startsWith('select-')){selectionMode=op.slice(7);checkedManuscripts.clear();repaint();}
-  else if(op==='selection-cancel'){selectionMode='';checkedManuscripts.clear();repaint();}
+  else if(op.startsWith('select-')){selectionMode=selectionMode===op.slice(7)?'':op.slice(7);checkedManuscripts.clear();repaint();if(!selectionMode)checkAcademicDaily(owner);}
+  else if(op==='selection-cancel'){selectionMode='';checkedManuscripts.clear();repaint();checkAcademicDaily(owner);}
   else if(op==='bulk-apply'){
-   button.disabled=true;const selectedIds=[...checkedManuscripts];
-   state=await request('bulk_'+selectionMode,{ids:selectedIds,scope});const restored=selectionMode==='restore';selectionMode='';checkedManuscripts.clear();repaint();if(restored)updateManuscripts();
+   selectionBusy=true;const mode=selectionMode,selectedIds=[...checkedManuscripts],runOwner=owner;repaint();
+   try{state=await request('bulk_'+mode,{ids:selectedIds,scope});selectionMode='';checkedManuscripts.clear();}finally{if(owner===runOwner){selectionBusy=false;repaint();}}
+   if(mode==='restore')updateManuscripts();
   }
   else if(op==='edit')edit(item);
   else if(op==='layout'){layout=button.dataset.layout;localStorage.setItem('mail-manuscript-layout',layout);repaint();}

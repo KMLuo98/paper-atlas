@@ -233,3 +233,15 @@ test('manual APS status links survive mail updates while automatic links continu
  applyObservation(data,{...observation,date:'2026-11-03',source_id:'third'});
  assert.match(item.tracking_url,/accode=EXR1134/);
 });
+
+test('website status events cannot turn partial tracker authors into a complete or manually edited list',()=>{
+ const data={manuscripts:[],tombstones:[],stats_offsets:{}};
+ const base={publisher:'Elsevier',journal:'Physica D',number:'PHYSD-D-26-01234',title:'Test manuscript',date:'2026-11-01',status:'submitted',source:'email',source_id:'mail'};
+ const item=applyObservation(data,base);
+ applyPublisherMetadata(item,{number:base.number,authors:'A. Author',authors_partial:true});
+ applyObservation(data,{...item,source:'website',source_id:'tracker',date:'2026-11-02',status:'under_review'});
+ assert.equal(item.authors_source,'publisher');assert.equal(item.authors_partial,true);
+ item.authors_source='website';item.authors_partial=false; // legacy copied event metadata
+ applyPublisherMetadata(item,{number:base.number,authors:'A. Author, B. Author',authors_partial:true});
+ assert.equal(item.authors,'A. Author, B. Author');assert.equal(item.authors_source,'publisher');assert.equal(item.authors_partial,true);
+});
