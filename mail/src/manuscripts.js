@@ -299,7 +299,7 @@ document.addEventListener('click',async event=>{
   else if(op==='bulk-apply'){
    selectionBusy=true;const mode=selectionMode,selectedIds=[...checkedManuscripts],runOwner=owner;repaint();
    try{state=await request('bulk_'+mode,{ids:selectedIds,scope});selectionMode='';checkedManuscripts.clear();}finally{if(owner===runOwner){selectionBusy=false;repaint();}}
-   if(mode==='restore')updateManuscripts();
+   if(mode==='restore')updateManuscripts();else checkAcademicDaily(owner);
   }
   else if(op==='edit')edit(item);
   else if(op==='layout'){layout=button.dataset.layout;localStorage.setItem('mail-manuscript-layout',layout);repaint();}
