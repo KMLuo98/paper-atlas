@@ -85,9 +85,9 @@ function fitStatistics(){
 window.addEventListener('resize',fitStatistics,{passive:true});
 function statsHTML(){
  const totals=['total','active','completed','accepted','rejected'].map(key=>state.statistics.reduce((sum,row)=>sum+(Number(row[key])||0),0));
- return '<section class="submission-statistics"><div class="block-heading"><h2>投稿统计</h2><div>'+action('stats-add','编辑统计','pencil')+'</div></div><div class="submission-stats-scroll"><table><thead><tr><th>期刊</th><th>累计投稿</th><th>进行中</th><th>已完成</th><th>Accept</th><th>Reject</th><th></th></tr></thead><tbody>'+
- state.statistics.map(row=>'<tr><th class="stats-journal" title="'+esc(row.journal)+'" data-user-content><span class="journal-full">'+esc(row.journal)+'</span><span class="journal-short">'+esc(journalShort(row.journal))+'</span></th>'+['total','active','completed','accepted','rejected'].map(key=>'<td>'+row[key]+'</td>').join('')+'<td><button class="icon-btn" data-ms="stats-edit" data-journal="'+esc(row.journal)+'" aria-label="编辑 '+esc(row.journal)+' 的统计">'+icon('pencil',16)+'</button></td></tr>').join('')+
- '</tbody><tfoot><tr><th scope="row">累计</th>'+totals.map(value=>'<td>'+value+'</td>').join('')+'<td></td></tr></tfoot></table>'+(state.statistics.length?'':'<p class="muted">识别或添加稿件后显示统计</p>')+'</div></section>';
+ return '<section class="submission-statistics"><div class="block-heading"><h2>投稿统计</h2><div>'+action('stats-add','编辑统计','pencil')+'</div></div><div class="submission-stats-scroll"><table><thead><tr><th>期刊</th><th>累计投稿</th><th>进行中</th><th>已完成</th><th>Accept</th><th>Reject</th></tr></thead><tbody>'+
+ state.statistics.map(row=>'<tr><th class="stats-journal" title="'+esc(row.journal)+'" data-user-content><span class="journal-full">'+esc(row.journal)+'</span><span class="journal-short">'+esc(journalShort(row.journal))+'</span></th>'+['total','active','completed','accepted','rejected'].map(key=>'<td>'+row[key]+'</td>').join('')+'</tr>').join('')+
+ '</tbody><tfoot><tr><th scope="row">累计</th>'+totals.map(value=>'<td>'+value+'</td>').join('')+'</tr></tfoot></table>'+(state.statistics.length?'':'<p class="muted">识别或添加稿件后显示统计</p>')+'</div></section>';
 }
 function timelineHTML(events){
  return '<ol class="submission-timeline">'+[...events].reverse().map(event=>'<li><time>'+fmtDate(event.date,true)+'</time><div>'+status(event)+'<p data-user-content>'+esc(event.raw_status||'')+'</p>'+
@@ -306,7 +306,6 @@ document.addEventListener('click',async event=>{
   else if(op==='refresh')await updateManuscripts();
   else if(op.startsWith('scope-')){query='';selectionMode='';checkedManuscripts.clear();context.routeChange({scope:op.slice(6),id:''});}
   else if(op==='source')await context.openSource(button.dataset.source);
-  else if(op==='stats-edit')editStats(button.dataset.journal);
   else if(op==='stats-add')editStats();
   else if(op==='stats-reset'){
    const form=button.closest('#submission-stats-form');if(!form||button.hidden)return;

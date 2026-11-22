@@ -135,7 +135,10 @@ try{
   await page.locator('#submission-confirm').waitFor({state:'detached'});
   assert.equal(await page.locator('[data-id=manual]').count(),0);
   await page.locator('[data-ms=scope-active]').click();
-  await page.locator('[data-ms=stats-edit]').click();
+  assert.equal(await page.locator('[data-ms=stats-edit]').count(),0);
+  assert.equal(await page.locator('.submission-stats-scroll thead th').count(),6);
+  assert.ok(Math.abs(await page.locator('.submission-stats-scroll table').evaluate(node=>parseFloat(getComputedStyle(node).fontSize))-(12+4/3))<.01);
+  await page.locator('[data-ms=stats-add]').click();
   await page.locator('#submission-stats-form [data-stat=total]').fill('10');
   await page.locator('#submission-stats-form [type=submit]').click();
   await page.locator('#submission-stats-form').waitFor({state:'detached'});

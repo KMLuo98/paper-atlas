@@ -137,7 +137,7 @@ export function prepareMailAppearance(icon) {
     if (marker && !marker.firstChild) marker.innerHTML = icon('mail', 15);
   }
   for (const control of document.querySelectorAll(toolbarButtons+','+adaptiveToolbarButtons+','+allMobileButtons)) {
-    if(control.closest('[data-language-control],.format-toolbar,.inbox-filter-options,.recipient-options')||control.querySelector('img')||control.matches('[data-option],.contact-open'))continue;
+    if(control.closest('[data-language-control],.format-toolbar,.inbox-filter-options,.recipient-options,.contact-index')||control.querySelector('img')||control.matches('[data-option],.contact-open'))continue;
     const actionClass = control.matches(allMobileButtons)||control.matches(toolbarButtons) ? 'mobile-icon-action' : 'adaptive-icon-action';
     if (control.classList.contains(actionClass)) continue;
     const label = (control.getAttribute('aria-label')||control.textContent).trim();

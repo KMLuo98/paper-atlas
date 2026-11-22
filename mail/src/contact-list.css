@@ -1,0 +1,73 @@
+.contacts-list-layout {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 30px;
+  gap:12px;
+  align-items:start;
+}
+.contacts-list {
+  min-width:0;
+  max-height:none;
+  overflow:visible;
+  padding:0;
+  scrollbar-gutter:auto;
+  border:1px solid var(--border,#dce6df);
+  border-radius:18px;
+  background:#fff;
+}
+.contacts-list .contact-list-heading {
+  position:static;
+  border-radius:18px 18px 0 0;
+  background:transparent;
+  color:var(--mail-label);
+  font-weight:600;
+}
+.contacts-list .contact-card {
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  scroll-margin-top:110px;
+}
+.contacts-list .contact-card:last-child {border-bottom:0;border-radius:0 0 18px 18px}
+.contacts-list .contact-organization {color:var(--mail-label)}
+.contacts-list .contact-card:hover {background:#edf5f14d}
+.contacts-list-layout .contact-index {
+  position:sticky;
+  inset:110px auto auto;
+  align-self:start;
+  width:30px;
+  margin-top:12px;
+  gap:6px;
+  padding:4px 0;
+  overflow:visible;
+  background:transparent;
+}
+.contacts-list-layout .contact-index button {
+  display:grid;
+  place-items:center;
+  width:30px;
+  min-height:30px;
+  padding:0;
+  border-radius:50%;
+  font-size:12px;
+  font-weight:600;
+  color:var(--mail-label);
+}
+.contact-index button:hover,.contact-index button:focus-visible {background:#deebe5;outline-offset:2px}
+[data-appearance="glass"] .contacts-list .contact-card {
+  background:transparent;
+  border-color:#42687a22;
+  border-radius:0;
+  box-shadow:none;
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
+}
+[data-appearance="glass"] .contacts-list .contact-card:last-child {border-radius:0 0 18px 18px}
+[data-appearance="glass"] .contacts-list .contact-card:hover {background:var(--glass-control)}
+[data-appearance="glass"] .contact-index button:hover,
+[data-appearance="glass"] .contact-index button:focus-visible {background:var(--glass-accent)}
+@media(max-width:700px) {
+  .contacts-list-layout {grid-template-columns:minmax(0,1fr) 26px;gap:6px}
+  .contacts-list-layout .contact-index {width:26px;top:90px}
+  .contacts-list-layout .contact-index button {width:26px;min-height:30px}
+  .contacts-list .contact-card {scroll-margin-top:90px}
+}

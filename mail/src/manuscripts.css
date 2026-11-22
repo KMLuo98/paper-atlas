@@ -79,9 +79,9 @@
 .submission-dashboard {display:grid;grid-template-columns:minmax(0,1fr);gap:28px;align-items:start}
 .submission-dashboard .submission-statistics {margin-top:0;min-width:0}
 .submission-results {min-width:0}
-.submission-stats-scroll table {min-width:0;font-size:12px}
+.submission-stats-scroll table {min-width:0;font-size:calc(12px + 1pt)}
 .submission-stats-scroll :is(th,td) {padding:12px 5px}
-.submission-stats-scroll thead th {white-space:nowrap;font-size:11px}
+.submission-stats-scroll thead th {white-space:nowrap;font-size:calc(11px + 1pt)}
 .stats-journal {white-space:nowrap}
 .journal-short {display:none}
 .submission-stats-scroll[data-abbreviated] .journal-full {display:none}
