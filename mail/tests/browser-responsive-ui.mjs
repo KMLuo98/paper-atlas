@@ -16,7 +16,7 @@ try {
   if(width>700) {
    await page.locator('.sidebar-toggle').click();
    await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().width<78);
-   assert.equal(await page.locator('.sidebar .brand>span').isVisible(),false);
+   assert.equal(await page.locator('.sidebar .brand>.sidebar-label').isVisible(),false);
    assert.equal(await page.evaluate(()=>localStorage.getItem('mail-sidebar')),'collapsed');
    await page.locator('.sidebar-toggle').click();
    await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().width>230);

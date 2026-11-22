@@ -1,4 +1,4 @@
-.sliding-switch {position:relative;isolation:isolate;flex:none;width:max-content;overflow:hidden}
+.sliding-switch {position:relative;isolation:isolate;flex:none;overflow:hidden}
 .sliding-switch::before {display:none}
 .sliding-switch>.switch-thumb {position:absolute;inset:0 auto auto 0;z-index:0;pointer-events:none;border-radius:999px;background:#f7fbfc;box-shadow:0 1px 4px #264a5d2a}
 .sliding-switch>button {position:relative;z-index:1}
@@ -15,34 +15,55 @@
 .submission-items:not(.submission-list) .submission-card {min-height:300px;padding-top:22px;padding-bottom:22px}
 .sidebar-toggle {display:flex;flex:none}
 @media(min-width:701px) {
- .sidebar-toggle {position:fixed;left:calc(232px - 14px);top:44%;z-index:510;width:28px;min-width:28px;height:48px;min-height:48px;padding:0;border:1px solid var(--glass-edge,#d4dfd9);border-radius:999px;background:var(--glass-control,#f5f9f6);color:var(--mail-text);box-shadow:0 2px 10px #244b621c;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);transition:left 180ms cubic-bezier(.2,.8,.2,1)}
+ .sidebar-toggle {position:fixed;left:calc(232px - 14px);top:44%;z-index:510;width:28px;min-width:28px;height:48px;min-height:48px;padding:0;border:1px solid var(--glass-edge,#d4dfd9);border-radius:999px;background:var(--glass-control,#f5f9f6);color:var(--mail-text);box-shadow:0 2px 10px #244b621c;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);transition:left 240ms cubic-bezier(.4,0,.2,1)}
  [data-mail-sidebar="collapsed"] .sidebar-toggle {left:calc(76px - 14px)}
  .sidebar-toggle:hover {background:var(--glass-accent,#e1ece6)}
 }
 .topbar {justify-content:flex-start;gap:12px}
 .topbar-right {margin-left:auto}
-.sidebar-toggle svg {transition:transform 180ms ease}
+.sidebar-toggle svg {transition:transform 240ms cubic-bezier(.4,0,.2,1)}
 [data-mail-sidebar="collapsed"] .sidebar-toggle svg {transform:rotate(180deg)}
-.sidebar {transition:transform 180ms cubic-bezier(.2,.8,.2,1),padding 180ms ease}
+.sidebar {overflow-x:hidden;transition:transform 240ms cubic-bezier(.4,0,.2,1),padding 240ms cubic-bezier(.4,0,.2,1)}
 .nav-scrim {transition:opacity 160ms ease}
 .filter-toggle,.nav-item,.mailbox-link {transition:background-color 160ms ease,color 160ms ease}
 @media(min-width:701px) {
-  .app-shell {grid-template-columns:232px minmax(0,1fr);transition:grid-template-columns 180ms cubic-bezier(.2,.8,.2,1)}
+  .app-shell {grid-template-columns:232px minmax(0,1fr);transition:grid-template-columns 240ms cubic-bezier(.4,0,.2,1)}
+  .sidebar :is(.brand,.compose-btn,.nav-item,.inbox-nav-link,.mailbox-link) {height:44px;min-height:44px;flex-shrink:0}
+  .sidebar .nav-item.inbox-nav {padding:0}
+  .sidebar .mailbox-link[data-id]:not([data-id=""]) {height:58px;min-height:58px}
+  .sidebar .section-label {height:40px;min-height:40px;flex-shrink:0}
+  .sidebar .sidebar-hint {height:42px;min-height:42px;overflow:hidden;flex-shrink:0}
+  .sidebar .profile-chip {height:92px;min-height:92px;flex-shrink:0}
+  .sidebar .nav-item>span,.sidebar .profile-chip strong {white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   [data-mail-sidebar="collapsed"] .app-shell {grid-template-columns:76px minmax(0,1fr)}
-  [data-mail-sidebar="collapsed"] .sidebar {padding:29px 8px 0}
-  [data-mail-sidebar="collapsed"] .sidebar :is(.brand,.compose-btn,.nav-item,.mailbox-link,.section-label,.profile-chip) {justify-content:center;padding-inline:0;gap:0}
-  [data-mail-sidebar="collapsed"] .sidebar :is(.brand>span,.nav-item>span,.nav-item>small,.inbox-nav-link>span,.mailbox-link>span:nth-child(2),.mailbox-link>small,.sidebar-hint,.profile-chip>div) {display:none}
-  [data-mail-sidebar="collapsed"] .sidebar :is(.compose-btn,.section-label) {font-size:0}
-  [data-mail-sidebar="collapsed"] .sidebar .brand {min-height:36px}
-  [data-mail-sidebar="collapsed"] .sidebar .compose-btn {min-height:44px}
-  [data-mail-sidebar="collapsed"] .sidebar .inbox-nav {position:relative}
-  [data-mail-sidebar="collapsed"] .sidebar .inbox-nav-link {width:100%;justify-content:center;padding-inline:0}
-  [data-mail-sidebar="collapsed"] .sidebar .inbox-unread-count {position:absolute;right:0;top:0;font-size:10px;padding:0 3px;min-width:18px;min-height:18px}
-  [data-mail-sidebar="collapsed"] .sidebar .profile-chip {flex-direction:column;gap:8px;padding:12px 0}
-  [data-mail-sidebar="collapsed"] .sidebar .sidebar-section {margin-top:30px}
-  [data-mail-sidebar="collapsed"] .sidebar .mailbox-link {position:relative}
-  [data-mail-sidebar="collapsed"] .sidebar .mailbox-link .color-dot {width:24px;height:24px;display:grid;place-items:center;color:#fff}
-  [data-mail-sidebar="collapsed"] .sidebar .color-dot>svg {display:block}
+  .sidebar[data-collapsed] {padding:29px 8px 0}
+  .sidebar .sidebar-glyph {display:grid;place-items:center;width:28px;height:28px;min-width:28px;flex:0 0 28px;gap:0}
+  .sidebar :is(.brand,.compose-btn,button.nav-item,.inbox-nav-link,.mailbox-link) {justify-content:flex-start;gap:10px}
+  .sidebar :is(.nav-item,.inbox-nav-link) {padding-inline:15px}
+  .sidebar .nav-item.inbox-nav {padding:0}
+  .sidebar .sidebar-label,.sidebar .profile-chip>.avatar {opacity:1;visibility:visible;transition:opacity 140ms ease 70ms,transform 240ms cubic-bezier(.4,0,.2,1),visibility 0s;transform:translateX(0)}
+  .sidebar .brand>.sidebar-label {flex:none;white-space:nowrap}
+  .sidebar .compose-btn {padding-inline:12px;transition:margin 240ms cubic-bezier(.4,0,.2,1),padding 240ms cubic-bezier(.4,0,.2,1)}
+  .sidebar .compose-btn>.sidebar-label {white-space:nowrap}
+  .sidebar .mailbox-link {transition:padding 240ms cubic-bezier(.4,0,.2,1),background-color 160ms ease,color 160ms ease}
+  .sidebar .section-label {position:relative}
+  .sidebar .section-label>.icon-btn {position:absolute;right:0;top:0;width:28px;min-height:30px;transition:right 240ms cubic-bezier(.4,0,.2,1)}
+  .sidebar .profile-chip {position:relative;padding-right:42px;overflow:hidden}
+  .sidebar .profile-chip>.icon-btn {position:absolute;right:0;top:50%;width:36px;min-height:36px;transform:translateY(-50%);transition:right 240ms cubic-bezier(.4,0,.2,1)}
+  .sidebar[data-collapsed] .sidebar-label,.sidebar[data-collapsed] .profile-chip>.avatar {opacity:0;visibility:hidden;pointer-events:none;transform:translateX(-4px);transition:opacity 90ms ease,transform 240ms cubic-bezier(.4,0,.2,1),visibility 0s 90ms}
+  .sidebar[data-collapsed] .compose-btn {margin-inline:0;padding-inline:15px}
+  .sidebar[data-collapsed] .brand {padding-left:16px}
+  .sidebar .brand {transition:padding 240ms cubic-bezier(.4,0,.2,1)}
+  .sidebar[data-collapsed] .section-label>.icon-btn {right:15px}
+  .sidebar[data-collapsed] .profile-chip>.icon-btn {right:11px}
+  .sidebar[data-collapsed] .inbox-nav {position:relative}
+  .sidebar[data-collapsed] .inbox-nav-link {width:100%}
+  .sidebar[data-collapsed] .inbox-unread-count {position:absolute;right:0;top:0;font-size:10px;padding:0 3px;min-width:18px;min-height:18px}
+  .sidebar .sidebar-glyph .color-dot {transition:width 240ms cubic-bezier(.4,0,.2,1),height 240ms cubic-bezier(.4,0,.2,1)}
+  .sidebar[data-collapsed] .mailbox-link {position:relative;padding-inline:15px}
+  .sidebar[data-collapsed] .mailbox-link .color-dot {width:24px;height:24px;display:grid;place-items:center;color:#fff}
+  .sidebar .sidebar-glyph .color-dot>svg {display:block;opacity:0;transition:opacity 140ms ease}
+  .sidebar[data-collapsed] .sidebar-glyph .color-dot>svg {opacity:1}
   .inbox-page .list-actions,.inbox-page .list-actions[data-compact-toolbar] {flex-wrap:nowrap;gap:6px}
   .inbox-page .list-actions>div,.inbox-page .list-actions[data-compact-toolbar]>div {min-width:0;flex-wrap:nowrap;gap:6px}
   .inbox-page .list-actions .filter-controls,.inbox-page .list-actions[data-compact-toolbar] .filter-controls {flex:0 1 auto;flex-wrap:nowrap;width:auto;gap:4px}
@@ -51,7 +72,6 @@
   .inbox-page .list-actions[data-has-selection="true"] {flex-wrap:wrap}
   .inbox-page .list-actions[data-has-selection="true"]>div {flex-wrap:wrap}
 }
-.sidebar-measuring .app-shell {transition:none!important}
 @media(max-width:1100px) {
   .submission-toolbar>.contact-layout-switch {display:none}
 }
@@ -77,6 +97,7 @@
   .contact-footer .contact-group {max-width:calc(100% - 76px);flex-shrink:1;overflow-wrap:anywhere;white-space:normal}
 }
 @media(max-width:700px) {
+  .sidebar :is(.brand,.nav-item,.inbox-nav-link,.mailbox-link)>.sidebar-glyph {display:grid;place-items:center;width:28px;height:28px;min-width:28px;flex:0 0 28px}
   .sidebar-toggle {display:none}
   .contacts-count {display:block;margin:5px 0 0;color:var(--mail-label);font-size:13px}
   .contacts-page .page-head>div>p {display:block;margin:0}
@@ -92,5 +113,5 @@
   .submission-items:not(.submission-list) .submission-card {min-height:280px}
 }
 @media(prefers-reduced-motion:reduce) {
-  .app-shell,.sidebar,.sidebar-toggle,.sidebar-toggle svg,.nav-scrim {transition:none}
+  .app-shell,.sidebar,.sidebar-toggle,.sidebar-toggle svg,.nav-scrim,.sidebar .sidebar-label,.sidebar .sidebar-glyph .color-dot,.sidebar .sidebar-glyph .color-dot>svg,.sidebar .brand,.sidebar .compose-btn,.sidebar .mailbox-link,.sidebar .profile-chip>.avatar,.sidebar .profile-chip>.icon-btn,.sidebar .section-label>.icon-btn {transition:none!important}
 }
