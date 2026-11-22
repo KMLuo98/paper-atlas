@@ -62,6 +62,10 @@ try{
   assert.match(await page.locator('.submission-last-update').first().innerText(),/2026/);
   assert.equal(await page.locator('.submission-card').first().getAttribute('data-id'),'accepted');
   assert.equal(await page.locator('[data-id=accepted] .submission-last-update time').innerText(),'2026年11月21日');
+  assert.equal(await page.locator('[data-id=accepted] .submission-submitted-card time').innerText(),'2026年11月01日');
+  assert.equal(await page.locator('[data-id=review] .submission-submitted-card time').innerText(),'—');
+  const updatedDate=await page.locator('[data-id=accepted] .submission-last-update').boundingBox(),submittedDate=await page.locator('[data-id=accepted] .submission-submitted-card').boundingBox();
+  assert.ok(submittedDate.x>updatedDate.x&&Math.abs(submittedDate.y-updatedDate.y)<1,'Card dates share a row');
   assert.equal(await page.locator('[data-submission-filter=status] input').count(),4);
   assert.match(await page.locator('[data-id=accepted] .submission-state-pair').innerText(),/第 1 轮/);
   assert.equal(await page.locator('[data-id=accepted] .submission-idline [data-round-label]').count(),0);
@@ -87,6 +91,9 @@ try{
   assert.equal(await page.locator('.submission-card').count(),2);
   await page.locator('[data-ms=layout][data-layout=list]').click();
   await page.locator('.submission-list').waitFor();
+  const manuscriptNumber=await page.locator('[data-id=accepted] .submission-idline code').boundingBox(),listSubmittedDate=await page.locator('[data-id=accepted] .submission-submitted-list').boundingBox();
+  assert.ok(listSubmittedDate.x>=manuscriptNumber.x+manuscriptNumber.width,'List submission date follows manuscript number');
+  assert.equal(await page.locator('[data-id=accepted] .submission-submitted-card').isVisible(),false);
   await page.locator('#submission-search').fill('network');
   assert.equal(await page.locator('.submission-card').count(),1);
   await page.locator('.submission-card').click();
@@ -188,6 +195,8 @@ try{
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   await page.locator('[data-language-choice=en]').click();
   await page.getByRole('heading',{name:'Submissions',exact:true}).waitFor();
+  assert.equal(await page.locator('[data-id=accepted] .submission-submitted-list span').innerText(),'Submission date');
+  assert.equal(await page.locator('[data-id=accepted] .submission-submitted-list time').innerText(),'2026-11-01');
   await page.locator('[data-ms=detail][data-id=accepted]').click();
   await page.locator('[data-ms=archive]').click();
   await page.getByRole('heading',{name:'Congratulations!',exact:true}).waitFor();

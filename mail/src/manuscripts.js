@@ -2,6 +2,7 @@ import {publisherLogos} from './publisher-logos.js';
 import {esc,fmtDate,fuzzy} from './core.js';
 import {getMailLanguage} from './mail-language.js';
 import {feedbackHTML} from './submission-feedback.js';
+import {submissionDate} from './submission-date.js';
 import {STATUSES,submissionRound,acceptedBefore,reviewHistory,progressUpdatedAt,SUBMISSION_PHASES,submissionPhase,automaticTrackingLink} from '../../supabase/functions/manuscripts-api/core.js';
 import './manuscripts.css';
 
@@ -54,11 +55,12 @@ function dateOnly(value){
  return getMailLanguage()==='en'?parts.year+'-'+parts.month+'-'+parts.day:parts.year+'年'+parts.month+'月'+parts.day+'日';
 }
 function listItem(item){
- const updatedAt=progressUpdatedAt(item);
+ const updatedAt=progressUpdatedAt(item),submittedAt=submissionDate(item);
+ const submitted=variant=>'<small class="submission-submitted submission-submitted-'+variant+'"><span>'+(getMailLanguage()==='en'?'Submission date':'投稿日期')+'</span><time data-user-content'+(submittedAt?' datetime="'+esc(submittedAt)+'"':'')+'>'+dateOnly(submittedAt)+'</time></small>';
  return '<article class="submission-card '+(checkedManuscripts.has(item.id)?'is-selected':'')+'" data-ms="detail" data-id="'+item.id+'" role="button" tabindex="0" '+(selectionMode?'aria-pressed="'+checkedManuscripts.has(item.id)+'" aria-disabled="'+selectionBusy+'"':'')+'>'+
  (selectionMode?'<input class="submission-select" type="checkbox" data-ms-select="'+item.id+'" '+(checkedManuscripts.has(item.id)?'checked':'')+' '+(selectionBusy?'disabled':'')+' aria-label="选择 '+esc(item.title)+'">':'')+badge(item)+
- '<div class="submission-identity" data-user-content><span class="submission-journal">'+esc(item.journal||'未注明期刊')+'</span><h2>'+esc(item.title||'标题待补充')+'</h2><p>'+esc(item.authors||'作者待补充')+'</p><div class="submission-idline"><code>'+esc(item.number)+'</code></div></div>'+
- '<div class="submission-state">'+statusRound(item)+(item.tracking_url?'<a href="'+esc(item.tracking_url)+'" target="_blank" rel="noopener noreferrer" class="text-btn">状态链接 '+icon('arrow-up-right',14)+'</a>':'')+'<small class="submission-last-update"><span>状态更新</span><time data-user-content datetime="'+esc(updatedAt)+'">'+dateOnly(updatedAt)+'</time></small></div></article>';
+ '<div class="submission-identity" data-user-content><span class="submission-journal">'+esc(item.journal||'未注明期刊')+'</span><h2>'+esc(item.title||'标题待补充')+'</h2><p>'+esc(item.authors||'作者待补充')+'</p><div class="submission-idline"><code>'+esc(item.number)+'</code>'+submitted('list')+'</div></div>'+
+ '<div class="submission-state">'+statusRound(item)+(item.tracking_url?'<a href="'+esc(item.tracking_url)+'" target="_blank" rel="noopener noreferrer" class="text-btn">状态链接 '+icon('arrow-up-right',14)+'</a>':'')+'<div class="submission-dates"><small class="submission-last-update"><span>状态更新</span><time data-user-content datetime="'+esc(updatedAt)+'">'+dateOnly(updatedAt)+'</time></small>'+submitted('card')+'</div></div></article>';
 }
 function filtersHTML(){
  const journals=[...new Set(state.manuscripts.map(item=>item.journal||'未注明期刊'))].sort((a,b)=>a.localeCompare(b));

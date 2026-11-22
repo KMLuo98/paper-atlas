@@ -75,6 +75,17 @@
 .submission-list .submission-state>a {margin-left:0}
 .submission-list .submission-state {display:flex;flex-direction:column;align-items:flex-start;gap:8px}
 .submission-list .submission-state>.submission-status,.submission-list .submission-state>a {align-self:flex-start}
+.submission-dates {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;order:-1;flex-basis:100%;width:100%}
+.submission-submitted {display:flex;flex-direction:column;gap:2px;font-size:11px;line-height:1.6;color:var(--mail-label,#52685f);text-align:right}
+.submission-submitted-list {display:none}
+.submission-list .submission-idline {justify-content:flex-start;gap:16px}
+.submission-list .submission-submitted-list {display:flex;flex:none;flex-direction:row;gap:6px;text-align:left}
+.submission-list .submission-submitted-card {display:none}
+.submission-list .submission-dates {display:block;flex-basis:auto}
+.submission-list .submission-last-update {flex-wrap:wrap}
+@media(max-width:700px) {
+ .submission-list .submission-submitted-list {flex-direction:column;gap:2px}
+}
 .submission-vault {position:static;justify-content:flex-end;margin-top:24px;padding:0;background:none;border:0;border-radius:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
 .submission-dashboard {display:grid;grid-template-columns:minmax(0,1fr);gap:28px;align-items:start}
 .submission-dashboard .submission-statistics {margin-top:0;min-width:0}

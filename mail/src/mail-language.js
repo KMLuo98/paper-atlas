@@ -201,6 +201,7 @@ AI 与阅读偏好|AI & reading preferences
 取消星标|Unstar
 选择照片并裁剪|Choose & crop photo
 状态更新|Status updated
+投稿日期|Submission date
 出版社|Publisher
 投稿期刊|Journal
 标题|Title
