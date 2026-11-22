@@ -100,7 +100,8 @@ const actionIcons = {
   'match-contact-info':'sparkles','delete-contact':'trash-2','contact-trash-more':'arrow-down',
   'choose-self-photo':'image-off','remove-self-photo':'trash-2',
   'choose-contact-photo':'image-off','remove-contact-photo':'trash-2',
-  'add-contact-email':'plus','confirm-send':'send','back':'arrow-left'
+  'add-contact-email':'plus','confirm-send':'send','back':'arrow-left',
+  'category-read':'check','save-category-order':'save'
 };
 
 const draftExitIcons = {cancel:'pencil',discard:'trash-2',save:'save'};
@@ -137,7 +138,7 @@ export function prepareMailAppearance(icon) {
     if (marker && !marker.firstChild) marker.innerHTML = icon('mail', 15);
   }
   for (const control of document.querySelectorAll(toolbarButtons+','+adaptiveToolbarButtons+','+allMobileButtons)) {
-    if(control.closest('[data-language-control],.format-toolbar,.inbox-filter-options,.recipient-options,.contact-index')||control.querySelector('img')||control.matches('[data-option],.contact-open'))continue;
+    if(control.closest('[data-language-control],.format-toolbar,.inbox-filter-options,.recipient-options,.contact-index')||control.querySelector('img')||control.matches('[data-option],.contact-open,.category-number,.folder-title,.category-grip'))continue;
     const actionClass = control.matches(allMobileButtons)||control.matches(toolbarButtons) ? 'mobile-icon-action' : 'adaptive-icon-action';
     if (control.classList.contains(actionClass)) continue;
     const label = (control.getAttribute('aria-label')||control.textContent).trim();

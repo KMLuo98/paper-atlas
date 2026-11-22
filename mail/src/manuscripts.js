@@ -10,6 +10,8 @@ let context,owner='',loaded=false,loading,selectionMode='',selectionBusy=false;
 const checkedManuscripts=new Set();
 const statusFilters=new Set(),journalFilters=new Set();
 let state={enabled:false,manuscripts:[],statistics:[]},scope='active',selected='',query='',layout='grid',updating=false,notice='';
+const wideSubmissionLayout=matchMedia('(min-width:1101px)');
+wideSubmissionLayout.addEventListener('change',()=>repaint());
 const labels={active:'投稿信息',archived:'已归档稿件',trash:'稿件垃圾箱'};
 const providerLogos={
  Elsevier:[publisherLogos.Elsevier,'E'],
@@ -123,6 +125,7 @@ function detailHTML(item){
 export function manuscriptsHTML(){
  if(!state.enabled)return '<section class="page"><h1>请先在设置中开启学术版</h1></section>';
  const route=context.route();selected=route.id;scope=route.scope;
+ const list=layout==='list'&&wideSubmissionLayout.matches;
  fitStatistics();
  const item=state.manuscripts.find(item=>item.id===selected);
  const items=state.manuscripts.filter(item=>scope==='trash'?item.deleted_at:scope==='archived'?item.archived_at&&!item.deleted_at:!item.archived_at&&!item.deleted_at)
@@ -136,11 +139,11 @@ export function manuscriptsHTML(){
  action('add','手动添加','plus',selectionMode?'disabled':'')+'</div></header>'+(updating?'<p role="status" class="submission-notice">正在检索邮件和查询稿件状态…</p>':'')+(notice?'<p role="status" class="submission-notice">'+esc(notice)+'</p>':'')+
  (item?detailHTML(item):'<div class="submission-dashboard"><section class="submission-results"><div class="submission-toolbar"><input type="search" id="submission-search" placeholder="搜索期刊、标题、作者或稿件号" aria-label="搜索稿件" value="'+esc(query)+'">'+filtersHTML()+'<div class="contact-layout-switch" role="group" aria-label="稿件视图"><button data-ms="layout" data-layout="list" aria-label="列表视图" title="列表视图" aria-pressed="'+(layout==='list')+'">'+icon('list',16)+'</button><button data-ms="layout" data-layout="grid" aria-label="卡片视图" title="卡片视图" aria-pressed="'+(layout==='grid')+'">'+icon('layout-grid',16)+'</button></div></div>'+
  (selectionMode?'<div class="submission-bulk-bar"><label class="check"><input type="checkbox" data-ms-select-all '+(items.length&&items.every(item=>checkedManuscripts.has(item.id))?'checked':'')+' '+(selectionBusy?'disabled':'')+'> 全选</label><span>已选 '+checkedManuscripts.size+' 篇</span>'+action('bulk-apply',selectionMode==='restore'?'恢复所选':selectionMode==='archive'?'归档所选':'删除所选',selectionMode==='restore'?'undo-2':selectionMode==='archive'?'archive':'trash-2',checkedManuscripts.size&&!selectionBusy?'':'disabled')+action('selection-cancel','取消选择','x',selectionBusy?'disabled':'')+'</div>':'')+
- '<div class="submission-items '+(layout==='list'?'submission-list':'')+'">'+(items.map(listItem).join('')||'<div class="empty-state"><h2>暂无稿件</h2><p>点击更新状态从已同步邮件识别，或手动添加稿件</p></div>')+'</div></section>'+statsHTML()+'</div>')+
+ '<div class="submission-items '+(list?'submission-list':'')+'">'+(items.map(listItem).join('')||'<div class="empty-state"><h2>暂无稿件</h2><p>点击更新状态从已同步邮件识别，或手动添加稿件</p></div>')+'</div></section>'+statsHTML()+'</div>')+
  '<div class="submission-vault">'+action('scope-archived','已归档','archive')+action('scope-trash','垃圾箱','trash-2')+(scope!=='active'?action('scope-active','返回进行中','arrow-left'):'')+'</div></section>';
 }
 function repaint(){
- if(!context.active())return;
+ if(!context?.active())return;
  context.repaint();
 }
 function input(name,label,value='',required=false){
@@ -304,7 +307,7 @@ document.addEventListener('click',async event=>{
    if(mode==='restore')updateManuscripts();else checkAcademicDaily(owner);
   }
   else if(op==='edit')edit(item);
-  else if(op==='layout'){layout=button.dataset.layout;localStorage.setItem('mail-manuscript-layout',layout);repaint();}
+  else if(op==='layout'&&wideSubmissionLayout.matches){layout=button.dataset.layout;localStorage.setItem('mail-manuscript-layout',layout);repaint();}
   else if(op==='refresh')await updateManuscripts();
   else if(op.startsWith('scope-')){query='';selectionMode='';checkedManuscripts.clear();context.routeChange({scope:op.slice(6),id:''});}
   else if(op==='source')await context.openSource(button.dataset.source);
