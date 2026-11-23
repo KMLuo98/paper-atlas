@@ -1,6 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.117.3';
 import {parseHTML} from 'npm:linkedom@0.18.13';
-import {STATUSES,text,candidateMail,ruleExtract,unknownMailRetries,MAIL_EXTRACTION_VERSION,publisherOf,normalizeStatus,safeStatusURL,safeLink,apsURL,manuscriptKey,applyObservation,rawStatistics,statistics,publisherForJournal,reconcileManuscripts,recordMetrics,extractReviewMetrics,POST_ACCEPTED,canonicalJournal,applyPublisherMetadata,applyPublisherStatus,resolveManuscriptStatus,bulkManuscriptAction,automaticTrackingLink,trackingLinkFromText,canonicalNumber,resetJournalStatistics} from './core.js';
+import {STATUSES,text,candidateMail,ruleExtract,unknownMailRetries,MAIL_EXTRACTION_VERSION,publisherOf,normalizeStatus,safeStatusURL,safeLink,apsURL,manuscriptKey,applyObservation,rawStatistics,statistics,publisherForJournal,reconcileManuscripts,recordMetrics,extractReviewMetrics,POST_ACCEPTED,canonicalJournal,applyPublisherMetadata,applyPublisherStatus,resolveManuscriptStatus,bulkManuscriptAction,automaticTrackingLink,trackingLinkFromText,canonicalNumber,resetJournalStatistics,deleteJournalStatistics} from './core.js';
 import {fetchStatusPage} from './publishers.js';
 
 const env=(name:string)=>Deno.env.get(name)||'';
@@ -290,6 +290,7 @@ Deno.serve(async request=>{
   }
   if(action==='statistics'){
    return json(view(await mutate(user,row=>{
+    if(b.remove){try{deleteJournalStatistics(row.data,b.journal);}catch(error){throw new RequestError(400,error.message);}return row;}
     if(b.reset){try{resetJournalStatistics(row.data,b.journal);}catch(error){throw new RequestError(400,error.message);}return row;}
     const rows=Array.isArray(b.rows)?b.rows:[b],seen=new Set();
     const counts=rawStatistics(row.data);
@@ -301,6 +302,7 @@ Deno.serve(async request=>{
      for(const field of Object.keys(raw)){const n=Number(entry[field]);if(!Number.isInteger(n)||n<0||n>1000000)throw new RequestError(400,'统计请输入非负整数');offsets[field]=n-raw[field];}
      if(Number(entry.completed)<Number(entry.accepted)+Number(entry.rejected)||Number(entry.total)<Number(entry.active)+Number(entry.completed))throw new RequestError(400,'总数应不少于进行中加已完成，已完成应不少于接收加拒稿');
      row.data.stats_offsets={...row.data.stats_offsets,[journal]:offsets};
+     row.data.stats_hidden_journals=(row.data.stats_hidden_journals||[]).filter((name:string)=>canonicalJournal(name)!==journal);
     }
     return row;
    })));

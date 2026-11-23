@@ -255,6 +255,10 @@ AI 与阅读偏好|AI & reading preferences
 邮件阶段记录|Email stage record
 进度更新时间|Progress updated
 累计|Total
+确认删除|Confirm deletion
+删除当前期刊|Delete this journal
+已删除该期刊统计|Journal statistics deleted
+仅移除该期刊的统计行，稿件和邮件会保留。之后可通过“添加期刊”重新加入。|Only this statistics row is removed. Manuscripts and emails are kept. Use Add journal to include it again.
 重置当前期刊|Reset this journal
 已重置该期刊统计|Journal statistics reset
 暂无稿件|No submissions

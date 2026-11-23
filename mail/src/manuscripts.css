@@ -124,11 +124,14 @@
 .manuscripts-page .head-actions button:disabled {opacity:.42;cursor:not-allowed}
 [data-appearance=glass] .manuscripts-page .head-actions button[aria-pressed=true] {-webkit-backdrop-filter:var(--mail-glass-blur);backdrop-filter:var(--mail-glass-blur)}
 .stats-editor-row {border:1px solid var(--border);border-radius:12px;padding:18px;margin:0 0 18px;min-width:0}
+.stats-delete-confirm {padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--glass-control,#f5f8f6);color:var(--mail-text);font-size:14px;line-height:1.7}
+.stats-delete-confirm[hidden] {display:none}
+.stats-delete-confirm>div {display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
 .stats-editor-row .form-grid {grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
 .stats-editor-row input {width:100%;min-width:0}
 .submission-stats-scroll tfoot :is(th,td) {font-weight:700;border-top:1px solid var(--border);border-bottom:0;padding-top:16px}
 [data-stats-reset] {margin-right:auto}
-[data-stats-reset][hidden] {display:none!important}
+[data-stats-reset][hidden],[data-stats-delete][hidden] {display:none!important}
 .submission-link-editor {margin-bottom:20px}
 .submission-link-editor>label {display:block;margin-bottom:8px}
 .submission-link-controls {display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px}

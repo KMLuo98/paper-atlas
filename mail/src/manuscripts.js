@@ -193,7 +193,7 @@ function statsEditorRow(row={}){
 function editStats(journal=''){
  const selected=state.statistics.find(row=>row.journal===journal)||state.statistics[0];
  context.modal('编辑投稿统计','<form id="submission-stats-form"><label>选择期刊<select id="statistics-journal-choice">'+state.statistics.map((row,index)=>'<option value="'+index+'" '+(row===selected?'selected':'')+'>'+esc(row.journal)+'</option>').join('')+'<option value="new" '+(!selected?'selected':'')+'>添加期刊…</option></select></label><div id="statistics-edit-rows">'+statsEditorRow(selected)+'</div>'+
- '<p class="form-error" role="alert"></p><div class="modal-footer">'+action('stats-reset','重置当前期刊','undo-2','data-stats-reset '+(!selected?'hidden':''))+'<button class="primary" type="submit">'+icon('save',16)+' 保存统计</button></div></form>',true);
+ '<div class="stats-delete-confirm" hidden><p>仅移除该期刊的统计行，稿件和邮件会保留。之后可通过“添加期刊”重新加入。</p><div>'+action('stats-delete-cancel','取消','x')+action('stats-delete-confirm','确认删除','trash-2')+'</div></div><p class="form-error" role="alert"></p><div class="modal-footer">'+action('stats-delete','删除当前期刊','trash-2','data-stats-delete '+(!selected?'hidden':''))+action('stats-reset','重置当前期刊','undo-2','data-stats-reset '+(!selected?'hidden':''))+'<button class="primary" type="submit">'+icon('save',16)+' 保存统计</button></div></form>',true);
 }
 async function confirmAction(label,run){
  context.modal(label,'<p>确认'+label+'？</p><div class="modal-footer"><button class="secondary" data-action="close-modal">取消</button><button class="primary" id="submission-confirm">确认</button></div>');
@@ -262,6 +262,8 @@ document.addEventListener('change',event=>{
   const row=event.target.value==='new'?undefined:state.statistics[Number(event.target.value)];
   document.querySelector('#statistics-edit-rows').innerHTML=statsEditorRow(row);
   document.querySelector('[data-stats-reset]').hidden=!row;
+  document.querySelector('[data-stats-delete]').hidden=!row;
+  document.querySelector('.stats-delete-confirm').hidden=true;
   document.querySelector('#submission-stats-form .form-error').textContent='';
  }
  if(event.target.matches?.('[data-ms-select]')){event.target.checked?checkedManuscripts.add(event.target.dataset.msSelect):checkedManuscripts.delete(event.target.dataset.msSelect);repaint();}
@@ -312,6 +314,17 @@ document.addEventListener('click',async event=>{
   else if(op.startsWith('scope-')){query='';selectionMode='';checkedManuscripts.clear();context.routeChange({scope:op.slice(6),id:''});}
   else if(op==='source')await context.openSource(button.dataset.source);
   else if(op==='stats-add')editStats();
+  else if(op==='stats-delete'){
+   const form=button.closest('#submission-stats-form');if(!form||button.hidden)return;
+   const panel=form.querySelector('.stats-delete-confirm');panel.dataset.journal=form.querySelector('[data-stat=journal]').value;panel.hidden=false;
+  }
+  else if(op==='stats-delete-cancel')button.closest('.stats-delete-confirm').hidden=true;
+  else if(op==='stats-delete-confirm'){
+   const form=button.closest('#submission-stats-form'),panel=button.closest('.stats-delete-confirm');if(!form||panel.hidden)return;
+   const journal=panel.dataset.journal,controls=[...form.elements];controls.forEach(control=>control.disabled=true);
+   try{state=await request('statistics',{remove:true,journal});context.closeModal();repaint();context.toast('已删除该期刊统计');}
+   finally{controls.forEach(control=>control.disabled=false);}
+  }
   else if(op==='stats-reset'){
    const form=button.closest('#submission-stats-form');if(!form||button.hidden)return;
    const journal=form.querySelector('[data-stat=journal]').value,controls=[...form.elements];controls.forEach(control=>control.disabled=true);

@@ -187,7 +187,14 @@ export function rawStatistics(data) {
 export function statistics(data) {
   const raw=rawStatistics(data);
   for(const journal of Object.keys(data.stats_offsets||{}))raw[journal]??={total:0,active:0,accepted:0,rejected:0,completed:0};
-  return Object.entries(raw).map(([journal,row])=>({journal,...Object.fromEntries(Object.entries(row).map(([key,value])=>[key,Math.max(0,value+(data.stats_offsets?.[journal]?.[key]||0))]))}));
+  const hidden=new Set((data.stats_hidden_journals||[]).map(canonicalJournal));
+  return Object.entries(raw).filter(([journal])=>!hidden.has(canonicalJournal(journal))).map(([journal,row])=>({journal,...Object.fromEntries(Object.entries(row).map(([key,value])=>[key,Math.max(0,value+(data.stats_offsets?.[journal]?.[key]||0))]))}));
+}
+export function deleteJournalStatistics(data,value){
+  const journal=canonicalJournal(value);
+  if(!journal||(!Object.hasOwn(rawStatistics(data),journal)&&!Object.keys(data.stats_offsets||{}).some(name=>canonicalJournal(name)===journal)&&!(data.stats_hidden_journals||[]).includes(journal)))throw Error('请选择要删除的已保存期刊');
+  data.stats_hidden_journals=[...new Set([...(data.stats_hidden_journals||[]).map(canonicalJournal),journal])];
+  data.stats_offsets=Object.fromEntries(Object.entries(data.stats_offsets||{}).filter(([name])=>canonicalJournal(name)!==journal));
 }
 export function resetJournalStatistics(data,value){
   const journal=canonicalJournal(value);
