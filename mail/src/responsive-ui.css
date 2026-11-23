@@ -97,6 +97,9 @@
   .contact-footer .contact-group {max-width:calc(100% - 76px);flex-shrink:1;overflow-wrap:anywhere;white-space:normal}
 }
 @media(max-width:700px) {
+  .mail-appearance-options {grid-template-columns:repeat(2,44px);width:max-content;max-width:100%;padding:3px}
+  .mail-appearance-options button {width:44px;min-width:44px;min-height:44px;padding:0;gap:0}
+  .mail-appearance-options .appearance-label {display:none}
   .sidebar :is(.brand,.nav-item,.inbox-nav-link,.mailbox-link)>.sidebar-glyph {display:grid;place-items:center;width:28px;height:28px;min-width:28px;flex:0 0 28px}
   .sidebar-toggle {display:none}
   .contacts-count {display:block;margin:5px 0 0;color:var(--mail-label);font-size:13px}

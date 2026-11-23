@@ -22,6 +22,13 @@ try {
    await page.waitForFunction(()=>document.querySelector('.sidebar').getBoundingClientRect().width>230);
   } else {
    await page.locator('.mobile-menu').click();
+   await page.waitForFunction(()=>getComputedStyle(document.querySelector('.sidebar')).transform==='none');
+   const icons=page.locator('.sidebar [data-action=nav] svg,.sidebar .compose-btn svg,.sidebar .brand svg,.sidebar .mailbox-link svg');
+   assert.ok(await icons.count()>10);
+   for(const icon of await icons.all()){
+    assert.equal(await icon.isVisible(),true,'Every mobile sidebar icon remains visible');
+    const box=await icon.boundingBox();assert.ok(box.width>0&&box.x>=0&&box.x+box.width<=72);
+   }
    assert.equal(await page.locator('.app-shell').getAttribute('data-nav-open'),'');
    assert.notEqual(await page.locator('.sidebar').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
    await page.locator('.nav-scrim').click({position:{x:200,y:300}});
@@ -58,6 +65,20 @@ try {
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   assert.deepEqual(errors,[]);
   await page.screenshot({path:'test-results/responsive-ui-'+engine+'-'+theme+'-'+width+'.png'});
+  if(width<=700)await page.locator('.mobile-menu').click();
+  await page.locator('[data-action=nav][data-view=settings]').click();
+  const appearance=page.locator('.mail-appearance-options'),frame=await appearance.boundingBox();
+  assert.equal(await appearance.locator('.lucide-menu').count(),0);
+  for(const button of await appearance.locator('button').all()){
+   assert.equal(await button.locator('svg').isVisible(),true);
+   assert.equal(await button.locator('.appearance-label').isVisible(),width>700);
+   if(width<=700){const box=await button.boundingBox();assert.equal(box.width,44);assert.equal(box.height,44);}
+  }
+  assert.ok(frame.width<=(width<=700?98:320));
+  await appearance.locator('[aria-pressed=false]').click();
+  await page.waitForFunction(()=>{const group=document.querySelector('.mail-appearance-options'),thumb=group.querySelector('.switch-thumb').getBoundingClientRect(),selected=group.querySelector('[aria-pressed=true]').getBoundingClientRect();return Math.abs(thumb.x-selected.x)<.5&&Math.abs(thumb.width-selected.width)<.5;});
+  await page.screenshot({path:'test-results/appearance-controls-'+engine+'-'+theme+'-'+width+'.png'});
+  assert.deepEqual(errors,[]);
   console.log(JSON.stringify({engine,width,theme,passed:true}));await context.close();
  }
 } finally {await browser.close();}

@@ -26,8 +26,8 @@ try {
 export function mailAppearanceHTML() {
   return `<section class="settings-block mail-appearance"><div class="block-heading"><div><h2>外观</h2></div></div>
     <div class="mail-appearance-options" role="group" aria-label="界面风格">
-      <button type="button" data-mail-appearance="classic">经典</button>
-      <button type="button" data-mail-appearance="glass">液态玻璃</button>
+      <button type="button" data-mail-appearance="classic" aria-label="经典"><i data-lucide="book-open" aria-hidden="true" style="width:18px;height:18px"></i><span class="appearance-label">经典</span></button>
+      <button type="button" data-mail-appearance="glass" aria-label="液态玻璃"><i data-lucide="sparkles" aria-hidden="true" style="width:18px;height:18px"></i><span class="appearance-label">液态玻璃</span></button>
     </div>
     <label class="mail-transparency">玻璃透明度 <output id="mail-glass-value"></output>
       <input type="range" id="mail-glass-transparency" min="10" max="65" step="1">
@@ -138,7 +138,7 @@ export function prepareMailAppearance(icon) {
     if (marker && !marker.firstChild) marker.innerHTML = icon('mail', 15);
   }
   for (const control of document.querySelectorAll(toolbarButtons+','+adaptiveToolbarButtons+','+allMobileButtons)) {
-    if(control.closest('[data-language-control],.format-toolbar,.inbox-filter-options,.recipient-options,.contact-index')||control.querySelector('img')||control.matches('[data-option],.contact-open,.category-number,.folder-title,.category-grip'))continue;
+    if(control.closest('[data-language-control],.mail-appearance-options,.format-toolbar,.inbox-filter-options,.recipient-options,.contact-index')||control.querySelector('img')||control.matches('[data-option],.contact-open,.category-number,.folder-title,.category-grip'))continue;
     const actionClass = control.matches(allMobileButtons)||control.matches(toolbarButtons) ? 'mobile-icon-action' : 'adaptive-icon-action';
     if (control.classList.contains(actionClass)) continue;
     const label = (control.getAttribute('aria-label')||control.textContent).trim();

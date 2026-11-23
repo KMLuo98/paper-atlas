@@ -133,7 +133,7 @@ html[data-appearance="glass"] {
   padding-inline:0;
 }
 .sidebar :is(.brand,.compose-btn,.nav-item,.mailbox-link,.inbox-nav-link) {min-height:44px}
-.sidebar :is(.brand>span,.nav-item>span,.nav-item>small,.inbox-nav-link>span,.mailbox-link>span:nth-child(2),.mailbox-link>small,.sidebar-hint,.profile-chip>div) {display:none}
+.sidebar :is(.brand>span,.nav-item>span,.nav-item>small,.inbox-nav-link>span,.mailbox-link>span:nth-child(2),.mailbox-link>small,.sidebar-hint,.profile-chip>div):not(.sidebar-glyph) {display:none}
 .sidebar .compose-btn,.sidebar .section-label {font-size:0}
 .sidebar .compose-btn {margin:10px 0 12px}
 .sidebar .nav-divider {margin-block:8px}
@@ -186,4 +186,3 @@ html[data-appearance="glass"] {
 @media (prefers-reduced-motion:reduce) {
   .mail-appearance-options::before,[data-appearance="glass"] .mail-row::after {transition:none}
 }
-
