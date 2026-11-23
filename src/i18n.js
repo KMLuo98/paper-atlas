@@ -435,6 +435,7 @@ export function installI18n() {
       const next = translateText(originals.get(node)); if (node.data !== next) node.data = next;
     }
     document.querySelectorAll('[placeholder],[title],[aria-label],[alt]').forEach(el => {
+      if (el.hasAttribute('data-panel-control')) return;
       let original = attributes.get(el); if (!original) {original = {}; attributes.set(el, original);}
       for (const name of ['placeholder','title','aria-label','alt']) if (el.hasAttribute(name)) {
         if (!(name in original)) original[name] = el.getAttribute(name);

@@ -5,7 +5,7 @@ import {escapeHTML as e} from './core.js';
 export function mountResponsivePDF(container,url,title,options={}){
  container.className='pdf-content';container.setAttribute('aria-label',title);
  container.innerHTML=`<div class="paged-pdf-reader continuous-pdf"><div class="pdf-pager"><button data-step="-1" disabled>上一页</button><form class="pdf-page-form"><label>页码<input type="number" min="1" value="1" inputmode="numeric" aria-label="页码" disabled></label><span class="pdf-page-total">/ …</span><button type="submit" disabled>跳转</button></form><button data-step="1" disabled>下一页</button><a href="${e(url)}" target="_blank" rel="noopener noreferrer">打开原始 PDF ↗</a></div><div class="pdf-page-status" role="status">正在加载原文…</div><div class="pdf-canvas-host"></div></div>`;
- const host=container.querySelector('.pdf-canvas-host'),status=container.querySelector('[role=status]'),input=container.querySelector('input');
+ const host=container.querySelector('.pdf-canvas-host'),status=container.querySelector('[role=status]'),input=container.querySelector('input'),pager=container.querySelector('.pdf-pager');
  let disposed=false,task,pdf,current=1,width=0,timer,generation=0,running=false,queued=false;const visibility=new Map(),near=new Set(),pages=[],renderTasks=new Set();
  const controls=()=>{input.value=current;container.querySelectorAll('[data-step]').forEach(b=>b.disabled=!pdf||(+b.dataset.step<0?current===1:current===pdf.numPages));};
  const go=number=>{if(!pdf)return;current=Math.max(1,Math.min(pdf.numPages,Math.round(+number)||1));pages[current-1].scrollIntoView({block:'start',behavior:'instant'});near.add(current);controls();pump();};
@@ -19,7 +19,47 @@ export function mountResponsivePDF(container,url,title,options={}){
  }
  const observer=new IntersectionObserver(entries=>{for(const entry of entries){const number=+entry.target.dataset.page;if(entry.isIntersecting)near.add(number);else near.delete(number);}for(const slot of pages){if(Math.abs(+slot.dataset.page-current)>5&&!near.has(+slot.dataset.page)){const canvas=slot.querySelector('canvas');if(canvas){canvas.width=1;canvas.height=1;slot._textCleanup?.();slot.replaceChildren();}}}pump();},{rootMargin:'900px 0px'});
  const track=new IntersectionObserver(entries=>{for(const entry of entries)entry.isIntersecting?visibility.set(+entry.target.dataset.page,entry.intersectionRatio):visibility.delete(+entry.target.dataset.page);const visible=[...visibility].sort((a,b)=>b[1]-a[1]);if(visible.length){current=visible[0][0];controls();}},{threshold:[0,.2,.5,.8]});
- const resize=new ResizeObserver(()=>{const next=host.clientWidth;if(Math.abs(next-width)<2)return;width=next;clearTimeout(timer);timer=setTimeout(()=>{generation++;for(const render of renderTasks)render.cancel();pages.forEach(slot=>{const canvas=slot.querySelector('canvas');if(canvas){canvas.width=1;canvas.height=1;}slot._textCleanup?.();slot.replaceChildren();slot.style.minHeight=Math.max(250,(host.clientWidth-24)*(+slot.dataset.aspect||1.414))+'px';});pump();},180);});resize.observe(host);
+ const scrollsInside=()=>getComputedStyle(container).overflowY==='auto';
+ function readingPosition(){
+  const top=Math.max(0,pager.getBoundingClientRect().bottom);
+  const bottom=scrollsInside()?Math.min(innerHeight,container.getBoundingClientRect().bottom):innerHeight;
+  if(top>=bottom)return null;
+  const slot=pages.find(page=>page.getBoundingClientRect().bottom>top);
+  const bounds=slot?.getBoundingClientRect();
+  return bounds?.height&&bounds.top<bottom
+   ?{number:Number(slot.dataset.page),fraction:Math.max(0,(top-bounds.top)/bounds.height)}
+   :null;
+ }
+ function restoreReadingPosition(position){
+  if(!position)return;
+  const slot=pages[position.number-1],internal=scrollsInside();
+  const scroller=internal?container:container.ownerDocument.scrollingElement;
+  const chrome=pager.offsetHeight+(container.querySelector('.pdf-edit-bar')?.offsetHeight||0);
+  const top=(internal?Math.max(0,container.getBoundingClientRect().top):0)+chrome;
+  const bounds=slot.getBoundingClientRect();
+  scroller.scrollTop+=bounds.top+position.fraction*bounds.height-top;
+ }
+ const resize=new ResizeObserver(()=>{
+  const next=host.clientWidth;
+  if(Math.abs(next-width)<2)return;
+  width=next;
+  clearTimeout(timer);
+  timer=setTimeout(()=>{
+   const position=readingPosition();
+   generation++;
+   for(const render of renderTasks)render.cancel();
+   for(const slot of pages){
+    const canvas=slot.querySelector('canvas');
+    if(canvas){canvas.width=1;canvas.height=1;}
+    slot._textCleanup?.();
+    slot.replaceChildren();
+    slot.style.minHeight=Math.max(250,(host.clientWidth-24)*(+slot.dataset.aspect||1.414))+'px';
+   }
+   restoreReadingPosition(position);
+   pump();
+  },180);
+ });
+ resize.observe(host);
  const editor=options.store?mountPDFEditor(container,{...options,url}):null;
  (async()=>{task=await openPDFTask(url);if(disposed){await task.destroy();return;}pdf=await task.promise;if(disposed)return;
   const first=await pdf.getPage(1),v=first.getViewport({scale:1});first.cleanup();
@@ -27,5 +67,7 @@ export function mountResponsivePDF(container,url,title,options={}){
   input.max=pdf.numPages;input.disabled=false;container.querySelector('form button').disabled=false;container.querySelector('.pdf-page-total').textContent='/ '+pdf.numPages;status.textContent='';controls();near.add(1);await pump();
  })().catch(error=>{if(!disposed)status.textContent=error.message+' · 可打开原始 PDF 阅读';});
  const cleanup=()=>{editor?.destroy();disposed=true;generation++;clearTimeout(timer);observer.disconnect();track.disconnect();resize.disconnect();for(const slot of pages)slot._textCleanup?.();for(const render of renderTasks)render.cancel();task?.destroy().catch(()=>{});};
- cleanup.setCompact=value=>editor?.setCompact(value);cleanup.exportPDF=editor?.exportPDF;cleanup.ready=editor?.ready||Promise.resolve();return cleanup;
+ cleanup.setCompact=value=>editor?.setCompact(value);cleanup.exportPDF=editor?.exportPDF;cleanup.ready=editor?.ready||Promise.resolve();
+ cleanup.readingPosition=readingPosition;cleanup.restoreReadingPosition=restoreReadingPosition;
+ return cleanup;
 }
