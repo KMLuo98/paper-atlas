@@ -145,8 +145,7 @@ export function applyObservation(data,observation) {
   item.events.sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));
   if(observation.metrics)recordMetrics(item,observation.metrics,observation.date,observation.source_url||observation.tracking_url,{source:observation.source,source_id:observation.source_id,status:observation.status});
   // Unknown observations remain visible in the history without erasing a known decision.
-  const latest=[...item.events].reverse().find(event=>event.status!=='unknown');
-  if(latest){item.status=latest.status;item.status_at=latest.date;}
+  resolveManuscriptStatus(item);
   item.updated_at=new Date().toISOString();
   return item;
 }
@@ -258,6 +257,50 @@ export function applyPublisherMetadata(item,result) {
     item.authors=result.authors;item.authors_partial=Boolean(result.authors_partial);item.authors_source='publisher';
   }
 }
+
+const EXPLICIT_DECISIONS=new Set(['minor_revision','major_revision','revision_requested','rejected','withdrawn','transferred',...POST_ACCEPTED]);
+const GENERIC_DECISIONS=new Set(['with_author','decision_sent','decision_pending']);
+const FORWARD_STAGES=['submitted','with_editor','under_review','reviews_completed','decision_pending'];
+function canReplaceStatus(previous,next){
+  if(!previous||next.source==='manual')return true;
+  if(EXPLICIT_DECISIONS.has(previous.status)&&GENERIC_DECISIONS.has(next.status))return false;
+  // An old review page can remain active after a decision email. A new round
+  // starts with an actual revised-submission record, not a later query time.
+  if(next.source==='website'&&EXPLICIT_DECISIONS.has(previous.status)&&!EXPLICIT_DECISIONS.has(next.status)&&next.status!=='revised_submitted'&&next.round<=previous.round)return false;
+  if(POST_ACCEPTED.has(previous.status)&&!POST_ACCEPTED.has(next.status)&&!['rejected','withdrawn','transferred'].includes(next.status))return false;
+  return true;
+}
+
+export function resolveManuscriptStatus(item){
+  const specific=status=>EXPLICIT_DECISIONS.has(status)?2:GENERIC_DECISIONS.has(status)?0:1;
+  const priority=event=>(event.source==='manual'?10:0)+specific(event.status)+(event.source==='email'?.1:0);
+  const candidates=submissionStages(item).filter(event=>Object.hasOwn(STATUSES,event.status)&&event.status!=='unknown'&&Number.isFinite(progressTime(event.date)));
+  const snapshot=item.publisher_status;
+  if(Object.hasOwn(STATUSES,snapshot?.status)&&snapshot.status!=='unknown'&&Number.isFinite(progressTime(snapshot.date)))candidates.push({...snapshot,source:'website',round:snapshot.round||1});
+  candidates.sort((a,b)=>progressTime(a.date)-progressTime(b.date)||priority(a)-priority(b));
+  let latest;
+  for(const event of candidates)if(canReplaceStatus(latest,event))latest=event;
+  // Undated portal text is useful for a clear forward transition, but cannot
+  // overturn a dated decision or turn the time of checking into progress.
+  if(Object.hasOwn(STATUSES,snapshot?.status)&&snapshot.status!=='unknown'&&!Number.isFinite(progressTime(snapshot.date))){
+    const from=FORWARD_STAGES.indexOf(latest?.status),to=FORWARD_STAGES.indexOf(snapshot.status);
+    if(!latest||(latest.source!=='manual'&&((from>=0&&to>from)||(!EXPLICIT_DECISIONS.has(latest.status)&&EXPLICIT_DECISIONS.has(snapshot.status)))))latest={...snapshot,source:'website',date:'',round:snapshot.round||1};
+  }
+  if(latest){item.status=latest.status;item.status_at=latest.date;item.status_source=latest.source;}
+  return item;
+}
+
+export function applyPublisherStatus(item,result){
+  const status=normalizeStatus(result.current_status||result.status_text||'');
+  if(status!=='unknown'){
+    const dates=[result.status_updated_at,...(result.events||[]).filter(event=>normalizeStatus(event.status||event.raw_status)===status).map(event=>event.date)];
+    if(result.metrics&&normalizeStatus(result.status_text)===status)dates.push(result.metric_date);
+    const at=Math.max(...dates.map(progressTime).filter(Number.isFinite));
+    const revision=metricRevision(result.metrics?.revision);
+    item.publisher_status={status,date:Number.isFinite(at)?new Date(at).toISOString():'',round:revision===null?submissionRound(item):revision+1,source_url:result.url||''};
+  }
+  return resolveManuscriptStatus(item);
+}
 export function bulkManuscriptAction(data,action,ids,scope='') {
   const selected=[...new Set(Array.isArray(ids)?ids:[])].map(id=>data.manuscripts.find(item=>item.id===id));
   if(!selected.length)throw Error('请先选择稿件');
@@ -360,7 +403,7 @@ function progressTime(value){
 }
 export function progressUpdatedAt(item){
   const dates=(item.events||[]).filter(event=>event.source==='email'||event.source==='website').map(event=>event.date);
-  dates.push(item.publisher_history?.status_updated_at);
+  dates.push(item.publisher_history?.status_updated_at,item.publisher_status?.date);
   for(const row of item.metric_history||[]){
     const activity=row.metrics?.last_review_activity;
     if(Number.isFinite(progressTime(activity)))dates.push(activity);

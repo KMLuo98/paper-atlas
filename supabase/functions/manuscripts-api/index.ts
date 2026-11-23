@@ -1,6 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.117.3';
 import {parseHTML} from 'npm:linkedom@0.18.13';
-import {STATUSES,text,candidateMail,ruleExtract,publisherOf,normalizeStatus,safeStatusURL,safeLink,apsURL,manuscriptKey,applyObservation,rawStatistics,statistics,publisherForJournal,reconcileManuscripts,recordMetrics,extractReviewMetrics,POST_ACCEPTED,canonicalJournal,applyPublisherMetadata,bulkManuscriptAction,automaticTrackingLink,trackingLinkFromText,canonicalNumber,resetJournalStatistics} from './core.js';
+import {STATUSES,text,candidateMail,ruleExtract,publisherOf,normalizeStatus,safeStatusURL,safeLink,apsURL,manuscriptKey,applyObservation,rawStatistics,statistics,publisherForJournal,reconcileManuscripts,recordMetrics,extractReviewMetrics,POST_ACCEPTED,canonicalJournal,applyPublisherMetadata,applyPublisherStatus,resolveManuscriptStatus,bulkManuscriptAction,automaticTrackingLink,trackingLinkFromText,canonicalNumber,resetJournalStatistics} from './core.js';
 import {fetchStatusPage} from './publishers.js';
 
 const env=(name:string)=>Deno.env.get(name)||'';
@@ -24,13 +24,17 @@ async function mutate(user:string,change:(row:any)=>any){
 }
 async function upgradeWorkspace(user:string){
  const row=await workspace(user);
- if(row.data.tracking_version===3)return row;
+ if(row.data.tracking_version===4)return row;
  return mutate(user,row=>{
-  reconcileManuscripts(row.data);
+  if(row.data.tracking_version!==3)reconcileManuscripts(row.data);
   for(const item of row.data.manuscripts){
    if(item.publisher==='AIP Publishing'&&/^Chaos(?::|$)/i.test(item.journal)&&!/(peerx-press|ejpress)/i.test(item.tracking_url||''))item.tracking_url='https://chaos.peerx-press.org/';
   }
-  row.data.tracking_version=3;row.data.last_day='';row.data.cursor=null;
+  for(const item of row.data.manuscripts){
+   if(!item.publisher_status&&item.status!=='unknown'&&!(item.events||[]).some((event:any)=>event.status===item.status))item.publisher_status={status:item.status,date:''};
+   if(!item.archived_at&&!item.deleted_at)resolveManuscriptStatus(item);
+  }
+  row.data.tracking_version=4;row.data.last_day='';row.data.cursor=null;
   for(const item of row.data.manuscripts)if(!item.authors)item.last_checked_day='';
   return row;
  });
@@ -178,8 +182,7 @@ async function refresh(user:string,start:boolean,daily:boolean){
     if(check.result.resolved_url&&item.tracking_mode!=='manual'&&!item.manual_fields?.includes('tracking_url'))item.tracking_url=check.result.resolved_url;
     if(check.result.tables?.length)item.publisher_history={tables:check.result.tables,status_text:check.result.status_text||'',fetched_at:check.result.fetched_at,source_url:check.result.url};
     if(check.result.metrics)recordMetrics(item,check.result.metrics,check.result.metric_date||'',check.result.url,{observed_at:check.result.fetched_at||new Date().toISOString(),source:'website',status:check.result.current_status||''});
-    const currentStatus=check.result.current_status;
-    if(currentStatus&&currentStatus!=='unknown'&&!(POST_ACCEPTED.has(item.status)&&!POST_ACCEPTED.has(currentStatus)))item.status=currentStatus;
+    applyPublisherStatus(item,check.result);
     if(check.result.url&&!item.tracking_url)item.tracking_url=check.result.url;}
   }
   row.data.cursor=cursor;row.data.lease=null;
