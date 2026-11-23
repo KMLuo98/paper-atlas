@@ -219,12 +219,6 @@
   background: #dfebd7;
   border-color: #a7bfa1;
 }
-[data-appearance="glass"] .reader-toolbar .reader-immersive-toggle[aria-pressed="true"] {
-  color: var(--glass-ink);
-  background: #d6eaf2;
-  border-color: #afcbd6;
-  box-shadow: inset 0 1px 1px #fff;
-}
 .shell:has(.reader-shell[data-immersive]) {
   display: block;
 }

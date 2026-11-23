@@ -368,3 +368,194 @@ body{font-size:16px}
 @media(prefers-reduced-transparency:reduce),(prefers-contrast:more){
   [data-appearance=glass] :is(.publication-filter>.year-filter,.journal-multi>.journal-options){background:#f3f8fa;backdrop-filter:none;-webkit-backdrop-filter:none}
 }
+
+[data-appearance="glass"] .reader-shell {
+  --reader-edge: rgb(81 137 160 / .22);
+  --reader-highlight: rgb(168 213 232 / var(--glass-alpha, .72));
+  --reader-control-height: 36px;
+  --reader-control-shadow: inset 0 1px 0 #fffc, 0 2px 6px #264a5d14;
+  --reader-toolbar-surface: var(--glass-control);
+}
+
+[data-appearance="glass"] .reader-shell > :is(.pdf-panel, .reader-info) {
+  background: var(--glass-surface);
+  color: var(--glass-ink);
+  border-color: transparent;
+  border-radius: 20px;
+  box-shadow: var(--glass-shadow);
+  margin-block: 10px;
+}
+[data-appearance="glass"] .reader-shell > .pdf-panel {
+  margin-inline-start: 12px;
+  overflow: clip;
+}
+[data-appearance="glass"] .reader-shell > .reader-info {
+  margin-inline-end: 12px;
+  scrollbar-color: #9cb9c5 transparent;
+}
+@media (min-width: 851px) {
+  [data-appearance="glass"] .reader-shell[data-info-collapsed] > .reader-info {
+    margin-inline-end: 0;
+  }
+}
+[data-appearance="glass"] .reader-shell[data-immersive] > .pdf-panel {
+  border-radius: 0;
+  box-shadow: none;
+  margin: 0;
+}
+
+[data-appearance="glass"] .reader-shell :is(.reader-toolbar, .pdf-edit-bar, .pdf-pager, .sm-preview-header, .pdf-text-entry) {
+  background: var(--reader-toolbar-surface);
+  border-color: var(--reader-edge);
+  color: var(--glass-ink);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+[data-appearance="glass"] .reader-shell .reader-toolbar .title {
+  font-weight: 650;
+}
+[data-appearance="glass"] .reader-shell .pdf-pager {
+  border-bottom: 1px solid var(--reader-edge);
+  box-shadow: none;
+  justify-content: flex-start;
+}
+[data-appearance="glass"] .reader-shell .pdf-pager > a {
+  margin-inline-start: auto;
+}
+
+[data-appearance="glass"] .reader-shell :is(.reader-toolbar button, .pdf-pager button, .pdf-page-form input, .pdf-edit-menu, .reader-info-toggle, .sm-preview-header button, .pdf-text-entry button, .sm-file) {
+  background: var(--glass-control);
+  border: 1px solid var(--reader-edge);
+  border-radius: 999px;
+  box-shadow: var(--reader-control-shadow);
+  color: var(--glass-ink);
+}
+[data-appearance="glass"] .reader-shell :is(.reader-toolbar button, .pdf-pager button, .pdf-page-form input) {
+  height: var(--reader-control-height);
+  min-height: var(--reader-control-height);
+  padding-block: 0;
+}
+[data-appearance="glass"] .reader-shell #reader-back {
+  width: var(--reader-control-height);
+  padding-inline: 0;
+}
+[data-appearance="glass"] .reader-shell .pdf-page-form input {
+  font-variant-numeric: tabular-nums;
+}
+[data-appearance="glass"] .reader-shell .pdf-edit-tools button {
+  border-radius: 50%;
+  color: var(--glass-ink);
+}
+[data-appearance="glass"] .reader-shell .pdf-edit-tools input[type="color"] {
+  background: var(--glass-control);
+  border-color: var(--reader-edge);
+  border-radius: 7px;
+}
+[data-appearance="glass"] .reader-shell .pdf-edit-tools input[type="range"] {
+  accent-color: #487b91;
+}
+[data-appearance="glass"] .reader-shell :is(.reader-toolbar, .pdf-edit-bar, .pdf-pager, .reader-split, .sm-preview-header, .pdf-text-entry) button:not(:disabled):hover,
+[data-appearance="glass"] .reader-shell :is(.reader-toolbar, .pdf-edit-bar) button:is([aria-pressed="true"], [aria-expanded="true"]),
+[data-appearance="glass"] .reader-shell .sm-file:is(:hover:not(:disabled), [aria-expanded="true"]) {
+  background: var(--reader-highlight);
+  border-color: #6f9eb3;
+  box-shadow: inset 0 1px 1px #fff, 0 2px 6px #406f8422;
+}
+[data-appearance="glass"] .reader-shell :is(.reader-toolbar, .pdf-edit-bar, .pdf-pager, .reader-split, .sm-preview-header, .pdf-text-entry) :is(button, input, textarea, a):focus-visible {
+  outline: 2px solid #477d95;
+  outline-offset: 2px;
+}
+
+[data-appearance="glass"] .reader-shell .reader-divider {
+  background: transparent;
+}
+[data-appearance="glass"] .reader-shell .reader-divider::before {
+  content: "";
+  position: absolute;
+  inset: 18px calc(50% - 1px);
+  border-radius: 999px;
+  background: var(--reader-edge);
+  transition: background-color 160ms ease;
+}
+[data-appearance="glass"] .reader-shell :is(.reader-divider:hover, .reader-divider:focus-visible)::before,
+[data-appearance="glass"] .reader-shell.resizing .reader-divider::before {
+  background: #6f9eb3;
+}
+[data-appearance="glass"] .reader-shell[data-info-collapsed] .reader-divider::before {
+  display: none;
+}
+
+[data-appearance="glass"] .reader-shell :is(.pdf-section-heading, .pdf-edit-status, .pdf-page-status, .pdf-page-total, .info-list dt, .info-list dd, .reader-info .summary, .reader-info .meta-note, .sm-document > small, [data-references-count]) {
+  color: var(--glass-secondary);
+}
+[data-appearance="glass"] .reader-shell :is(.pdf-pager a, .reader-info .info-list a, .reader-info .text-button) {
+  color: #305f75;
+}
+[data-appearance="glass"] .reader-shell :is(.reader-info .summary-section h4, .reader-author-name) {
+  color: var(--glass-ink);
+}
+[data-appearance="glass"] .reader-shell :is(.reader-info > .badge, .reader-info .keywords .badge) {
+  background: rgb(216 235 242 / var(--glass-alpha, .72));
+  border-radius: 999px;
+  color: #305f75;
+}
+[data-appearance="glass"] .reader-shell .pdf-content {
+  scrollbar-color: #9cb9c5 transparent;
+}
+[data-appearance="glass"] .reader-shell .pdf-page-slot {
+  background: var(--glass-control);
+}
+[data-appearance="glass"] .reader-shell .pdf-page-slot:empty::after {
+  color: var(--glass-secondary);
+}
+[data-appearance="glass"] .reader-shell .pdf-canvas-host canvas {
+  box-shadow: 0 4px 16px #284f641c;
+}
+
+[data-appearance="glass"] .reader-shell .sm-preview {
+  --reader-control-height: 30px;
+  background: var(--glass-surface);
+  border-color: var(--reader-edge);
+  border-radius: 14px;
+}
+[data-appearance="glass"] .reader-shell .sm-preview-header {
+  border-bottom: 1px solid var(--reader-edge);
+}
+[data-appearance="glass"] .reader-shell .pdf-text-entry {
+  border-radius: 12px;
+}
+[data-appearance="glass"] .reader-shell .pdf-text-entry textarea {
+  background: var(--glass-control);
+  border-color: var(--reader-edge);
+  color: var(--glass-ink);
+}
+
+@media (max-width: 850px) {
+  [data-appearance="glass"] .reader-shell {
+    --reader-control-height: 40px;
+  }
+  [data-appearance="glass"] .reader-shell > :is(.pdf-panel, .reader-info) {
+    margin: 8px;
+    border-radius: 16px;
+  }
+  [data-appearance="glass"] .reader-shell .pdf-edit-bar:not(.compact) .pdf-edit-tools {
+    flex: 1 1 0;
+  }
+  [data-appearance="glass"] .reader-shell .pdf-edit-bar:not(.compact) .pdf-edit-status {
+    align-self: flex-end;
+    max-width: 38%;
+  }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  [data-appearance="glass"] .reader-shell {
+    --reader-toolbar-surface: #f1f7f9;
+    --reader-edge: #7998a5;
+    --reader-highlight: #c8e0eb;
+    --glass-control: #f7fbfc;
+    --glass-surface: #edf5f8;
+  }
+  [data-appearance="glass"] .reader-shell :is(.pdf-panel, .reader-info, .reader-toolbar, .pdf-edit-bar, .pdf-pager, .sm-preview-header, .pdf-text-entry, .reader-info-toggle) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
