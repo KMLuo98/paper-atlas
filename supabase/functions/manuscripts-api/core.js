@@ -139,7 +139,7 @@ export function applyObservation(data,observation) {
   item.number_history=[...new Set([...(item.number_history||[]),item.number,observation.number].filter(Boolean))];
   if(item.publisher==='APS'&&temporaryAPSNumber(item.number)&&!temporaryAPSNumber(observation.number))item.number=observation.number;
   if(item.publisher==='APS'&&!temporaryAPSNumber(item.number)&&temporaryAPSNumber(observation.number))observation={...observation,number:item.number,tracking_url:item.tracking_url};
-  if(revisionNumber(item.number)>revisionNumber(observation.number)&&canonicalNumber(item.number,item.publisher)===canonicalNumber(observation.number,item.publisher))observation={...observation,number:item.number};
+  if(revisionNumber(item.number,item.publisher)>revisionNumber(observation.number,item.publisher)&&canonicalNumber(item.number,item.publisher)===canonicalNumber(observation.number,item.publisher))observation={...observation,number:item.number};
   for(const field of ['publisher','journal','title','authors','number','tracking_url','lookup_author']) {
     if(field==='authors'&&observation.source==='website')continue;
     if(observation[field]&&!(item.manual_fields||[]).includes(field)&&!(field==='tracking_url'&&item.tracking_mode==='manual')&&(!item[field]||(field==='authors'&&item.authors_partial)||Date.parse(observation.date)>=Date.parse(item.status_at||0))){item[field]=observation[field];if(field==='authors'){item.authors_partial=false;item.authors_source=observation.source;}}
@@ -213,7 +213,12 @@ export function canonicalJournal(value) {
   if(['physicad','physicadnonlinearphenomena'].includes(key))return 'Physica D: Nonlinear Phenomena';
   return name;
 }
-const revisionNumber=number=>Number(String(number||'').match(/\d[.\-_]?R(\d*)$/i)?.[1]||(/\d[.\-_]?R$/i.test(number||'')?1:0));
+function aipRevision(number){
+  const match=String(number||'').match(/^[A-Z]+\d{2}-[A-Z]+-\d+(?:[._-]?R(\d*))?$/i);
+  if(!match)return null;
+  return match[1]===undefined?0:match[1]===''?1:Number(match[1])+1;
+}
+const revisionNumber=(number,publisher)=>publisher==='AIP Publishing'?(aipRevision(number)??0):Number(String(number||'').match(/\d[.\-_]?R(\d*)$/i)?.[1]||(/\d[.\-_]?R$/i.test(number||'')?1:0));
 export const temporaryAPSNumber=number=>/^es\d{4}[a-z]{3}\d{1,2}_\d+$/i.test(text(number));
 const fingerprint=value=>text(value,2000).normalize('NFKD').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');
 export function sameAPSSubmission(a,b) {
@@ -242,7 +247,7 @@ export function reconcileManuscripts(data) {
     }
     target.manual_fields=[...new Set(entries.flatMap(item=>item.manual_fields||[]))];
     target.number_history=[...new Set(entries.flatMap(item=>[item.number,...(item.number_history||[])]).filter(Boolean))];
-    target.number=[...target.number_history].sort((a,b)=>revisionNumber(b)-revisionNumber(a))[0];
+    target.number=[...target.number_history].sort((a,b)=>revisionNumber(b,target.publisher)-revisionNumber(a,target.publisher))[0];
     const events=new Map();
     for(const event of entries.flatMap(item=>item.events||[])){
       const key=[event.source,event.source_id,event.date,event.status].join('|'),old=events.get(key);
@@ -366,6 +371,7 @@ export function recordMetrics(item,metrics,date,url='',observation={}) {
 function eventRevision(number,publisher) {
   const value=String(number||'');
   if(publisher==='APS')return null;
+  if(publisher==='AIP Publishing')return aipRevision(value);
   // R inside an accession code (EXR1134) has no revision meaning.
   const suffix=value.match(/^(?:[A-Z]+-D-\d{2}-\d+|CHA\d{2}-(?:AR|ER)-\d+)[._-]?R(\d*)$/i);
   return suffix?Number(suffix[1]||1):null;
@@ -380,17 +386,18 @@ export function submissionStages(item) {
     if(revision!==null&&event.status!=='unknown')round=Math.max(round,revision+1);
     if(['minor_revision','major_revision','revision_requested'].includes(event.status))pending=true;
     if(event.status==='revised_submitted'){
-      if(revision!==null&&revision>0)round=Math.max(round,revision+1);
+        if(revision!==null&&(revision>0||item.publisher==='AIP Publishing'))round=Math.max(round,revision+1);
       else if(pending||!revised)round++;
       pending=false;revised=true;
     }
-    return {...event,round};
+    return {...event,round:item.publisher==='AIP Publishing'&&revision!==null?revision+1:round};
   });
 }
 export function submissionRound(item) {
   const explicit=Number.isInteger(Number(item.round))&&Number(item.round)>0?Number(item.round):1;
   const metrics=(item.metric_history||[]).map(row=>metricRevision(row.metrics.revision)).filter(value=>value!==null).map(value=>value+1);
-  return Math.max(1,explicit,...submissionStages(item).map(event=>event.round),...metrics);
+  const identified=item.publisher==='AIP Publishing'?aipRevision(item.number):null;
+  return Math.max(1,explicit,identified===null?1:identified+1,...submissionStages(item).map(event=>event.round),...metrics);
 }
 function reviewSnapshotRows(item,snapshots) {
   const stages=submissionStages(item);
