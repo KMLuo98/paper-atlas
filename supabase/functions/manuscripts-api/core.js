@@ -20,12 +20,14 @@ export function publisherOf(value) {
   if (/sagepub/i.test(s)) return 'Sage';
   return '';
 }
+const REVISION_NEEDED=/\b(?:further|additional)\s+(?:review\s+and\s+)?revisions?\s+(?:(?:may|might|will)\s+be|is|are)\s+(?:necessary|required)\b|\brevisions?\s+(?:is|are)\s+(?:required|requested)\b/i;
 export function normalizeStatus(value) {
   const s=text(value,2000).toLowerCase();
   if (Object.hasOwn(STATUSES,s)) return s;
   if (/not accepted|unable to accept|declin(?:e|ed)|reject|拒稿/.test(s)) return 'rejected';
   if (/major revision|大修/.test(s)) return 'major_revision';
   if (/minor revision|小修/.test(s)) return 'minor_revision';
+  if (REVISION_NEEDED.test(s)) return 'revision_requested';
   if (/revis(?:ed|ion).{0,25}(?:submit|receiv)|resubmi/.test(s)) return 'revised_submitted';
   if (/revis(?:e|ion).{0,20}(?:request|invit)|revise your|修改后/.test(s)) return 'revision_requested';
   if (/withdraw|撤稿/.test(s)) return 'withdrawn';
@@ -110,13 +112,17 @@ export function ruleExtract(mail,body) {
     (publisher==='APS'?[mail.subject,s].join(' ').match(/\b([A-Z]{1,3}\d{4,7})\b/)?.[1]:'');
   if(!number)return null;
   const journal=(s.match(/^(?:journal|journal name|期刊)\s*[:：]\s*(.+)$/im)?.[1]||
-    [mail.subject,s.slice(0,5000)].join('\n').match(/\b(Physical Review (?:Letters|Research|[ABCDEFX])|Nature(?: Communications| Physics| Materials| Astronomy| Chemistry| Methods| Nanotechnology| Photonics| Energy| Medicine)?|Scientific Reports|Chaos, Solitons (?:&|and) Fractals|Physics Letters [AB]|Physica [ABCDE])\b/i)?.[1]||'');
-  const title=s.match(/^(?:manuscript\s+title|article\s+title|title|标题)\s*[:：]\s*["“]?(.+?)["”]?\s*$/im)?.[1]||'';
+    [mail.subject,s.slice(0,5000)].join('\n').match(/\b(Physical Review (?:Letters|Research|[ABCDEFX])|Nature(?: Communications| Physics| Materials| Astronomy| Chemistry| Methods| Nanotechnology| Photonics| Energy| Medicine)?|Scientific Reports|Chaos, Solitons (?:&|and) Fractals|Physics Letters [AB]|Physica [ABCDE])\b/i)?.[1]||
+    (publisher==='AIP Publishing'&&/^CHA\d{2}-(?:AR|ER)-/i.test(number)&&/\bChaos\b/i.test(mail.subject||'')?'Chaos':''));
+  const title=s.match(/^(?:manuscript\s+title|article\s+title|title|标题)\s*[:：]\s*["“]?(.+?)["”]?\s*$/im)?.[1]||s.match(/^\s*["“]([^"”\n]{8,1000})["”]\s*$/m)?.[1]||'';
   const authors=s.match(/^(?:(?:co[- ]?|all\s+)?authors?|author\s+list|作者)\s*[:：]\s*(.+)$/im)?.[1]||'';
   const statusLine=s.match(/^(?:(?:current|manuscript)\s+)?status\s*[:：]\s*(.+)$/im)?.[1];
-  const status=normalizeStatus(statusLine||mail.subject);
+  const editorial=s.split(/\n\s*(?:reviewer(?:\s*#?\d+)?\s*(?:comments|evaluations|reports?)|referee(?:\s*#?\d+)?\s*(?:comments|reports?)|sincerely|best regards|on .+ wrote:)(?=[\s,:]|$)/i)[0].slice(0,10000);
+  const revisionQuote=/decision\s+(?:letter|on)|editorial decision/i.test(mail.subject||'')&&/revised manuscript.{0,40}due|submit your revision|resubmission should include/i.test(editorial)?editorial.match(REVISION_NEEDED)?.[0]:'';
+  const subjectStatus=normalizeStatus(statusLine||mail.subject);
+  const status=revisionQuote&&!['major_revision','minor_revision','rejected','accepted'].includes(subjectStatus)?'revision_requested':subjectStatus;
   const tracking_url=trackingLinkFromText(s);
-  return {publisher,journal,title,authors,number,status,raw_status:statusLine||text(mail.subject,300),tracking_url};
+  return {publisher,journal,title,authors,number,status,raw_status:revisionQuote||statusLine||text(mail.subject,300),tracking_url,editorial_decision:Boolean(revisionQuote)};
 }
 export function applyObservation(data,observation) {
   const observedNumber=observation.number;
@@ -140,14 +146,30 @@ export function applyObservation(data,observation) {
   }
   item.key=manuscriptKey(item);
   if(item.publisher==='APS'&&item.lookup_author&&!temporaryAPSNumber(item.number)&&item.tracking_mode!=='manual'&&!item.manual_fields?.includes('tracking_url'))item.tracking_url=apsURL(item.number,item.lookup_author);
-  const duplicate=item.events.some(event=>event.source_id===observation.source_id&&event.status===observation.status&&event.date===observation.date&&event.raw_status===(observation.raw_status||STATUSES[observation.status]));
-  if(!duplicate)item.events.push({id:crypto.randomUUID(),date:observation.date,status:observation.status,raw_status:observation.raw_status||STATUSES[observation.status],source:observation.source,source_id:observation.source_id,message_ref:observation.message_ref||'',source_url:observation.source_url||'',number:observedNumber||item.number});
+  const sameMail=event=>observation.source==='email'&&event.source==='email'&&event.source_id===observation.source_id&&Date.parse(event.date)===Date.parse(observation.date);
+  const unresolved=observation.status!=='unknown'&&item.events.find(event=>sameMail(event)&&event.status==='unknown');
+  if(unresolved)Object.assign(unresolved,{status:observation.status,raw_status:observation.raw_status||STATUSES[observation.status],reprocessed_at:new Date().toISOString()});
+  const duplicate=item.events.some(event=>(sameMail(event)&&observation.status==='unknown'&&event.status!=='unknown')||(event.source_id===observation.source_id&&event.status===observation.status&&Date.parse(event.date)===Date.parse(observation.date)&&event.raw_status===(observation.raw_status||STATUSES[observation.status])));
+  if(!unresolved&&!duplicate)item.events.push({id:crypto.randomUUID(),date:observation.date,status:observation.status,raw_status:observation.raw_status||STATUSES[observation.status],source:observation.source,source_id:observation.source_id,message_ref:observation.message_ref||'',source_url:observation.source_url||'',number:observedNumber||item.number});
   item.events.sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));
   if(observation.metrics)recordMetrics(item,observation.metrics,observation.date,observation.source_url||observation.tracking_url,{source:observation.source,source_id:observation.source_id,status:observation.status});
   // Unknown observations remain visible in the history without erasing a known decision.
   resolveManuscriptStatus(item);
   item.updated_at=new Date().toISOString();
   return item;
+}
+export const MAIL_EXTRACTION_VERSION=1;
+export function unknownMailRetries(data,limit=3){
+ const pending=new Map();
+ for(const item of data.manuscripts||[]){
+  if(item.archived_at||item.deleted_at)continue;
+  for(const event of item.events||[]){
+   if(event.source!=='email'||event.status!=='unknown'||!event.message_ref||item.extraction_retries?.[event.source_id]?.version===MAIL_EXTRACTION_VERSION)continue;
+   if(item.events.some(other=>other.source==='email'&&other.source_id===event.source_id&&other.status!=='unknown'))continue;
+   pending.set(event.message_ref,{item_id:item.id,message_ref:event.message_ref,source_id:event.source_id,date:event.date});
+  }
+ }
+ return [...pending.values()].sort((a,b)=>(Date.parse(b.date)||0)-(Date.parse(a.date)||0)).slice(0,limit);
 }
 export function rawStatistics(data) {
   const stats=Object.create(null);
