@@ -1,5 +1,6 @@
 .manuscripts-page {padding-bottom:100px}
 .submission-toolbar {display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.manuscripts-page [data-ms=refresh].is-syncing svg {animation-delay:var(--submission-spin-delay,0ms)!important;transform-origin:center}
 .submission-toolbar input {max-width:560px;flex:1;min-width:0}
 .submission-items {display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,310px),1fr));gap:16px}
 .submission-card,.submission-statistics,.submission-detail {

@@ -11,7 +11,7 @@ export async function api(action,b={}){
  if(action==='list')return {messages:[],total:0};
  if(action==='manuscripts_resolve_link')return {tracking_url:''};
  if(action==='manuscripts_toggle')academic.enabled=b.enabled;
- if(action==='manuscripts_refresh'){window.__refreshes++;academic.last_updated_at='2026-11-21T09:00:00Z';}
+ if(action==='manuscripts_refresh'){window.__refreshes++;while(window.__holdRefresh)await new Promise(resolve=>setTimeout(resolve,20));if(window.__refreshFailure)throw new Error('Synthetic refresh failure');academic.last_updated_at='2026-11-21T09:00:00Z';}
  if(action==='manuscripts_save'){
   const old=academic.manuscripts.find(item=>item.id===b.id),item={...b,id:b.id||'manual',events:old?.events||[],created_at:'2026-11-21',updated_at:'2026-11-21'};
   if(old)academic.manuscripts.splice(academic.manuscripts.indexOf(old),1,item);else academic.manuscripts.push(item);
@@ -204,8 +204,18 @@ try{
   assert.equal(await page.locator('.stats-journal[title=Chaos]').locator('..').locator('td').first().innerText(),'2');
   await nav('contacts');await nav('manuscripts');
   assert.equal(await page.evaluate(()=>window.__refreshes),2); // daily check + restored tracker; statistics resets do not query publishers
+  await page.evaluate(()=>window.__holdRefresh=true);
   await page.locator('[data-ms=refresh]').click();
   await page.waitForFunction(()=>window.__refreshes===3);
+  const refresh=page.locator('[data-ms=refresh]');
+  assert.equal(await refresh.isDisabled(),true);assert.equal(await refresh.getAttribute('aria-busy'),'true');
+  assert.equal(await refresh.locator('svg').evaluate(node=>getComputedStyle(node).animationName),'mail-sync-spin');
+  const firstRotation=await refresh.locator('svg').evaluate(node=>getComputedStyle(node).transform);
+  await page.waitForTimeout(160);
+  assert.notEqual(await refresh.locator('svg').evaluate(node=>getComputedStyle(node).transform),firstRotation);
+  await page.evaluate(()=>window.__holdRefresh=false);
+  await page.waitForFunction(()=>!document.querySelector('[data-ms=refresh]').disabled);
+  assert.equal(await refresh.locator('svg').evaluate(node=>getComputedStyle(node).animationName),'none');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   await page.locator('[data-language-choice=en]').click();
   await page.getByRole('heading',{name:'Submissions',exact:true}).waitFor();
@@ -290,6 +300,11 @@ try{
   await page.locator('#submission-stats-form [type=submit]').click();
   await page.locator('#submission-stats-form').waitFor({state:'detached'});
   assert.equal(await page.locator('.stats-journal[title=Chaos]').count(),1);
+  await page.evaluate(()=>window.__refreshFailure=true);
+  await page.locator('[data-ms=refresh]').click();
+  await page.waitForFunction(()=>document.querySelector('.submission-notice')?.textContent.includes('Synthetic refresh failure'));
+  assert.equal(await page.locator('[data-ms=refresh]').isDisabled(),false);
+  assert.equal(await page.locator('[data-ms=refresh] svg').evaluate(node=>getComputedStyle(node).animationName),'none');
   assert.deepEqual(errors,[]);
   await context.close();
   console.log(JSON.stringify({width,engine,passed:true}));

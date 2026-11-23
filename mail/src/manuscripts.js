@@ -6,7 +6,7 @@ import {submissionDate} from './submission-date.js';
 import {STATUSES,submissionRound,acceptedBefore,reviewHistory,progressUpdatedAt,SUBMISSION_PHASES,submissionPhase,automaticTrackingLink} from '../../supabase/functions/manuscripts-api/core.js';
 import './manuscripts.css';
 
-let context,owner='',loaded=false,loading,selectionMode='',selectionBusy=false;
+let context,owner='',loaded=false,loading,selectionMode='',selectionBusy=false,updateStartedAt=0;
 const checkedManuscripts=new Set();
 const statusFilters=new Set(),journalFilters=new Set();
 let state={enabled:false,manuscripts:[],statistics:[]},scope='active',selected='',query='',layout='grid',updating=false,notice='';
@@ -46,7 +46,7 @@ function badge(item){
  return '<span class="submission-publisher">'+(provider?'<img src="'+provider[0]+'" alt="'+esc(item.publisher)+'" referrerpolicy="no-referrer">':'')+'<span>'+esc(provider?.[1]||item.publisher?.slice(0,3)||'期刊')+'</span></span>';
 }
 const status=item=>!item.status||item.status==='unknown'?'':'<span class="submission-status" data-status="'+esc(item.status)+'">'+esc(STATUSES[item.status]||STATUSES.unknown)+'</span>';
-const action=(name,label,glyph,extra='')=>'<button type="button" class="secondary" data-ms="'+name+'" aria-label="'+label+'" title="'+label+'" '+extra+'>'+icon(glyph)+'<span class="ms-button-label">'+label+'</span></button>';
+const action=(name,label,glyph,extra='')=>'<button type="button" class="secondary'+(name==='refresh'&&updating?' is-syncing':'')+'"'+(name==='refresh'&&updating?' style="--submission-spin-delay:-'+Math.round(performance.now()-updateStartedAt)+'ms"':'')+' data-ms="'+name+'" aria-label="'+label+'" title="'+label+'" '+extra+'>'+icon(glyph)+'<span class="ms-button-label">'+label+'</span></button>';
 const selectionAction=(mode,label,glyph)=>action('select-'+mode,label,glyph,'aria-pressed="'+(selectionMode===mode)+'" '+(selectionBusy||updating||(selectionMode&&selectionMode!==mode)?'disabled':''));
 
 const roundLabel=item=>getMailLanguage()==='en'?'Round '+submissionRound(item):'第 '+submissionRound(item)+' 轮';
@@ -220,7 +220,7 @@ document.addEventListener('error',event=>{if(event.target.matches?.('.submission
 export async function updateManuscripts(daily=false){
  if(updating||selectionMode||!state.enabled)return;
  const runOwner=owner;
- updating=true;notice='';repaint();
+ updateStartedAt=performance.now();updating=true;notice='';repaint();
  try{
   let first=true;
   while(state.enabled&&runOwner===owner){
