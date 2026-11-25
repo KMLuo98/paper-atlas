@@ -91,6 +91,7 @@ const actionIcons = {
   'mark-unread':'mail', 'prev-page':'chevron-left', 'next-page':'chevron-right',
   'sync':'refresh-cw', 'mail-columns':'settings-2', 'translate':'languages',
   'leave-compose':'arrow-left', 'save-draft':'save', 'unread-filter':'mail',
+  'schedule-send':'clock-3','cancel-scheduled':'pause','confirm-cancel-scheduled':'clock-3','edit-scheduled':'pencil','delete-scheduled':'trash-2',
   'toggle-advertising':'shield-check',
   'close-modal':'x', 'delete-category':'trash-2', 'reset-mail-columns':'undo-2',
   'accept-photo':'check', 'crop-match-photo':'camera', 'expand-photo':'search',
@@ -111,7 +112,7 @@ const submitIcons = {
   'account-form':'save', 'category-form':'save', 'contact-groups-form':'save',
   'contact-form':'save', 'contact-info-form':'check', 'export-form':'download',
   'forgot-form':'mail', 'bulk-category-form':'folder', 'password-form':'key-round',
-  'reset-password-form':'key-round',
+  'reset-password-form':'key-round','schedule-form':'clock-3',
   'submission-form':'save','submission-stats-form':'save'
 };
 

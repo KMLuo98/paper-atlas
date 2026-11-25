@@ -10,3 +10,6 @@ verify_jwt = false
 [functions.manuscripts-api]
 # Each action verifies the authenticated user in the handler.
 verify_jwt = false
+[functions.scheduled-mail]
+# The handler verifies user JWTs or the private cron token itself.
+verify_jwt = false

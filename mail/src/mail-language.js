@@ -4,6 +4,22 @@ import './mail-language.css';
 
 export const getMailLanguage=getLanguage;
 const entries=`
+定时发送|Schedule send
+确认定时发送|Confirm schedule
+发送时间|Send at
+等待发送|Scheduled
+正在投递|Sending
+已取消定时|Schedule cancelled
+发送失败|Sending failed
+投递结果待确认|Delivery unconfirmed
+取消定时发送|Cancel scheduled send
+确认取消定时|Confirm cancellation
+删除定时邮件|Delete scheduled message
+取消后将保留邮件内容和附件，可以继续编辑。|The message and attachments will be kept for further editing.
+关闭网站后仍会发送，时间精度约为一分钟。可在草稿箱取消定时。|Delivery runs after you close the website, with about one-minute precision. Cancel it in Drafts.
+定时邮件已保存，关闭网站后仍会按时发送|Scheduled on the server. Delivery continues after you close the website.
+定时发送已取消|Scheduled send cancelled
+定时邮件已删除|Scheduled message deleted
 为每个邮箱，保留独特的身份。|Give every account its own identity.
 外观|Appearance
 经典|Classic

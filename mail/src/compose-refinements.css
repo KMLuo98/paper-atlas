@@ -1,0 +1,20 @@
+.compose-bottom {flex-wrap:nowrap}
+.compose-bottom>.file-button {display:inline-flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;white-space:nowrap;flex-shrink:0}
+.compose-bottom>.file-button .mobile-action-label {white-space:nowrap}
+.scheduled-list {margin-bottom:26px}
+.scheduled-list article {display:flex;gap:16px;align-items:center;justify-content:space-between;padding:17px 20px;border:1px solid var(--border);border-radius:12px;margin:10px 0;background:var(--glass-panel,transparent)}
+.scheduled-info {min-width:0;display:grid;gap:6px}
+.scheduled-info strong,.scheduled-info small {overflow-wrap:anywhere}
+.scheduled-info small {color:var(--mail-label);font-size:13px}
+.scheduled-info time {font-size:14px;font-weight:600}
+.scheduled-actions {display:flex;gap:6px;flex-shrink:0}
+.scheduled-status {display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--mail-label)}
+.scheduled-status[data-status=uncertain],.scheduled-status[data-status=failed] {color:var(--red)}
+.scheduled-note {line-height:1.7;font-size:14px;color:var(--mail-label);margin:14px 0}
+.schedule-zone {font-size:13px;color:var(--mail-label);font-weight:400}
+@media(max-width:700px){
+ .scheduled-list article{padding:14px;gap:8px;align-items:flex-start}
+ .scheduled-actions .icon-btn{width:38px;height:38px}
+ .compose-bottom>.file-button{width:44px;min-width:44px;min-height:44px;padding:0;gap:0}
+ .compose-bottom>.file-button .mobile-action-label{display:none}
+}
