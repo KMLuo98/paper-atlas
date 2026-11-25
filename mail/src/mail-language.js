@@ -5,6 +5,7 @@ import './mail-language.css';
 export const getMailLanguage=getLanguage;
 const entries=`
 定时发送|Schedule send
+原邮箱草稿暂时无法加载，请重新打开草稿箱。|Mailbox drafts could not be loaded. Reopen Drafts to try again.
 确认定时发送|Confirm schedule
 发送时间|Send at
 等待发送|Scheduled

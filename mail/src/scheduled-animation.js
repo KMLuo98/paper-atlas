@@ -28,6 +28,7 @@ export function beginScheduledAnimation(dialog,sendAt){
  const packed=pause(reduced?0:packingDuration);
  const cleanup=()=>{if(closed)return;closed=true;for(const [timer,resolve] of waiting){clearTimeout(timer);resolve();}waiting.clear();stage.remove();dialog.classList.remove('is-mail-scheduling');dialog.removeAttribute('aria-busy');dialog.scrollTop=scroll;if(app)app.inert=wasInert;};
  return {
+  preparing(){if(!closed)status.textContent=english?'Saved. Preparing your scheduled mail…':'已保存，正在准备定时邮件列表…';},
   saved(){return completion||=(async()=>{await packed;if(closed)return;stage.classList.add('is-queued');status.textContent=english?'Saved. Waiting for your chosen time.':'已保存，等待预约时间';await pause(reduced?260:confirmationDuration);cleanup();})();},
   cancel:cleanup
  };
