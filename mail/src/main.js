@@ -7,6 +7,7 @@ import {transparentReceivedHTML} from './received-background.js';
 import {resolveInlineImages} from './inline-mail-images.js';
 import {checkpointDraft,draftContent,hasDraftBody,recoverDrafts,removeDraftRecovery} from './draft-recovery.js';
 import {beginSendAnimation} from './send-animation.js';
+import {beginScheduledAnimation} from './scheduled-animation.js';
 import {createMailIntro} from './mail-intro.js';
 import {richEditorHTML,installRichEditor,editorBody,cleanEditorHTML} from './rich-editor.js';
 import {openAttachmentPreview} from './attachment-preview.js';
@@ -608,8 +609,7 @@ document.addEventListener('submit',async event=>{event.preventDefault();const f=
  if(formId==='bulk-category-form'){closeModal();await bulkPatch({category_id:data.category_id||null});}
  if(formId==='schedule-form'){
   const d=composeData(),send_at=new Date(data.send_at).toISOString();if(Date.parse(send_at)<Date.now()+60000)throw Error('发送时间至少需要在一分钟以后');
-  const owner=S.user.id;S.scheduling=true;let result;try{result=await api('scheduled_create',{...sendPayload(d),send_at});}finally{S.scheduling=false;}
-  if(S.user?.id!==owner)return;if(result.status!=='pending')throw Error('此请求已处理，请在草稿箱检查定时状态');
+  const owner=S.user.id;S.scheduling=true;const animation=beginScheduledAnimation($('#modal-root .modal'),send_at);let result;try{result=await api('scheduled_create',{...sendPayload(d),send_at});if(S.user?.id!==owner){animation.cancel();return;}if(result.status!=='pending')throw Error('此请求已处理，请在草稿箱检查定时状态');await animation.saved();}catch(e){animation.cancel();throw e;}finally{S.scheduling=false;}
   removeDraftRecovery(owner,d);if(d.previousSchedule)await api('scheduled_delete',{id:d.previousSchedule}).catch(()=>{});S.compose=null;closeModal();await bootstrap();await navigate('drafts');toast('定时邮件已保存，关闭网站后仍会按时发送');
  }
  if(formId==='compose-form'){const d=composeData();if(!d.body.trim())throw Error('请填写邮件正文');modal('确认发送邮件',`<div class="send-summary"><p><span>发件邮箱</span><strong>${esc(account(d.account_id)?.email)}</strong></p><p><span>收件人</span><strong>${esc(d.to)}</strong></p>${d.cc?'<p><span>抄送</span>'+esc(d.cc)+'</p>':''}${d.bcc?'<p><span>密送</span>'+esc(d.bcc)+'</p>':''}<p><span>主题</span><strong>${esc(d.subject)}</strong></p><div class="send-preview formatted-preview">${d.body_html?cleanEditorHTML(d.body_html):esc(d.body)}</div>${d.attachments.length?'<p>'+d.attachments.length+' 个附件</p>':''}</div><div class="modal-footer"><button class="secondary" data-action="close-modal">继续编辑</button><button class="primary" data-action="confirm-send">${I('send',16)} 确认发送</button></div>`);}

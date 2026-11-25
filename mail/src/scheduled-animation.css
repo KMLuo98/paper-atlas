@@ -1,0 +1,41 @@
+.modal.is-mail-scheduling{position:relative;overflow:hidden;scrollbar-gutter:auto;height:min(460px,calc(100dvh - 48px));min-height:0;isolation:isolate}
+.modal.is-mail-scheduling>:not(.mail-scheduled-stage){visibility:hidden;pointer-events:none}
+.mail-scheduled-stage{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:22px;overflow:hidden;color:var(--motion-ink,#263e46);background:var(--motion-surface,#edf2f3);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px)}
+.scheduled-scene{position:relative;width:260px;max-width:100%;height:256px;flex:none}
+.scheduled-orbit{position:absolute;left:50%;top:14px;width:232px;height:232px;max-width:none;transform:translateX(-50%);overflow:visible}
+.scheduled-orbit-track{stroke:#6e879414;stroke-width:1}
+.scheduled-orbit-progress{stroke:#8299a45c;stroke-width:1.3;stroke-linecap:round;stroke-dasharray:94 585;transform-origin:120px 120px;animation:scheduled-orbit 4.5s linear infinite}
+.scheduled-envelope{position:absolute;top:103px;left:50%;width:184px;height:122px;transform:translateX(-50%);filter:drop-shadow(0 14px 15px #28414c1a)}
+.scheduled-envelope-back{position:absolute;inset:0;z-index:1;border-radius:8px;background:#7b9099;border:1px solid #6d858f}
+.scheduled-letter-pocket{position:absolute;inset:-108px 0 0;z-index:3;overflow:hidden;border-radius:0 0 7px 7px}
+.scheduled-letter{position:absolute;left:13px;top:108px;width:158px;height:168px;padding:12px;border:1px solid #e0e7e8;border-radius:4px;background:#fcfdfd;color:#536d78;overflow:hidden;transform-origin:50% 0;animation:scheduled-pack var(--scheduled-pack-time) cubic-bezier(.4,0,.2,1) both}
+.scheduled-letter .send-summary{font-size:7px;line-height:1.5}
+.scheduled-letter .send-summary p{font-size:7px;line-height:1.5;margin:3px 0;gap:4px}
+.scheduled-letter .send-summary p>span{width:34px}
+.scheduled-letter .send-preview{font-size:7px;line-height:1.6;padding:4px;margin:6px 0;max-height:100px;overflow:hidden}
+.scheduled-envelope-front{position:absolute;inset:0;z-index:4;border-radius:7px;background:#e0eaed;clip-path:polygon(0 0,50% 49%,100% 0,100% 100%,0 100%);box-shadow:inset 0 -1px 0 #c0d0d7}
+.scheduled-envelope-front::after{content:'';position:absolute;inset:0;border:1px solid #ffffffb3;border-radius:inherit}
+.scheduled-envelope-flap{position:absolute;inset:0 0 auto;height:73px;z-index:5;transform-origin:50% 0;clip-path:polygon(0 0,100% 0,50% 100%);background:#f0f5f6;animation:scheduled-close var(--scheduled-pack-time) linear both}
+.scheduled-tray{position:absolute;left:50%;top:227px;width:224px;height:22px;z-index:7;transform:translateX(-50%);border:1px solid #ffffffed;border-radius:6px 6px 13px 13px;background:#d5e2e691;box-shadow:0 7px 16px #28414c0b,inset 0 1px 0 #f8fcfd;overflow:hidden;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.scheduled-tray::after{content:'';position:absolute;inset:-30px auto -30px -55px;width:35px;background:#ffffff90;transform:rotate(22deg);opacity:0}
+.scheduled-clock-seal{position:absolute;z-index:8;right:-14px;bottom:-4px;display:grid;place-items:center;width:62px;height:62px;border-radius:50%;border:1px solid #e7d9c2;background:#efe6d7;color:#8b7352;box-shadow:0 5px 14px #584d3419,inset 0 0 0 3px #f9f4ec;opacity:0;transform:translateY(8px) scale(.88)}
+.scheduled-clock-seal svg{width:50px;height:50px;stroke:currentColor;stroke-width:1.5;stroke-linecap:round}
+.scheduled-clock-seal :is(.scheduled-hour,.scheduled-minute){transform-origin:32px 32px}
+.scheduled-hour{transform:rotate(var(--scheduled-hour))}
+.scheduled-minute{transform:rotate(var(--scheduled-minute))}
+.scheduled-clock-pin{fill:currentColor;stroke:none}
+.scheduled-caption{margin-top:17px;font-size:10px;font-weight:600;letter-spacing:.2em;color:var(--motion-muted,#697d85)}
+.scheduled-send-time{margin-top:10px;font-size:18px;line-height:1.5;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.025em;text-align:center}
+.scheduled-animation-status{margin:10px 0 0;min-height:20px;font-size:12px;line-height:1.7;text-align:center;color:var(--motion-muted,#697d85)}
+.mail-scheduled-stage.is-queued .scheduled-envelope{animation:scheduled-dock var(--scheduled-confirm-time) cubic-bezier(.22,1,.36,1) both}
+.mail-scheduled-stage.is-queued .scheduled-clock-seal{animation:scheduled-stamp 600ms 100ms cubic-bezier(.22,1,.36,1) both}
+.mail-scheduled-stage.is-queued .scheduled-tray::after{animation:scheduled-glint var(--scheduled-confirm-time) ease-out both}
+.mail-scheduled-stage.is-queued .scheduled-orbit-progress{animation-play-state:paused;opacity:0;transition:opacity 300ms}
+@keyframes scheduled-orbit{to{transform:rotate(360deg)}}
+@keyframes scheduled-pack{0%{transform:translateY(-82px) scale(.96);opacity:0}18%{transform:translateY(-79px) scale(.96);opacity:1}64%,100%{transform:translateY(12px) scale(.54);opacity:1}}
+@keyframes scheduled-close{0%,61%{transform:scaleY(-1);z-index:2}71%{transform:scaleY(0);z-index:2}72%{transform:scaleY(0);z-index:5}89%,100%{transform:scaleY(1);z-index:5}}
+@keyframes scheduled-dock{from{transform:translateX(-50%)}to{transform:translate(-50%,12px) scale(.94)}}
+@keyframes scheduled-stamp{from{opacity:0;transform:translateY(8px) scale(.88)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes scheduled-glint{0%,15%{opacity:0}35%{opacity:.8}100%{transform:translateX(310px) rotate(22deg);opacity:0}}
+@media(max-width:700px){.modal.is-mail-scheduling{height:min(420px,calc(100vh - 32px));height:min(420px,calc(100dvh - 32px))}.mail-scheduled-stage{padding:18px 12px}.scheduled-scene{height:248px}.scheduled-send-time{font-size:17px}.scheduled-envelope{filter:none}}
+@media(prefers-reduced-motion:reduce){.scheduled-orbit-progress{animation:none}.scheduled-letter{animation:none;transform:translateY(12px) scale(.54)}.scheduled-envelope-flap{animation:none;transform:scaleY(1);z-index:5}.mail-scheduled-stage.is-queued .scheduled-envelope{animation:none;transform:translate(-50%,12px) scale(.94)}.mail-scheduled-stage.is-queued .scheduled-clock-seal{animation:none;opacity:1;transform:none}.mail-scheduled-stage.is-queued .scheduled-tray::after{animation:none}}
