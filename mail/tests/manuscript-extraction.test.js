@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {ruleExtract,normalizeStatus,applyObservation,unknownMailRetries,MAIL_EXTRACTION_VERSION,publisherForJournal,publisherOf,text,canonicalJournal,STATUSES,extractReviewMetrics,apsURL} from '../../supabase/functions/manuscripts-api/core.js';
+import {ruleExtract,normalizeStatus,applyObservation,unknownMailRetries,MAIL_EXTRACTION_VERSION,publisherForJournal,publisherOf,text,canonicalJournal,STATUSES,extractReviewMetrics,apsURL,cleanManuscriptNumber} from '../../supabase/functions/manuscripts-api/core.js';
 
 const mail={id:'decision-mail',message_id:'decision-message-id',subject:'Chaos: MS #CHA26-AR-12345R Decision Letter',from_email:'cha-edoffice@aip.org',received_at:'2026-11-23T02:38:05Z'};
 const body=`Your manuscript has been reviewed for publication in Chaos.
@@ -44,8 +44,14 @@ function extractor(ai){
  const source=readFileSync(new URL('../../supabase/functions/manuscripts-api/index.ts',import.meta.url),'utf8');
  const start=source.indexOf('async function extract('),end=source.indexOf('\nasync function refresh(',start);
  const code=source.slice(start,end).replace(/:any\b|:string\b/g,'');
- return new Function('dependencies','const {ruleExtract,modelJSON,env,bodyText,publisherForJournal,publisherOf,text,canonicalJournal,normalizeStatus,STATUSES,extractReviewMetrics,apsURL}=dependencies;return '+code)({ruleExtract,modelJSON:async()=>{if(ai instanceof Error)throw ai;return ai;},env:()=> 'test-key',bodyText:message=>message.text_body,publisherForJournal,publisherOf,text,canonicalJournal,normalizeStatus,STATUSES,extractReviewMetrics,apsURL});
+ return new Function('dependencies','const {ruleExtract,modelJSON,env,bodyText,publisherForJournal,publisherOf,text,canonicalJournal,normalizeStatus,STATUSES,extractReviewMetrics,apsURL,cleanManuscriptNumber}=dependencies;return '+code)({ruleExtract,modelJSON:async()=>{if(ai instanceof Error)throw ai;return ai;},env:()=> 'test-key',bodyText:message=>message.text_body,publisherForJournal,publisherOf,text,canonicalJournal,normalizeStatus,STATUSES,extractReviewMetrics,apsURL,cleanManuscriptNumber});
 }
+
+test('AI punctuation and a code quoted elsewhere cannot replace a labelled AIP manuscript code',async()=>{
+ const extract=extractor({is_submission:true,number:'CHA26-AR-54321.',journal:'Chaos',title:'Synthetic title',authors:'A. Author',status:'submitted'});
+ const result=await extract({id:'mail',message_id:'synthetic',from_email:'office@aip.org',subject:'Chaos manuscript update',received_at:'2026-11-01',text_body:'Manuscript Number: CHA26-AR-12345R1.\nTitle: Synthetic title\nA quoted old code is CHA26-AR-54321.'});
+ assert.equal(result.number,'CHA26-AR-12345R1');
+});
 test('AI unknown, reviewer acceptance, or metadata failure cannot erase a proven editorial request',async()=>{
  for(const ai of [
   {is_submission:true,number:'CHA26-AR-12345R',status:'unknown'},

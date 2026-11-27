@@ -1,6 +1,6 @@
 import {createClient} from 'npm:@supabase/supabase-js@2.117.3';
 import {parseHTML} from 'npm:linkedom@0.18.13';
-import {STATUSES,text,candidateMail,ruleExtract,unknownMailRetries,MAIL_EXTRACTION_VERSION,publisherOf,normalizeStatus,safeStatusURL,safeLink,apsURL,manuscriptKey,applyObservation,rawStatistics,statistics,publisherForJournal,reconcileManuscripts,recordMetrics,extractReviewMetrics,POST_ACCEPTED,canonicalJournal,applyPublisherMetadata,applyPublisherStatus,resolveManuscriptStatus,bulkManuscriptAction,automaticTrackingLink,trackingLinkFromText,canonicalNumber,resetJournalStatistics,deleteJournalStatistics} from './core.js';
+import {STATUSES,text,candidateMail,ruleExtract,unknownMailRetries,MAIL_EXTRACTION_VERSION,publisherOf,normalizeStatus,safeStatusURL,safeLink,apsURL,manuscriptKey,applyObservation,rawStatistics,statistics,publisherForJournal,reconcileManuscripts,recordMetrics,extractReviewMetrics,POST_ACCEPTED,canonicalJournal,applyPublisherMetadata,applyPublisherStatus,resolveManuscriptStatus,bulkManuscriptAction,automaticTrackingLink,trackingLinkFromText,canonicalNumber,resetJournalStatistics,deleteJournalStatistics,cleanManuscriptNumber,findManuscript,MANUSCRIPT_IDENTITY_VERSION} from './core.js';
 import {fetchStatusPage} from './publishers.js';
 
 const env=(name:string)=>Deno.env.get(name)||'';
@@ -15,18 +15,19 @@ async function workspace(user:string){
 }
 async function mutate(user:string,change:(row:any)=>any){
  for(let retry=0;retry<5;retry++){
-  const row=await workspace(user),data=structuredClone(row.data);
+  const row=await workspace(user),data=reconcileManuscripts(structuredClone(row.data));
   const result=change({...row,data});
-  const saved=await checked(service.from(table).update({data:result.data??data,enabled:result.enabled??row.enabled,version:row.version+1,updated_at:new Date().toISOString()}).eq('user_id',user).eq('version',row.version).select('*'));
+  const finalData=reconcileManuscripts(result.data??data);finalData.identity_version=MANUSCRIPT_IDENTITY_VERSION;
+  const saved=await checked(service.from(table).update({data:finalData,enabled:result.enabled??row.enabled,version:row.version+1,updated_at:new Date().toISOString()}).eq('user_id',user).eq('version',row.version).select('*'));
   if(saved.length)return saved[0];
  }
  throw new RequestError(409,'投稿信息正在被其他页面修改，请重试');
 }
 async function upgradeWorkspace(user:string){
  const row=await workspace(user);
- if(row.data.tracking_version===4)return row;
+ if(row.data.tracking_version===4&&row.data.identity_version===MANUSCRIPT_IDENTITY_VERSION)return row;
  return mutate(user,row=>{
-  if(row.data.tracking_version!==3)reconcileManuscripts(row.data);
+  if(row.data.tracking_version===4)return row;
   for(const item of row.data.manuscripts){
    if(item.publisher==='AIP Publishing'&&/^Chaos(?::|$)/i.test(item.journal)&&!/(peerx-press|ejpress)/i.test(item.tracking_url||''))item.tracking_url='https://chaos.peerx-press.org/';
   }
@@ -114,12 +115,14 @@ async function extract(message:any,user:string){
   }catch(error){if(!rules?.editorial_decision)throw error;}
  }
  if(rules?.editorial_decision)found={...found,publisher:rules.publisher||found?.publisher,journal:rules.journal||found?.journal,title:rules.title||found?.title,number:rules.number,status:rules.status,raw_status:rules.raw_status};
+ // A structurally valid code in a labelled mail field outranks an AI-selected substring.
+ if(rules?.number&&/^(?:[A-Z]+\d{2}-[A-Z]+-\d+(?:R\d*)?|[A-Z]+-D-\d{2}-\d+(?:R\d*)?)$/i.test(rules.number))found={...found,number:rules.number};
  if(!found?.number)return null;
  const publisher=publisherForJournal(found.journal,publisherOf(found.publisher)||text(found.publisher,100)||publisherOf(message.from_email));
  const tracking=rules?.tracking_url||'';
  const lookup_author=text(found.lookup_author,100);
  return {
-  publisher,journal:canonicalJournal(found.journal),title:text(found.title,1000),authors:text(found.authors,2000),number:text(found.number,120),
+  publisher,journal:canonicalJournal(found.journal),title:text(found.title,1000),authors:text(found.authors,2000),number:cleanManuscriptNumber(found.number),
   status:Object.hasOwn(STATUSES,found.status)?found.status:normalizeStatus(found.status),raw_status:text(found.raw_status||message.subject,1000),
   lookup_author,tracking_url:publisher==='APS'?(apsURL(found.number,lookup_author)||tracking||'https://authors.aps.org/Submissions/status'):tracking,
   metrics:extractReviewMetrics(body),date:message.received_at,source:'email',source_id:message.message_id||message.id,message_ref:message.id
@@ -244,6 +247,7 @@ Deno.serve(async request=>{
    if(!value.journal||!value.title||!value.number)throw new RequestError(400,'请填写期刊、标题和稿件号');
    value.publisher=publisherForJournal(value.journal,publisherOf(value.publisher)||value.publisher);
    value.journal=canonicalJournal(value.journal);
+   value.number=cleanManuscriptNumber(value.number);if(!value.number)throw new RequestError(400,'请填写有效稿件号');
    value.status=Object.hasOwn(STATUSES,value.status)?value.status:'unknown';
    if(b.tracking_mode&&!['auto','manual'].includes(b.tracking_mode))throw new RequestError(400,'请选择自动匹配或手动输入');
    const trackingMode=b.tracking_mode|| (value.tracking_url?'manual':'auto');
@@ -255,7 +259,7 @@ Deno.serve(async request=>{
     if(b.id&&!item)throw new RequestError(404,'稿件已不存在');
     if(item?.archived_at||item?.deleted_at)throw new RequestError(400,'请先恢复稿件');
     const key=manuscriptKey(value);
-    if(row.data.manuscripts.some((m:any)=>m.key===key&&m.id!==id))throw new RequestError(409,'相同稿件已存在');
+    const existing=findManuscript(row.data,value);if(existing&&existing.id!==id)throw new RequestError(409,'相同稿件已存在');
     if(!item){item={id,events:[],created_at:new Date().toISOString()};row.data.manuscripts.push(item);}
     if(item.key&&item.key!==key)row.data.tombstones.push(item.key);
     const changed=item.status!==value.status;
