@@ -4,6 +4,12 @@ import { filename, exportCitations, searchPapers, authorNetwork, citationNetwork
 const papers=[{id:'a',title:'Remote synchronization in networks',journal:'Physical Review Letters',journal_abbr:'PRL',published_at:'2023-05-12',doi:'10.1/A',authors:[{name:'Alice',institution:'A'},{name:'Bob'}],keywords:['远程同步'],references:[{doi:'https://doi.org/10.1/B'}]},{id:'b',title:'A variational principle',doi:'10.1/B',authors:[{name:'Bob'},{name:'Alice'},{name:'Bob'}],references:[]},{id:'c',title:'Unrelated quantum systems',authors:[{name:'Carol'}],references:[{title:'Remote synchronization in networks'}]}];
 test('filenames use requested journal and year.month scheme',()=>{assert.equal(filename(papers[0]),'[PRL 2023.5] Remote synchronization in networks.pdf');assert(!filename({...papers[0],title:'A/B:C?'}).includes('/'));});
 test('cross-language and fuzzy searches find relevant papers',()=>{assert.deepEqual(searchPapers(papers,'同步').map(p=>p.id),['a']);assert.equal(searchPapers(papers,'synchronizatio')[0].id,'a');assert.equal(searchPapers(papers,'变分')[0].id,'b');assert.equal(searchPapers(papers,'remote networks')[0].id,'a');assert.equal(searchPapers(papers,'不存在').length,0);});
+test('library search ranks the normalized title ahead of the same phrase in the summary',()=>{
+ const similar={id:'similar',title:'An overview of the literature',summary:'Synchronization–inspired network design'};
+ const exact={id:'exact',title:'Synchronization-inspired network design'};
+ assert.deepEqual(searchPapers([similar,exact],'Ｓｙｎｃｈｒｏｎｉｚａｔｉｏｎ inspired network design').map(p=>p.id),['exact','similar']);
+ assert.equal(searchPapers([{title:'相位同步：网络模型'}],'相位同步网络模型').length,1);
+});
 test('coauthorship counts each distinct author pair once per paper',()=>{const n=authorNetwork(papers);assert.equal(n.nodes.length,3);assert.equal(n.edges.length,1);assert.equal(n.edges[0].weight,2);assert.equal(n.nodes.find(a=>a.name==='Alice').institution,'A');});
 test('ORCID distinguishes identical names and unites the same identity',()=>{const n=authorNetwork([{id:'x',authors:[{name:'A',orcid:'1'},{name:'A',orcid:'2'}]},{id:'y',authors:[{name:'Different spelling',orcid:'1'},{name:'A',orcid:'2'}]}]);assert.equal(n.nodes.length,2);assert.equal(n.edges[0].weight,2);});
 test('citation network only uses actual DOI or exact title references',()=>{const n=citationNetwork(papers);assert.deepEqual(n.edges.map(x=>[x.source,x.target]),[['a','b'],['c','a']]);assert.equal(citationNetwork([papers[0]]).edges.length,0);});

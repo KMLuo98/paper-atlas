@@ -110,7 +110,7 @@ Deno.serve(async(req:Request)=>{
     }
     if(action==='literature_search'){
       await limit('literature-search:'+userId,60,3600);
-      try{return json(await literatureSearch({engine:body.engine||'crossref',query:body.query,offset:body.offset??0}));}
+      try{return json(await literatureSearch({engine:body.engine||'crossref',query:body.query,offset:body.offset??0,promotedDOI:body.promoted_doi}));}
       catch(error){throw new HTTPError(400,error instanceof Error?error.message:'文献检索失败，请重试');}
     }
     if(action==='chat'||action==='clear_chat'||action==='delete_chat'){

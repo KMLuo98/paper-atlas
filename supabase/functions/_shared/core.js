@@ -19,6 +19,27 @@ export function exportCitations(papers, format) {
   return papers.map((p,i) => format === 'gbt' ? `[${i+1}] ${names(p).join(', ')}. ${p.title}[J]. ${p.journal || ''}, ${year(p)}${p.volume ? `, ${p.volume}` : ''}${p.issue ? `(${p.issue})` : ''}${p.pages ? `: ${p.pages}` : ''}.${p.doi ? ` DOI: ${p.doi}.` : ''}` : `${names(p).join(', ')} (${year(p)}). ${p.title}. ${p.journal || ''}${p.volume ? `, ${p.volume}` : ''}${p.issue ? `(${p.issue})` : ''}${p.pages ? `, ${p.pages}` : ''}.${p.doi ? ` https://doi.org/${p.doi}` : ''}`).join('\n\n');
 }
 export function normalize(s='') { return String(s).normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim(); }
+export const EXACT_TITLE = 3;
+const TITLE_PHRASE = 2;
+const titleWords = value => String(value ?? '').normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+const commonWords = new Set(['a','an','the','of','and','in','on','for','with','by','to']);
+
+export function createTitleRelevance(query) {
+  const phrase = titleWords(query);
+  const compact = phrase.replaceAll(' ','');
+  const han = /\p{Script=Han}/u.test(phrase);
+  const terms = [...new Set(phrase.split(' ').filter(word=>word && !commonWords.has(word)))];
+  return title => {
+    const candidate = titleWords(title);
+    if (!phrase || !candidate) return 0;
+    const key = candidate.replaceAll(' ','');
+    if (key === compact) return EXACT_TITLE;
+    if ((' '+candidate+' ').includes(' '+phrase+' ') || (han && key.includes(compact))) return TITLE_PHRASE;
+    const words = new Set(candidate.split(' '));
+    return terms.length ? terms.filter(word=>words.has(word)).length / terms.length : 0;
+  };
+}
+
 const lexicon = [['同步','synchronization','synchronisation','synchrony'],['网络','network','networks'],['振荡','oscillation','oscillator','oscillators'],['变分','variational','variation'],['量子','quantum'],['相变','phase transition'],['混沌','chaos','chaotic'],['机器学习','machine learning'],['动力学','dynamics','dynamical'],['神经','neural','neuron'],['远程','remote'],['耦合','coupling','coupled'],['集体','collective']];
 export function queryTerms(query) {
   const q = normalize(query);
@@ -33,15 +54,16 @@ function editDistance(a,b) {
 }
 export function searchPapers(papers, query) {
   if (!query.trim()) return papers;
-  const original=normalize(query), terms=queryTerms(query);
+  const original=normalize(query), terms=queryTerms(query), relevance=createTitleRelevance(query);
+  if (!original) return [];
   return papers.map(p=>{
     const content=normalize([p.title,p.journal,p.doi,p.summary,...(p.keywords||[]),...(p.keyword_pairs||[]).flatMap(k=>[k.zh,k.en]),...(p.tags||[]),...(p.search_terms||[]),...(p.authors||[]).flatMap(a=>[a.name,a.institution])].join(' '));
     let score=content.includes(original)?100:0;
     if(!score){ const tokens=original.split(' ');if(tokens.length>1&&tokens.every(t=>content.includes(t)))score=80; }
     terms.forEach(t=>{if(content.includes(t)) score+=3;});
     if(!score&&original.length>=4&&original.length<=32&&!original.includes(' ')) if(content.split(' ').some(w=>Math.abs(w.length-original.length)<=2&&editDistance(w,original)<=Math.floor(original.length/5)))score=1;
-    return {p,score};
-  }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score).map(x=>x.p);
+    return {p,score,titleScore:relevance(p.title)};
+  }).filter(x=>x.score>0 || x.titleScore>=TITLE_PHRASE).sort((a,b)=>b.titleScore-a.titleScore || b.score-a.score).map(x=>x.p);
 }
 export function citationNetwork(papers) {
   const normDoi=s=>String(s||'').toLowerCase().replace(/^https?:\/\/(dx\.)?doi\.org\//,'').trim();

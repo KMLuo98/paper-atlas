@@ -38,7 +38,7 @@ import { drawNetwork } from './network.js';
 
 const app=document.querySelector('#app');
 installHelpTooltips(document);
-const state={user:null,profile:null,papers:[],demo:false,query:'',tab:'all',journal:'',journals:null,years:null,groupSize:2,sort:'recent',sortDirection:'desc',view:'list',selected:new Set(),tag:'',scope:null,loading:false,authMode:'login',avatarURL:null,batchBusy:false,isAdmin:false,adminMustChange:false};
+const state={user:null,profile:null,papers:[],demo:false,query:'',tab:'all',journal:'',journals:null,years:null,groupSize:2,sort:null,sortDirection:'desc',view:'list',selected:new Set(),tag:'',scope:null,loading:false,authMode:'login',avatarURL:null,batchBusy:false,isAdmin:false,adminMustChange:false};
 const icon=(name,extra='')=>`<i data-lucide="${name}" class="icon ${extra}" aria-hidden="true"></i>`;
 const uiIcons=()=>createIcons({icons:{Languages,ArrowLeft,ArrowRight,ArrowUpRight,Bookmark,Braces,ChevronRight,CircleHelp,CircleUserRound,Clock3,Cloud,CloudUpload,Copy,Database,Download,ExternalLink,Files,FileText,FolderOpen,Image,Info,KeyRound,LibraryBig,Lightbulb,List,ListChecks,LogOut,MailCheck,Maximize,MoveUpRight,Plus,Quote,RefreshCw,RotateCcw,Scan,Search,SearchX,Settings2,ShieldCheck,Sparkles,SquarePen,Star,Tags,Trash2,Type,UsersRound,Waypoints,X,Ellipsis,LayoutGrid},attrs:{'aria-hidden':'true'}});
 let graphCleanup=null,readerCleanup=null,readerObjectURL=null,renderVersion=0;
@@ -60,7 +60,21 @@ function go(route,{replace=false}={}){
 }
 const route=()=>location.hash.replace(/^#\/?/,'').split('?')[0]||'library';
 function activePapers(){return state.papers.filter(p=>!p.deleted_at);}
-function visiblePapers(){let papers=activePapers();if(state.tab==='favorites')papers=papers.filter(p=>p.favorite);if(state.tab==='pending')papers=papers.filter(p=>p.status!=='ready');if(state.tag)papers=papers.filter(p=>(p.tags||[]).includes(state.tag));papers=filterPapers(papers,{journals:state.journals,years:state.years});papers=state.semanticQuery===state.query&&state.semanticIds?papers.filter(p=>state.semanticIds.includes(p.id)):searchPapers(papers,state.query);return sortPapers(papers,state.sort,state.sortDirection);}
+const librarySort=()=>state.sort??(state.query?'relevance':'recent');
+function visiblePapers(){
+  let papers=activePapers();
+  if(state.tab==='favorites')papers=papers.filter(p=>p.favorite);
+  if(state.tab==='pending')papers=papers.filter(p=>p.status!=='ready');
+  if(state.tag)papers=papers.filter(p=>(p.tags||[]).includes(state.tag));
+  papers=filterPapers(papers,{journals:state.journals,years:state.years});
+  if(state.semanticQuery===state.query&&state.semanticIds){
+    const byID=new Map(papers.map(p=>[p.id,p]));
+    papers=state.semanticIds.map(id=>byID.get(id)).filter(Boolean);
+  }else papers=searchPapers(papers,state.query);
+  const sort=librarySort();
+  if(sort==='relevance'&&state.query)return papers;
+  return sortPapers(papers,sort==='relevance'?'recent':sort,state.sortDirection);
+}
 function personName(){return state.profile?.display_name||state.profile?.username||state.user?.user_metadata?.username||'研究者';}
 function brand(){return '<img class="brand-logo" src="./logo.png" alt=""><span class="brand-name">Paper Atlas</span><sup>BETA</sup>';}
 function orbit(){return `<svg viewBox="0 0 280 210" fill="none" aria-hidden="true"><ellipse cx="143" cy="107" rx="91" ry="64" transform="rotate(-32 143 107)" stroke="#7eaa80" stroke-dasharray="3 5"/><ellipse cx="143" cy="107" rx="66" ry="91" transform="rotate(-32 143 107)" stroke="#6b9874"/><path d="M60 137 143 107 220 62M143 107 170 181M143 107 83 42M143 107 221 141M83 42 220 62 221 141 170 181 60 137 83 42" stroke="#75a27a" stroke-width=".8"/><circle cx="143" cy="107" r="23" fill="#cfe5b3"/><path d="M133 115V97h11a6 6 0 0 1 0 12h-11m0-6h11" stroke="#30563a" stroke-width="2"/><circle cx="83" cy="42" r="8" fill="#a2be8d"/><circle cx="220" cy="62" r="12" fill="#8bab7d"/><circle cx="221" cy="141" r="7" fill="#c8ddab"/><circle cx="170" cy="181" r="10" fill="#7b9f70"/><circle cx="60" cy="137" r="12" fill="#b3cc98"/><circle cx="38" cy="60" r="3" fill="#71926e"/><circle cx="248" cy="178" r="3" fill="#92b183"/><circle cx="173" cy="18" r="3" fill="#92b183"/></svg>`;}
@@ -111,7 +125,7 @@ function renderAuth(){const mode=state.authMode;app.innerHTML=`<div class="auth-
 
 function renderLibrary(){const papers=visiblePapers(),all=activePapers(),authors=new Set(all.flatMap(p=>(p.authors||[]).map(a=>a.name))).size,ready=all.filter(p=>p.status==='ready').length;
   const title=state.tag|| (state.tab==='favorites'?'我的收藏':'全部文献');
-  shell(title,`<div class="content"><div class="row page-head"><div><h1 class="page-title">${e(title)}<span style="font-family:Georgia;color:#a8b598;font-weight:400">.</span></h1></div><div class="actions"><button class="primary" id="upload-top">${icon('plus')} 上传论文</button></div></div><section class="library-section"><div class="library-heading row"><h2>我的文献库 <span class="muted" style="font-weight:400;font-size:calc(13px + var(--interface-font-step, 1pt));margin-left:7px">${all.length} 篇文献</span></h2><span class="muted">${state.demo?'Sample collection':'Private library'}</span></div><div class="library-controls"><form class="search-wrap library-search" role="search">${icon('search')}<input type="search" id="search" aria-label="搜索文献" placeholder="搜索标题、作者、关键词… 支持中英文" value="${e(state.query)}"></form>${filterMarkup(all,state)}<span class="mobile-sort-wrap"><span class="mobile-filter-icon" aria-hidden="true">⇅</span><select class="filter-select" id="sort" aria-label="排序"><option value="recent" ${state.sort==='recent'?'selected':''}>最近添加</option><option value="date" ${state.sort==='date'?'selected':''}>发表时间</option><option value="citations" ${state.sort==='citations'?'selected':''}>被引用</option><option value="title" ${state.sort==='title'?'selected':''}>标题排序</option></select></span><button id="sort-direction" data-mobile-icon class="sort-direction" aria-label="升序或降序" aria-pressed="${state.sortDirection==='asc'}">${state.sortDirection==='asc'?'↑':'↓'}<span class="mobile-control-label">${state.sortDirection==='asc'?'升序':'降序'}</span></button><div class="view-switch"><button id="list-view" aria-pressed="${state.view==='list'}" class="${state.view==='list'?'active':''}" title="列表视图">${icon('list')}</button><button id="grid-view" aria-pressed="${state.view==='grid'}" class="${state.view==='grid'?'active':''}" title="卡片视图">${icon('layout-grid')}</button></div></div><div class="tabbar">${[['all','全部文献'],['favorites','我的收藏'],['pending','待解析']].map(([id,label])=>`<button data-tab="${id}" class="${state.tab===id?'active':''}">${label} <span style="font-size:calc(11px + var(--interface-font-step, 1pt));margin-left:4px">${id==='all'?all.length:id==='favorites'?all.filter(p=>p.favorite).length:all.length-ready}</span></button>`).join('')}<span class="tab-spacer"></span><button id="select-all-link" data-mobile-icon aria-label="批量管理">${icon('list-checks')} <span class="mobile-control-label">批量管理</span></button><div class="mobile-paper-sort"></div></div><div id="paper-results">${renderPaperResults(papers)}</div></section>${state.demo?'<p class="demo-note">'+icon('info')+' 演示数据为虚构记录，仅用于体验。登录并上传论文后，将建立你的私人云端文献库。</p>':''}<div class="bottom-tip">${icon('lightbulb')} 小提示：尝试用中文关键词搜索英文论文，或从作者网络发现新的合作关系。<span class="right">MADE FOR CURIOUS MINDS ↗</span></div></div>`);
+  shell(title,`<div class="content"><div class="row page-head"><div><h1 class="page-title">${e(title)}<span style="font-family:Georgia;color:#a8b598;font-weight:400">.</span></h1></div><div class="actions"><button class="primary" id="upload-top">${icon('plus')} 上传论文</button></div></div><section class="library-section"><div class="library-heading row"><h2>我的文献库 <span class="muted" style="font-weight:400;font-size:calc(13px + var(--interface-font-step, 1pt));margin-left:7px">${all.length} 篇文献</span></h2><span class="muted">${state.demo?'Sample collection':'Private library'}</span></div><div class="library-controls"><form class="search-wrap library-search" role="search">${icon('search')}<input type="search" id="search" aria-label="搜索文献" placeholder="搜索标题、作者、关键词… 支持中英文" value="${e(state.query)}"></form>${filterMarkup(all,state)}<span class="mobile-sort-wrap"><span class="mobile-filter-icon" aria-hidden="true">⇅</span><select class="filter-select" id="sort" aria-label="排序"><option value="relevance" ${librarySort()==='relevance'?'selected':''}>相关度</option><option value="recent" ${librarySort()==='recent'?'selected':''}>最近添加</option><option value="date" ${librarySort()==='date'?'selected':''}>发表时间</option><option value="citations" ${librarySort()==='citations'?'selected':''}>被引用</option><option value="title" ${librarySort()==='title'?'selected':''}>标题排序</option></select></span><button id="sort-direction" ${librarySort()==='relevance'?'disabled':''} data-mobile-icon class="sort-direction" aria-label="升序或降序" aria-pressed="${state.sortDirection==='asc'}">${state.sortDirection==='asc'?'↑':'↓'}<span class="mobile-control-label">${state.sortDirection==='asc'?'升序':'降序'}</span></button><div class="view-switch"><button id="list-view" aria-pressed="${state.view==='list'}" class="${state.view==='list'?'active':''}" title="列表视图">${icon('list')}</button><button id="grid-view" aria-pressed="${state.view==='grid'}" class="${state.view==='grid'?'active':''}" title="卡片视图">${icon('layout-grid')}</button></div></div><div class="tabbar">${[['all','全部文献'],['favorites','我的收藏'],['pending','待解析']].map(([id,label])=>`<button data-tab="${id}" class="${state.tab===id?'active':''}">${label} <span style="font-size:calc(11px + var(--interface-font-step, 1pt));margin-left:4px">${id==='all'?all.length:id==='favorites'?all.filter(p=>p.favorite).length:all.length-ready}</span></button>`).join('')}<span class="tab-spacer"></span><button id="select-all-link" data-mobile-icon aria-label="批量管理">${icon('list-checks')} <span class="mobile-control-label">批量管理</span></button><div class="mobile-paper-sort"></div></div><div id="paper-results">${renderPaperResults(papers)}</div></section>${state.demo?'<p class="demo-note">'+icon('info')+' 演示数据为虚构记录，仅用于体验。登录并上传论文后，将建立你的私人云端文献库。</p>':''}<div class="bottom-tip">${icon('lightbulb')} 小提示：尝试用中文关键词搜索英文论文，或从作者网络发现新的合作关系。<span class="right">MADE FOR CURIOUS MINDS ↗</span></div></div>`);
   bindLibraryEvents();bindAISearch();
 }
 function cardPublisher(paper){
@@ -129,7 +143,16 @@ function placePaperSort(){
  if(window.matchMedia('(max-width:700px)').matches){mobileSlot.append(sort,direction);}
  else controls.querySelector('.view-switch').before(sort,direction);
 }
-function refreshResults(){const results=document.querySelector('#paper-results');if(results){results.innerHTML=renderPaperResults(visiblePapers());bindPaperEvents();uiIcons();}}
+function refreshResults(){
+  const results=document.querySelector('#paper-results');
+  if(!results)return;
+  const select=document.querySelector('#sort'),key=librarySort();
+  const option=[...select.options].find(item=>item.value===key);
+  if(option&&select.value!==key)option.selected=true;
+  document.querySelector('#sort-direction').disabled=key==='relevance';
+  results.innerHTML=renderPaperResults(visiblePapers());
+  bindPaperEvents();uiIcons();
+}
 function bindAISearch(){
  const search=document.querySelector('.library-search'),input=search?.querySelector('#search');
  if(!input)return;

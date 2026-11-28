@@ -152,6 +152,7 @@ API 与集成|API & integrations
 期刊筛选|Filter by journal
 全部期刊|All journals
 排序|Sort
+相关度|Relevance
 最近添加|Recently added
 发表时间|Publication date
 标题排序|Title

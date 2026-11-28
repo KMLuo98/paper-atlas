@@ -148,6 +148,26 @@ test('network selection supports search, journal/year filtering and persistent c
 test('author rankings use group size and relationship facts include journal and date with a compact help tooltip',()=>{
  const f=fixture();f.qa.renderNetwork('authors');const d=f.document;assert(d.querySelector('.authors-layout'));assert.equal(d.querySelector('.rank-count').textContent.trim(),'2 次');assert(d.querySelector('#group-size'));d.querySelector('[data-relation]').onclick();assert(d.querySelector('[role=tooltip]'));assert.match(d.querySelector('.dialog .notice').textContent,/Physical Review E/);assert.match(d.querySelector('.dialog .notice').textContent,/2020-05-01/);assert(!d.querySelector('.dialog').textContent.includes('搜索公开学术资料，并区分'));
 });
+test('library search defaults to title relevance and still honors an explicit sort',()=>{
+ const {document,qa}=fixture();
+ qa.state.papers=[
+  {...papers[0],title:'Phase Synchronization over Networks',created_at:'2020-01-01'},
+  {...papers[1],summary:'Phase synchronization over networks',created_at:'2026-01-01'}
+ ];
+ qa.renderLibrary();
+ const sort=document.querySelector('#sort'),first=()=>document.querySelector('.paper-title[data-open]').dataset.open;
+ assert.equal(first(),'two');
+ document.querySelector('#search').value='phase synchronization over networks';
+ document.querySelector('.library-search').onsubmit({preventDefault(){}});
+ assert.equal(first(),'one');
+ assert.equal(sort.value,'relevance');
+ assert(document.querySelector('#sort-direction').disabled);
+ sort.querySelector('[value=recent]').selected=true;
+ sort.onchange({target:sort});
+ assert.equal(first(),'two');
+ assert(!document.querySelector('#sort-direction').disabled);
+});
+
 test('desktop filters share the search toolbar and both handles drag on a single track',()=>{
  const f=fixture();f.qa.renderLibrary();const d=f.document;assert(d.querySelector('.library-controls [data-filters=library]'));assert.equal(d.querySelectorAll('[data-filters=library] .range-track').length,1);const track=d.querySelector('.dual-range'),low=d.querySelector('[data-year-low]'),high=d.querySelector('[data-year-high]');track.getBoundingClientRect=()=>({left:0,width:100});
  track.onpointerdown({target:high,clientX:50,pointerId:1,preventDefault(){}});track.onpointerup();assert.deepEqual(Array.from(f.qa.state.years),[2020,2021]);track.onpointerdown({target:low,clientX:90,pointerId:2,preventDefault(){}});track.onpointerup();assert.deepEqual(Array.from(f.qa.state.years),[2021,2021]);track.onpointerdown({target:high,clientX:20,pointerId:3,preventDefault(){}});track.onpointerup();assert.deepEqual(Array.from(f.qa.state.years),[2020,2021]);assert.equal(low.getAttribute('aria-valuemax'),'2021');d.querySelector('[data-year-reset]').onclick();assert.equal(f.qa.state.years,null);
@@ -166,7 +186,7 @@ test('citation rankings highlight on first click and open only when the selected
  d.querySelector('[data-citation-tab=local]').onclick();assert.equal(d.querySelector('[data-paper=two]').getAttribute('aria-pressed'),'true');d.querySelector('[data-paper=two]').onclick();assert.match(f.context.location.hash,/paper\/two$/);
 });
 test('literature search renders escaped results and paginates in place instead of opening a new tab',async()=>{
- const f=fixture(),calls=[];f.context.api=async(action,payload)=>{calls.push({action,payload});return {engine:'crossref',query:payload.query,source:'Crossref',offset:payload.offset,page_size:10,total:12,has_more:payload.offset===0,results:[{title:'<img src=x onerror=bad()> Paper',url:'https://doi.org/10.1234/paper',authors:['Alice'],journal:'Physical Review E',date:'2020-01-01',citation_count:3,source:'Crossref',arxiv_url:'https://arxiv.org/abs/2401.12345'}]};};f.window.open=()=>{throw Error('must not open a window');};f.qa.renderLiteratureSearch();const d=f.document,input=d.querySelector('[name=query]');input.value='networks';input.oninput();await d.querySelector('#literature-search-form').onsubmit({preventDefault(){}});assert.equal(calls[0].action,'literature_search');assert.equal(d.querySelectorAll('.literature-result').length,1);assert.equal(d.querySelector('.arxiv-search-badge').getAttribute('href'),'https://arxiv.org/abs/2401.12345');assert.match(d.querySelector('.literature-result h2').textContent,/<img/);assert.equal(d.querySelectorAll('.literature-result img').length,0);d.querySelector('[data-search-page=next]').click();await new Promise(r=>setImmediate(r));assert.equal(calls[1].payload.offset,10);assert(d.querySelector('[data-search-original=google]').href.includes('networks'));
+ const f=fixture(),calls=[];f.context.api=async(action,payload)=>{calls.push({action,payload});return {engine:'crossref',query:payload.query,source:'Crossref',offset:payload.offset,page_size:10,total:12,promoted_doi:'10.1234/paper',has_more:payload.offset===0,results:[{title:'<img src=x onerror=bad()> Paper',url:'https://doi.org/10.1234/paper',authors:['Alice'],journal:'Physical Review E',date:'2020-01-01',citation_count:3,source:'Crossref',arxiv_url:'https://arxiv.org/abs/2401.12345'}]};};f.window.open=()=>{throw Error('must not open a window');};f.qa.renderLiteratureSearch();const d=f.document,input=d.querySelector('[name=query]');input.value='networks';input.oninput();await d.querySelector('#literature-search-form').onsubmit({preventDefault(){}});assert.equal(calls[0].action,'literature_search');assert.equal(d.querySelectorAll('.literature-result').length,1);assert.equal(d.querySelector('.arxiv-search-badge').getAttribute('href'),'https://arxiv.org/abs/2401.12345');assert.match(d.querySelector('.literature-result h2').textContent,/<img/);assert.equal(d.querySelectorAll('.literature-result img').length,0);d.querySelector('[data-search-page=next]').click();await new Promise(r=>setImmediate(r));assert.equal(calls[1].payload.offset,10);assert.equal(calls[1].payload.promoted_doi,'10.1234/paper');assert(d.querySelector('[data-search-original=google]').href.includes('networks'));
 });
 
 test('SM badge follows citation count in both library views and references precede the AI summary',async()=>{
